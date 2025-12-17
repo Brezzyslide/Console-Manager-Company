@@ -1,0 +1,389 @@
+Replit Prompt — Sprint 0 Console Manager + Company Creation
+
+You are working inside an existing monorepo app with:
+
+Frontend: Vite + React 18 + TypeScript + Tailwind + shadcn/ui + Wouter
+
+Backend: Express (same port 5000)
+
+DB: Postgres
+
+ORM: Drizzle
+
+Strong requirement: multi-tenancy MUST be enforced from the start
+
+Goal (Sprint 0)
+
+Implement a Console Manager space (platform-level) that can:
+
+Login as Console Manager (separate from provider/company users)
+
+Create Companies (tenants) via a UI form
+
+Store companies in DB with an immutable registry record
+
+Auto-provision base tenant scaffolding at creation time:
+
+company row
+
+default company roles (CompanyAdmin, Auditor, Reviewer, StaffReadOnly)
+
+create initial Company Admin user for that tenant (email + temp password)
+
+Provide console-level pages:
+
+Console login
+
+Companies list
+
+Create company form
+
+Company details page (read-only)
+
+Hard rules
+
+Console Manager data must be isolated from provider tenant data
+
+All company data must be scoped by companyId going forward
+
+Every create/update must write to an immutable change log
+
+Use httpOnly cookie auth for console session (JWT is fine)
+
+Do not introduce placeholder names for companies or users beyond required fields
+
+1. Backend Implementation
+1.1 Add environment variables
+
+Add support for these env vars (and document them in README or .env.example):
+
+DATABASE_URL
+
+CONSOLE_JWT_SECRET
+
+CONSOLE_BOOTSTRAP_EMAIL
+
+CONSOLE_BOOTSTRAP_PASSWORD
+
+Console bootstrap credentials are used to create the first console user if none exists.
+
+1.2 Create Drizzle schema (Sprint 0 tables)
+
+Create or update Drizzle schema files to include:
+
+Tables
+
+console_users
+
+id (uuid, pk)
+
+email (unique, lowercased)
+
+password_hash
+
+is_active (boolean default true)
+
+created_at
+
+companies
+
+id (uuid, pk)
+
+legal_name (string, required)
+
+abn (string, optional)
+
+ndis_registration_number (string, optional)
+
+primary_contact_name (string, required)
+
+primary_contact_email (string, required)
+
+timezone (string default “Australia/Melbourne”)
+
+compliance_scope (json or text array: e.g. ["Core","SIL","BSP"])
+
+status (enum: active, suspended, onboarding)
+
+created_at
+
+company_users
+
+id (uuid, pk)
+
+company_id (uuid fk companies.id)
+
+email (string, required, lowercased)
+
+full_name (string)
+
+role (enum: CompanyAdmin, Auditor, Reviewer, StaffReadOnly)
+
+temp_password_hash (nullable)
+
+must_reset_password (boolean default true)
+
+is_active (boolean default true)
+
+created_at
+
+company_roles
+
+id (uuid, pk)
+
+company_id (uuid fk)
+
+role_key (string: CompanyAdmin, Auditor, Reviewer, StaffReadOnly)
+
+role_label (string)
+
+created_at
+
+change_log
+
+id (uuid, pk)
+
+actor_type (enum: console, company_user, system)
+
+actor_id (uuid nullable)
+
+company_id (uuid nullable)
+
+action (string, required) // e.g. COMPANY_CREATED
+
+entity_type (string) // e.g. company
+
+entity_id (uuid nullable)
+
+before_json (json nullable)
+
+after_json (json nullable)
+
+created_at
+
+Notes:
+
+All emails must be stored lowercased
+
+company_roles are provisioned at company creation
+
+change_log must be written whenever a console action happens
+
+1.3 Migrations
+
+Generate and run Drizzle migrations for the above tables.
+
+1.4 Console authentication (Express)
+
+Implement:
+
+POST /api/console/login
+
+POST /api/console/logout
+
+GET /api/console/me
+
+Use JWT stored in httpOnly cookie:
+
+cookie name: console_token
+
+jwt payload includes console_user_id and email
+
+expiry: 8 hours
+
+Add middleware:
+
+requireConsoleAuth(req,res,next)
+
+Also implement console bootstrap:
+
+On server start (or first /api/console/me call), if console_users table is empty:
+
+create a console user using CONSOLE_BOOTSTRAP_EMAIL / CONSOLE_BOOTSTRAP_PASSWORD
+
+store hashed password using bcrypt
+
+1.5 Company creation endpoints (Console only)
+
+Implement endpoints protected by requireConsoleAuth:
+
+GET /api/console/companies
+
+returns list of companies (id, legal_name, status, timezone, created_at)
+
+POST /api/console/companies
+
+accepts:
+
+legalName (required)
+
+abn (optional)
+
+ndisRegistrationNumber (optional)
+
+primaryContactName (required)
+
+primaryContactEmail (required)
+
+timezone (optional)
+
+complianceScope (optional array)
+
+creates company
+
+provisions default roles into company_roles
+
+creates initial Company Admin user into company_users using:
+
+email = primaryContactEmail
+
+role = CompanyAdmin
+
+temp password generated securely (return it once in response)
+
+must_reset_password = true
+
+writes change_log entries:
+
+COMPANY_CREATED
+
+COMPANY_ROLES_PROVISIONED
+
+COMPANY_ADMIN_PROVISIONED
+
+GET /api/console/companies/:id
+
+returns company details + provisioned roles + company admin email (no password)
+
+Return temp password only on create response and never store it in plaintext.
+
+2. Frontend Implementation (Console UI)
+
+Create console pages under:
+
+src/app/console/
+
+Using Wouter routes:
+
+/console/login
+
+/console/companies
+
+/console/companies/new
+
+/console/companies/:id
+
+Use shadcn/ui components and match the existing dark-accent theme.
+
+Pages
+
+ConsoleLoginPage
+
+email + password
+
+calls POST /api/console/login
+
+on success route to /console/companies
+
+CompaniesListPage
+
+fetch GET /api/console/companies
+
+table/card list of companies
+
+“Create Company” button
+
+CreateCompanyPage
+
+form fields:
+
+Legal name (required)
+
+ABN (optional)
+
+NDIS registration number (optional)
+
+Primary contact name (required)
+
+Primary contact email (required)
+
+Timezone (default Australia/Melbourne)
+
+Compliance scope multi-select (Core, SIL, BSP, Medication)
+
+submit -> POST /api/console/companies
+
+on success show a confirmation panel:
+
+Company created
+
+Initial Company Admin email
+
+Temporary password (display once with “Copy” button)
+
+Note: must reset password on first login
+
+then link to company details page
+
+CompanyDetailsPage
+
+show company record read-only
+
+show provisioned roles list
+
+show status + created_at
+
+Console auth guard
+
+Implement a small hook:
+
+useConsoleMe() calls GET /api/console/me
+
+If not authenticated, redirect to /console/login
+Wrap all /console routes (except login) with a guard.
+
+3. File structure & exact files to create/update
+
+Backend:
+
+server/db/schema.ts (or wherever Drizzle schema lives): add new tables
+
+server/db/migrations/... : generated
+
+server/lib/consoleAuth.ts : jwt cookie auth + requireConsoleAuth
+
+server/routes/console.ts : console routes (login/logout/me/companies)
+
+server/index.ts : mount /api/console routes and bootstrap console user
+
+Frontend:
+
+src/app/console/console-routes.tsx
+
+src/app/console/pages/ConsoleLoginPage.tsx
+
+src/app/console/pages/CompaniesListPage.tsx
+
+src/app/console/pages/CreateCompanyPage.tsx
+
+src/app/console/pages/CompanyDetailsPage.tsx
+
+src/app/console/hooks/useConsoleMe.ts
+
+src/app/router.tsx (or existing route file): mount console routes
+
+4. Acceptance checks
+
+Console login works and sets httpOnly cookie
+
+/console/companies shows list
+
+Company creation provisions roles and initial CompanyAdmin user
+
+change_log gets entries for each action
+
+Temp password shown only once on create
+
+Non-auth console access redirects to login
+
+Now implement everything above with clean, production-style code, strong typing, input validation, and defensive error messages. Keep styling consistent with the existing dark-accent theme.
