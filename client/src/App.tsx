@@ -1,3 +1,4 @@
+import React from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -12,28 +13,33 @@ import CreateCompanyPage from "@/pages/console/CreateCompanyPage";
 import CompanyDetailsPage from "@/pages/console/CompanyDetailsPage";
 import { ConsoleLayout } from "@/pages/console/ConsoleLayout";
 
+function ProtectedConsolePage({ component: Component }: { component: React.ComponentType }) {
+  return (
+    <ConsoleLayout>
+      <Component />
+    </ConsoleLayout>
+  );
+}
+
 function Router() {
   return (
     <Switch>
       {/* Public Console Login */}
       <Route path="/console/login" component={ConsoleLoginPage} />
 
-      {/* Protected Console Routes */}
-      <Route path="/console/:rest*">
+      {/* Protected Console Routes - order matters: specific routes before parameterized ones */}
+      <Route path="/console/companies/new">
+        <ProtectedConsolePage component={CreateCompanyPage} />
+      </Route>
+      <Route path="/console/companies/:id">
         {(params) => (
           <ConsoleLayout>
-            <Switch>
-              <Route path="/console/companies/new" component={CreateCompanyPage} />
-              <Route path="/console/companies/:id" component={CompanyDetailsPage} />
-              <Route path="/console/companies" component={CompaniesListPage} />
-              
-              {/* Default redirect or 404 for console */}
-              <Route path="/console/:rest*">
-                <NotFound />
-              </Route>
-            </Switch>
+            <CompanyDetailsPage />
           </ConsoleLayout>
         )}
+      </Route>
+      <Route path="/console/companies">
+        <ProtectedConsolePage component={CompaniesListPage} />
       </Route>
 
       {/* Main App Routes (not part of this sprint) */}
