@@ -23,9 +23,9 @@ function Router() {
         {(params) => (
           <ConsoleLayout>
             <Switch>
-              <Route path="/console/companies" component={CompaniesListPage} />
               <Route path="/console/companies/new" component={CreateCompanyPage} />
               <Route path="/console/companies/:id" component={CompanyDetailsPage} />
+              <Route path="/console/companies" component={CompaniesListPage} />
               
               {/* Default redirect or 404 for console */}
               <Route path="/console/:rest*">
