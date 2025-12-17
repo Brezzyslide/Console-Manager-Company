@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useConsoleStore } from "@/lib/mock-console-api";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createCompany, createCompanySchema, CreateCompanyInput } from "@/lib/console-api";
 import { 
   Building2, 
   ArrowLeft, 
@@ -14,7 +14,8 @@ import {
   Globe,
   Mail,
   User,
-  Hash
+  Hash,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,33 +40,20 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 
-const createCompanySchema = z.object({
-  legalName: z.string().min(2, "Legal name is required"),
-  abn: z.string().optional(),
-  ndisRegistrationNumber: z.string().optional(),
-  primaryContactName: z.string().min(2, "Primary contact name is required"),
-  primaryContactEmail: z.string().email("Valid email is required"),
-  timezone: z.string().default("Australia/Melbourne"),
-  complianceScope: z.array(z.string()).default([]),
-});
-
-type CreateCompanyFormValues = z.infer<typeof createCompanySchema>;
-
 const SCOPE_OPTIONS = ["Core", "SIL", "BSP", "Medication", "Complex Care"];
 
 export default function CreateCompanyPage() {
   const [, setLocation] = useLocation();
-  const addCompany = useConsoleStore((state) => state.addCompany);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [successData, setSuccessData] = useState<{
     id: string;
     email: string;
     tempPass: string;
   } | null>(null);
 
-  const form = useForm<CreateCompanyFormValues>({
+  const form = useForm<CreateCompanyInput>({
     resolver: zodResolver(createCompanySchema),
     defaultValues: {
       legalName: "",
@@ -78,26 +66,31 @@ export default function CreateCompanyPage() {
     },
   });
 
-  const onSubmit = async (data: CreateCompanyFormValues) => {
-    setIsSubmitting(true);
-    
-    // Simulate API delay
-    setTimeout(() => {
-      const newCompany = addCompany(data);
-      const tempPass = Math.random().toString(36).slice(-10) + "Aa1!";
-      
+  const mutation = useMutation({
+    mutationFn: createCompany,
+    onSuccess: (data) => {
       setSuccessData({
-        id: newCompany.id,
-        email: newCompany.primaryContactEmail,
-        tempPass: tempPass,
+        id: data.company.id,
+        email: data.adminEmail,
+        tempPass: data.tempPassword,
       });
-      setIsSubmitting(false);
-      
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
       toast({
         title: "Company Created",
         description: "The tenant environment has been provisioned successfully.",
       });
-    }, 1500);
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to create company",
+        description: (error as Error).message,
+      });
+    }
+  });
+
+  const onSubmit = (data: CreateCompanyInput) => {
+    mutation.mutate(data);
   };
 
   const copyToClipboard = (text: string) => {
@@ -195,6 +188,14 @@ export default function CreateCompanyPage() {
           </CardHeader>
           
           <CardContent className="space-y-8">
+            {mutation.error && (
+               <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{(mutation.error as Error).message}</AlertDescription>
+              </Alert>
+            )}
+
             {/* Legal Info Section */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -350,8 +351,8 @@ export default function CreateCompanyPage() {
             <Link href="/console/companies">
               <Button type="button" variant="outline">Cancel</Button>
             </Link>
-            <Button type="submit" disabled={isSubmitting} className="min-w-[150px]">
-              {isSubmitting ? (
+            <Button type="submit" disabled={mutation.isPending} className="min-w-[150px]">
+              {mutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Provisioning...

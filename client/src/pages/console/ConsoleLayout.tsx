@@ -1,30 +1,38 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { useConsoleStore } from "@/lib/mock-console-api";
+import { useConsoleAuth } from "@/hooks/use-console-auth";
 import { 
   LayoutDashboard, 
   Building2, 
   Settings, 
   LogOut, 
   ShieldCheck,
-  Menu
+  Menu,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 
 export function ConsoleLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useConsoleStore();
+  const { user, isLoading, isAuthenticated, logout } = useConsoleAuth();
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!user) {
+    if (!isLoading && !isAuthenticated) {
       setLocation("/console/login");
     }
-  }, [user, setLocation]);
+  }, [isLoading, isAuthenticated, setLocation]);
 
-  if (!user) return null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return null;
 
   const NavItem = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => {
     const isActive = location === href || location.startsWith(href + "/");
@@ -76,17 +84,13 @@ export function ConsoleLayout({ children }: { children: React.ReactNode }) {
             <AvatarFallback>CA</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-medium truncate">{user.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            <p className="text-sm font-medium truncate">{user?.email}</p>
           </div>
         </div>
         <Button 
           variant="outline" 
           className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-          onClick={() => {
-            logout();
-            setLocation("/console/login");
-          }}
+          onClick={() => logout()}
         >
           <LogOut className="h-4 w-4" />
           Sign Out

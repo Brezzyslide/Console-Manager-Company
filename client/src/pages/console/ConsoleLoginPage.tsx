@@ -1,9 +1,7 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useConsoleStore } from "@/lib/mock-console-api";
+import { useConsoleAuth } from "@/hooks/use-console-auth";
 import { ShieldCheck, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,10 +17,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function ConsoleLoginPage() {
-  const [, setLocation] = useLocation();
-  const login = useConsoleStore((state) => state.login);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { login, isLoggingIn, loginError } = useConsoleAuth();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -32,21 +27,8 @@ export default function ConsoleLoginPage() {
     },
   });
 
-  const onSubmit = async (data: LoginFormValues) => {
-    setIsLoading(true);
-    setError(null);
-    
-    // Simulate API delay
-    setTimeout(() => {
-      // Mock validation - in real app this hits POST /api/console/login
-      if (data.email.endsWith("@console.admin")) {
-        login(data.email);
-        setLocation("/console/companies");
-      } else {
-        setError("Invalid credentials. Try any email ending in @console.admin for this demo.");
-        setIsLoading(false);
-      }
-    }, 1500);
+  const onSubmit = (data: LoginFormValues) => {
+    login(data);
   };
 
   return (
@@ -69,11 +51,13 @@ export default function ConsoleLoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {error && (
+              {loginError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Access Denied</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>
+                    {(loginError as Error).message || "Invalid credentials. Please try again."}
+                  </AlertDescription>
                 </Alert>
               )}
               
@@ -82,7 +66,7 @@ export default function ConsoleLoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="admin@console.admin" 
+                  placeholder="admin@example.com" 
                   {...form.register("email")}
                   className={form.formState.errors.email ? "border-destructive" : ""}
                 />
@@ -104,8 +88,8 @@ export default function ConsoleLoginPage() {
                 )}
               </div>
               
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
+              <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                {isLoggingIn ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Authenticating...

@@ -1,16 +1,10 @@
 import { Link } from "wouter";
-import { useConsoleStore, Company } from "@/lib/mock-console-api";
-import { Plus, Search, Building2, MoreHorizontal, Calendar, Globe } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { getCompanies, Company } from "@/lib/console-api";
+import { Plus, Search, Building2, MoreHorizontal, Calendar, Globe, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +16,10 @@ import {
 import { format } from "date-fns";
 
 export default function CompaniesListPage() {
-  const companies = useConsoleStore((state) => state.companies);
+  const { data: companies, isLoading, error } = useQuery({
+    queryKey: ["companies"],
+    queryFn: getCompanies,
+  });
 
   const getStatusColor = (status: Company['status']) => {
     switch (status) {
@@ -32,6 +29,29 @@ export default function CompaniesListPage() {
       default: return 'bg-secondary text-secondary-foreground';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">
+        <div className="rounded-full bg-destructive/10 p-4">
+          <AlertCircle className="h-8 w-8 text-destructive" />
+        </div>
+        <h3 className="text-lg font-semibold">Failed to load companies</h3>
+        <p className="text-muted-foreground">{(error as Error).message}</p>
+        <Button onClick={() => window.location.reload()} variant="outline">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -72,7 +92,7 @@ export default function CompaniesListPage() {
         </div>
         
         <div className="divide-y divide-border">
-          {companies.map((company) => (
+          {companies?.map((company) => (
             <div key={company.id} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 p-4 items-center hover:bg-muted/20 transition-colors">
               <div className="min-w-0">
                 <div className="flex items-center gap-3">
@@ -136,7 +156,7 @@ export default function CompaniesListPage() {
             </div>
           ))}
           
-          {companies.length === 0 && (
+          {companies?.length === 0 && (
             <div className="p-12 text-center">
               <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
                 <Building2 className="h-6 w-6 text-muted-foreground" />

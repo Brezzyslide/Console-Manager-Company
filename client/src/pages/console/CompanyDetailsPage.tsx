@@ -1,5 +1,6 @@
 import { Link, useRoute } from "wouter";
-import { useConsoleStore } from "@/lib/mock-console-api";
+import { useQuery } from "@tanstack/react-query";
+import { getCompany } from "@/lib/console-api";
 import { 
   ArrowLeft, 
   Building2, 
@@ -10,7 +11,8 @@ import {
   Users,
   CheckCircle2,
   AlertCircle,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,16 +29,30 @@ import { format } from "date-fns";
 
 export default function CompanyDetailsPage() {
   const [, params] = useRoute("/console/companies/:id");
-  const getCompany = useConsoleStore((state) => state.getCompany);
-  const company = params?.id ? getCompany(params.id) : undefined;
+  const companyId = params?.id;
 
-  if (!company) {
+  const { data: company, isLoading, error } = useQuery({
+    queryKey: ["company", companyId],
+    queryFn: () => getCompany(companyId!),
+    enabled: !!companyId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !company) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
         <div className="bg-muted p-4 rounded-full">
           <Building2 className="h-8 w-8 text-muted-foreground" />
         </div>
         <h2 className="text-xl font-semibold">Company not found</h2>
+        <p className="text-muted-foreground">{error ? (error as Error).message : "Company ID invalid"}</p>
         <Link href="/console/companies">
           <Button variant="outline">Return to Companies</Button>
         </Link>
