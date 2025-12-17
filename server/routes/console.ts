@@ -28,17 +28,48 @@ router.post("/login", async (req, res) => {
     const user = await storage.getConsoleUserByEmail(email);
     
     if (!user || !user.isActive) {
+      await storage.logChange({
+        actorType: "system",
+        actorId: null,
+        companyId: null,
+        action: "CONSOLE_LOGIN_FAILED",
+        entityType: "console_user",
+        entityId: null,
+        beforeJson: null,
+        afterJson: { email: email.toLowerCase(), reason: "invalid_credentials" },
+      });
       return res.status(401).json({ error: "Invalid credentials" });
     }
     
     const isValid = await comparePassword(password, user.passwordHash);
     
     if (!isValid) {
+      await storage.logChange({
+        actorType: "system",
+        actorId: null,
+        companyId: null,
+        action: "CONSOLE_LOGIN_FAILED",
+        entityType: "console_user",
+        entityId: user.id,
+        beforeJson: null,
+        afterJson: { email: user.email, reason: "invalid_password" },
+      });
       return res.status(401).json({ error: "Invalid credentials" });
     }
     
     const token = generateConsoleToken(user.id, user.email);
     setConsoleCookie(res, token);
+    
+    await storage.logChange({
+      actorType: "console",
+      actorId: user.id,
+      companyId: null,
+      action: "CONSOLE_LOGIN_SUCCESS",
+      entityType: "console_user",
+      entityId: user.id,
+      beforeJson: null,
+      afterJson: { email: user.email },
+    });
     
     return res.json({
       id: user.id,
@@ -54,7 +85,18 @@ router.post("/login", async (req, res) => {
 });
 
 // POST /api/console/logout
-router.post("/logout", (req, res) => {
+router.post("/logout", requireConsoleAuth, async (req: AuthenticatedConsoleRequest, res) => {
+  await storage.logChange({
+    actorType: "console",
+    actorId: req.consoleUser!.consoleUserId,
+    companyId: null,
+    action: "CONSOLE_LOGOUT",
+    entityType: "console_user",
+    entityId: req.consoleUser!.consoleUserId,
+    beforeJson: null,
+    afterJson: { email: req.consoleUser!.email },
+  });
+  
   clearConsoleCookie(res);
   return res.json({ success: true });
 });
