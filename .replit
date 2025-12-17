@@ -46,3 +46,10 @@ waitForPort = 5000
 [agent]
 mockupState = "FULLSTACK"
 integrations = ["javascript_database:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+CONSOLE_JWT_SECRET = "replace-this-with-a-secure-random-string-in-production"
+CONSOLE_BOOTSTRAP_EMAIL = "admin@console.local"
+CONSOLE_BOOTSTRAP_PASSWORD = "ChangeMe123!"

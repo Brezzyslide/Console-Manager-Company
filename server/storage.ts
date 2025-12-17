@@ -1,38 +1,117 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { 
+  consoleUsers, 
+  companies, 
+  companyUsers, 
+  companyRoles,
+  changeLog,
+  type ConsoleUser, 
+  type InsertConsoleUser,
+  type Company,
+  type InsertCompany,
+  type CompanyUser,
+  type InsertCompanyUser,
+  type CompanyRole,
+  type InsertCompanyRole,
+  type InsertChangeLog,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Console Users
+  getConsoleUser(id: string): Promise<ConsoleUser | undefined>;
+  getConsoleUserByEmail(email: string): Promise<ConsoleUser | undefined>;
+  createConsoleUser(user: InsertConsoleUser): Promise<ConsoleUser>;
+  
+  // Companies
+  getCompanies(): Promise<Company[]>;
+  getCompany(id: string): Promise<Company | undefined>;
+  createCompany(company: InsertCompany): Promise<Company>;
+  
+  // Company Users
+  createCompanyUser(user: InsertCompanyUser): Promise<CompanyUser>;
+  
+  // Company Roles
+  createCompanyRole(role: InsertCompanyRole): Promise<CompanyRole>;
+  getCompanyRoles(companyId: string): Promise<CompanyRole[]>;
+  
+  // Change Log
+  logChange(change: InsertChangeLog): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  // Console Users
+  async getConsoleUser(id: string): Promise<ConsoleUser | undefined> {
+    const [user] = await db.select().from(consoleUsers).where(eq(consoleUsers.id, id));
+    return user || undefined;
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getConsoleUserByEmail(email: string): Promise<ConsoleUser | undefined> {
+    const [user] = await db.select().from(consoleUsers).where(eq(consoleUsers.email, email.toLowerCase()));
+    return user || undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+  async createConsoleUser(insertUser: InsertConsoleUser): Promise<ConsoleUser> {
+    const [user] = await db
+      .insert(consoleUsers)
+      .values({
+        ...insertUser,
+        email: insertUser.email.toLowerCase(),
+      })
+      .returning();
     return user;
   }
+
+  // Companies
+  async getCompanies(): Promise<Company[]> {
+    return await db.select().from(companies).orderBy(companies.createdAt);
+  }
+
+  async getCompany(id: string): Promise<Company | undefined> {
+    const [company] = await db.select().from(companies).where(eq(companies.id, id));
+    return company || undefined;
+  }
+
+  async createCompany(insertCompany: InsertCompany): Promise<Company> {
+    const [company] = await db
+      .insert(companies)
+      .values({
+        ...insertCompany,
+        primaryContactEmail: insertCompany.primaryContactEmail.toLowerCase(),
+      })
+      .returning();
+    return company;
+  }
+
+  // Company Users
+  async createCompanyUser(insertUser: InsertCompanyUser): Promise<CompanyUser> {
+    const [user] = await db
+      .insert(companyUsers)
+      .values({
+        ...insertUser,
+        email: insertUser.email.toLowerCase(),
+      })
+      .returning();
+    return user;
+  }
+
+  // Company Roles
+  async createCompanyRole(insertRole: InsertCompanyRole): Promise<CompanyRole> {
+    const [role] = await db
+      .insert(companyRoles)
+      .values(insertRole)
+      .returning();
+    return role;
+  }
+
+  async getCompanyRoles(companyId: string): Promise<CompanyRole[]> {
+    return await db.select().from(companyRoles).where(eq(companyRoles.companyId, companyId));
+  }
+
+  // Change Log
+  async logChange(insertChange: InsertChangeLog): Promise<void> {
+    await db.insert(changeLog).values(insertChange);
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

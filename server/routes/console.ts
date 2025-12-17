@@ -1,0 +1,217 @@
+import { Router } from "express";
+import { z } from "zod";
+import { fromZodError } from "zod-validation-error";
+import { storage } from "../storage";
+import {
+  comparePassword,
+  hashPassword,
+  generateConsoleToken,
+  setConsoleCookie,
+  clearConsoleCookie,
+  requireConsoleAuth,
+  type AuthenticatedConsoleRequest,
+} from "../lib/consoleAuth";
+import { insertCompanySchema } from "@shared/schema";
+
+const router = Router();
+
+// POST /api/console/login
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+});
+
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = loginSchema.parse(req.body);
+    
+    const user = await storage.getConsoleUserByEmail(email);
+    
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    
+    const isValid = await comparePassword(password, user.passwordHash);
+    
+    if (!isValid) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    
+    const token = generateConsoleToken(user.id, user.email);
+    setConsoleCookie(res, token);
+    
+    return res.json({
+      id: user.id,
+      email: user.email,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: fromZodError(error).message });
+    }
+    console.error("Login error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/console/logout
+router.post("/logout", (req, res) => {
+  clearConsoleCookie(res);
+  return res.json({ success: true });
+});
+
+// GET /api/console/me
+router.get("/me", requireConsoleAuth, async (req: AuthenticatedConsoleRequest, res) => {
+  try {
+    const user = await storage.getConsoleUser(req.consoleUser!.consoleUserId);
+    
+    if (!user) {
+      clearConsoleCookie(res);
+      return res.status(401).json({ error: "User not found" });
+    }
+    
+    return res.json({
+      id: user.id,
+      email: user.email,
+    });
+  } catch (error) {
+    console.error("Get me error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/console/companies
+router.get("/companies", requireConsoleAuth, async (req, res) => {
+  try {
+    const companies = await storage.getCompanies();
+    return res.json(companies);
+  } catch (error) {
+    console.error("Get companies error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/console/companies
+router.post("/companies", requireConsoleAuth, async (req: AuthenticatedConsoleRequest, res) => {
+  try {
+    const data = insertCompanySchema.parse(req.body);
+    
+    // Create company
+    const company = await storage.createCompany(data);
+    
+    // Log company creation
+    await storage.logChange({
+      actorType: "console",
+      actorId: req.consoleUser!.consoleUserId,
+      companyId: company.id,
+      action: "COMPANY_CREATED",
+      entityType: "company",
+      entityId: company.id,
+      beforeJson: null,
+      afterJson: company,
+    });
+    
+    // Provision default roles
+    const defaultRoles = [
+      { roleKey: "CompanyAdmin", roleLabel: "Company Admin" },
+      { roleKey: "Auditor", roleLabel: "Auditor" },
+      { roleKey: "Reviewer", roleLabel: "Reviewer" },
+      { roleKey: "StaffReadOnly", roleLabel: "Staff (Read Only)" },
+    ];
+    
+    for (const role of defaultRoles) {
+      await storage.createCompanyRole({
+        companyId: company.id,
+        roleKey: role.roleKey,
+        roleLabel: role.roleLabel,
+      });
+    }
+    
+    await storage.logChange({
+      actorType: "console",
+      actorId: req.consoleUser!.consoleUserId,
+      companyId: company.id,
+      action: "COMPANY_ROLES_PROVISIONED",
+      entityType: "company",
+      entityId: company.id,
+      beforeJson: null,
+      afterJson: defaultRoles,
+    });
+    
+    // Generate temporary password for Company Admin
+    const tempPassword = generateSecurePassword();
+    const tempPasswordHash = await hashPassword(tempPassword);
+    
+    // Create initial Company Admin user
+    const adminUser = await storage.createCompanyUser({
+      companyId: company.id,
+      email: data.primaryContactEmail,
+      fullName: data.primaryContactName,
+      role: "CompanyAdmin",
+      tempPasswordHash,
+      mustResetPassword: true,
+      isActive: true,
+    });
+    
+    await storage.logChange({
+      actorType: "console",
+      actorId: req.consoleUser!.consoleUserId,
+      companyId: company.id,
+      action: "COMPANY_ADMIN_PROVISIONED",
+      entityType: "company_user",
+      entityId: adminUser.id,
+      beforeJson: null,
+      afterJson: { email: adminUser.email, role: adminUser.role },
+    });
+    
+    return res.status(201).json({
+      company,
+      adminEmail: adminUser.email,
+      tempPassword, // Return only once
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: fromZodError(error).message });
+    }
+    console.error("Create company error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/console/companies/:id
+router.get("/companies/:id", requireConsoleAuth, async (req, res) => {
+  try {
+    const company = await storage.getCompany(req.params.id);
+    
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+    
+    return res.json(company);
+  } catch (error) {
+    console.error("Get company error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Helper: Generate secure temporary password
+function generateSecurePassword(): string {
+  const length = 16;
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  let password = "";
+  
+  // Ensure at least one of each type
+  password += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)];
+  password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)];
+  password += "0123456789"[Math.floor(Math.random() * 10)];
+  password += "!@#$%^&*"[Math.floor(Math.random() * 8)];
+  
+  // Fill the rest
+  for (let i = password.length; i < length; i++) {
+    password += charset[Math.floor(Math.random() * charset.length)];
+  }
+  
+  // Shuffle
+  return password.split("").sort(() => Math.random() - 0.5).join("");
+}
+
+export default router;

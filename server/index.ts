@@ -1,7 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { bootstrapConsoleUser } from "./lib/consoleAuth";
+import consoleRoutes from "./routes/console";
 
 const app = express();
 const httpServer = createServer(app);
@@ -21,6 +24,7 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -60,6 +64,12 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Bootstrap console user on startup
+  await bootstrapConsoleUser();
+  
+  // Mount console routes
+  app.use("/api/console", consoleRoutes);
+  
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
