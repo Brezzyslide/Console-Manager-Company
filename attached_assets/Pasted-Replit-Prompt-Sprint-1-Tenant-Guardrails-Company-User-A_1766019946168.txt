@@ -1,0 +1,335 @@
+Replit Prompt — Sprint 1: Tenant Guardrails + Company User Auth + RBAC
+
+You are working inside an existing monorepo app with:
+
+Frontend: Vite + React 18 + TypeScript + Tailwind + shadcn/ui + Wouter
+
+Backend: Express (same port 5000)
+
+DB: Postgres
+
+ORM: Drizzle
+
+Strong requirement: strict multi-tenancy and role-based access control (RBAC)
+
+Sprint 0 already exists and includes:
+
+Console Manager auth with httpOnly cookie
+
+Company creation (tenants) from console
+
+company_roles provisioned on company creation
+
+company_users table created (initial CompanyAdmin provisioned with temp password and must_reset_password)
+
+change_log table for audit trails
+
+support catalogue selection at company creation (company_service_selections)
+
+Goal (Sprint 1)
+
+Implement the provider-side (company) authentication and authorization layer, with airtight tenant isolation. This means:
+
+Company users can log in using company context
+
+Company sessions are separate from console sessions
+
+Every company API endpoint is tenant-scoped
+
+Role permissions are enforced at API level and reflected in UI routing guards
+
+All security-sensitive actions are written to change_log
+
+1) Backend: Company Authentication
+1.1 Add env vars
+
+Add to .env.example and code:
+
+COMPANY_JWT_SECRET
+
+1.2 Session model
+
+Use JWT in httpOnly cookie:
+
+cookie name: company_token
+
+payload: { companyUserId, companyId, role, email }
+
+expiry: 8 hours
+
+SameSite=Lax, Secure in production
+
+1.3 Company Auth endpoints (Express)
+
+Create routes under /api/auth:
+
+POST /api/auth/login
+
+Accept:
+
+email (required)
+
+password (required)
+
+companyId (required) OR companySlug (optional if you implement slug later)
+
+Rules:
+
+Lowercase email
+
+Verify company exists and is active
+
+Verify company_user exists, is_active = true, belongs to companyId
+
+Verify password:
+
+If must_reset_password=true, validate against temp_password_hash
+
+If must_reset_password=false, validate against password_hash (add this column if missing)
+
+Set company_token cookie
+
+Return: user profile (id, companyId, role, email, fullName, mustResetPassword)
+
+POST /api/auth/logout
+
+Clears company_token cookie
+
+GET /api/auth/me
+
+Returns current company user from token
+
+POST /api/auth/reset-password
+
+For first login and future resets:
+Accept:
+
+currentPassword (required)
+
+newPassword (required, enforce min length 12)
+Rules:
+
+Must be authenticated
+
+Verify currentPassword against the relevant hash
+
+Store new password_hash
+
+Clear temp_password_hash
+
+Set must_reset_password=false
+
+Write change_log action: COMPANY_USER_PASSWORD_RESET
+
+Notes:
+
+Use bcrypt
+
+Add rate limiting to login endpoint (simple in-memory is ok for now)
+
+2) Backend: Tenant Guardrails Middleware
+2.1 Middleware: requireCompanyAuth
+
+Create middleware:
+
+Validates company_token
+
+Attaches req.company = { companyId, userId, role, email }
+
+2.2 Middleware: requireRole
+
+Create RBAC helper:
+
+requireRole(["CompanyAdmin", "Auditor", "Reviewer"]) etc
+
+Always enforce role checks server-side (UI checks are not enough)
+
+2.3 Tenant scoping helper
+
+Create a helper used by every query:
+
+enforce companyId filter for all tenant tables
+
+Never accept companyId from request body for tenant-scoped writes
+
+Always derive companyId from token (req.company.companyId)
+
+3) Database updates (Drizzle)
+3.1 Update company_users table
+
+Ensure it includes:
+
+password_hash (nullable initially)
+
+temp_password_hash (nullable)
+
+must_reset_password (boolean default true)
+
+role enum
+
+is_active
+
+If password_hash doesn’t exist yet, add it via migration.
+
+3.2 New table: company_user_sessions (optional)
+
+Do NOT store sessions server-side unless needed. Prefer JWT only.
+(If you choose to implement session table, keep it tenant-scoped and write change_log.)
+
+4) Backend: Company Admin User Management (RBAC)
+
+Add endpoints under /api/company/admin (protected):
+
+requireCompanyAuth + requireRole(["CompanyAdmin"])
+
+GET /api/company/admin/users
+
+Returns list of company users (id, email, fullName, role, isActive, mustResetPassword, createdAt)
+
+POST /api/company/admin/users
+
+Create new company user:
+Input:
+
+email, fullName, role
+Rules:
+
+email lowercased
+
+role must be one of: CompanyAdmin, Auditor, Reviewer, StaffReadOnly
+
+Generate temp password, store temp_password_hash, must_reset_password=true
+
+Return temp password ONCE in response
+
+Write change_log: COMPANY_USER_CREATED
+
+PATCH /api/company/admin/users/:id
+
+Allow updating:
+
+fullName, role, isActive
+
+Write change_log: COMPANY_USER_UPDATED
+
+POST /api/company/admin/users/:id/reset-temp-password
+
+Generates a new temp password, sets must_reset_password=true
+
+Return temp password once
+
+Write change_log: COMPANY_USER_TEMP_PASSWORD_RESET
+
+5) Frontend: Company App Auth UI + Guards
+
+Create provider-side routes/pages under:
+
+src/app/auth/
+
+src/app/company-admin/ (for CompanyAdmin management)
+
+5.1 Routes
+
+Using Wouter:
+
+/login (company login)
+
+/reset-password (first login reset flow)
+
+/company-admin/users (CompanyAdmin only)
+
+/app (placeholder dashboard page for now)
+
+5.2 CompanyLoginPage
+
+Form:
+
+companyId (dropdown OR text input for now)
+
+email
+
+password
+On success:
+
+if mustResetPassword → redirect to /reset-password
+
+else → redirect to /app
+
+Note:
+
+If you don’t yet have a company discovery UI, add a simple “Company ID” field.
+
+Add a helper later to lookup company by name; don’t build slugging yet unless necessary.
+
+5.3 ResetPasswordPage
+
+current password
+
+new password
+
+confirm new password
+Calls POST /api/auth/reset-password
+On success redirects to /app
+
+5.4 useCompanyMe hook + route guards
+
+Create:
+
+src/app/auth/hooks/useCompanyMe.ts
+
+CompanyProtectedRoute component that redirects to /login if not authenticated
+
+RoleProtectedRoute wrapper for CompanyAdmin-only routes
+
+5.5 Company Admin Users Page
+
+Table of users
+
+Create user modal
+
+Reset temp password action
+
+Toggle active status
+All actions call admin endpoints above.
+
+Use shadcn/ui components, match dark-accent theme.
+
+6) Change Log (Audit Trail)
+
+For every admin/auth action above, write to change_log:
+
+actor_type = "company_user" or "system"
+
+actor_id = companyUserId
+
+company_id = companyId
+
+action, entity_type, entity_id, before_json, after_json
+
+Minimum actions to log:
+
+COMPANY_USER_LOGIN (optional but recommended)
+
+COMPANY_USER_PASSWORD_RESET
+
+COMPANY_USER_CREATED
+
+COMPANY_USER_UPDATED
+
+COMPANY_USER_TEMP_PASSWORD_RESET
+
+7) Acceptance checks
+
+Company users can login and maintain a session via httpOnly cookie
+
+First login forces password reset
+
+CompanyAdmin can create/manage users securely
+
+No endpoint accepts arbitrary companyId for tenant writes
+
+RBAC works: StaffReadOnly cannot access admin routes
+
+change_log entries exist for every key action
+
+Now implement everything above with clean, production-quality code, strong typing, input validation (Zod ok), and defensive error handling. Keep UI consistent with the existing theme.
