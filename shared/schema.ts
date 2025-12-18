@@ -50,6 +50,7 @@ export const companyUsers = pgTable("company_users", {
   email: text("email").notNull(),
   fullName: text("full_name").notNull(),
   role: text("role", { enum: ["CompanyAdmin", "Auditor", "Reviewer", "StaffReadOnly"] }).notNull(),
+  passwordHash: text("password_hash"),
   tempPasswordHash: text("temp_password_hash"),
   mustResetPassword: boolean("must_reset_password").notNull().default(true),
   isActive: boolean("is_active").notNull().default(true),

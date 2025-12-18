@@ -5,6 +5,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { bootstrapConsoleUser } from "./lib/consoleAuth";
 import consoleRoutes from "./routes/console";
+import companyRoutes from "./routes/company";
 
 const app = express();
 const httpServer = createServer(app);
@@ -69,6 +70,9 @@ app.use((req, res, next) => {
   
   // Mount console routes
   app.use("/api/console", consoleRoutes);
+  
+  // Mount company routes
+  app.use("/api/company", companyRoutes);
   
   await registerRoutes(httpServer, app);
 

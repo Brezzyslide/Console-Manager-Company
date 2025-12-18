@@ -15,7 +15,7 @@ import {
   type InsertChangeLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // Console Users
@@ -30,6 +30,9 @@ export interface IStorage {
   
   // Company Users
   createCompanyUser(user: InsertCompanyUser): Promise<CompanyUser>;
+  getCompanyUser(id: string): Promise<CompanyUser | undefined>;
+  getCompanyUserByEmail(companyId: string, email: string): Promise<CompanyUser | undefined>;
+  updateCompanyUserPassword(id: string, passwordHash: string): Promise<CompanyUser>;
   
   // Company Roles
   createCompanyRole(role: InsertCompanyRole): Promise<CompanyRole>;
@@ -91,6 +94,37 @@ export class DatabaseStorage implements IStorage {
         ...insertUser,
         email: insertUser.email.toLowerCase(),
       })
+      .returning();
+    return user;
+  }
+
+  async getCompanyUser(id: string): Promise<CompanyUser | undefined> {
+    const [user] = await db.select().from(companyUsers).where(eq(companyUsers.id, id));
+    return user || undefined;
+  }
+
+  async getCompanyUserByEmail(companyId: string, email: string): Promise<CompanyUser | undefined> {
+    const [user] = await db
+      .select()
+      .from(companyUsers)
+      .where(
+        and(
+          eq(companyUsers.companyId, companyId),
+          eq(companyUsers.email, email.toLowerCase())
+        )
+      );
+    return user || undefined;
+  }
+
+  async updateCompanyUserPassword(id: string, passwordHash: string): Promise<CompanyUser> {
+    const [user] = await db
+      .update(companyUsers)
+      .set({
+        passwordHash,
+        tempPasswordHash: null,
+        mustResetPassword: false,
+      })
+      .where(eq(companyUsers.id, id))
       .returning();
     return user;
   }
