@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import crypto from "crypto";
 import { fromZodError } from "zod-validation-error";
 import { storage } from "../storage";
 import {
@@ -9,10 +10,17 @@ import {
   setCompanyCookie,
   clearCompanyCookie,
   requireCompanyAuth,
+  requireRole,
+  checkRateLimit,
+  resetRateLimit,
   type AuthenticatedCompanyRequest,
 } from "../lib/companyAuth";
 
 const router = Router();
+
+function generateSecurePassword(): string {
+  return crypto.randomBytes(12).toString("base64").slice(0, 16);
+}
 
 const loginSchema = z.object({
   companyId: z.string().uuid(),
@@ -21,6 +29,15 @@ const loginSchema = z.object({
 });
 
 router.post("/login", async (req, res) => {
+  const rateLimitKey = `${req.body.companyId || "unknown"}:${req.body.email || "unknown"}`;
+  const rateLimitResult = checkRateLimit(rateLimitKey);
+  
+  if (!rateLimitResult.allowed) {
+    return res.status(429).json({
+      error: "Too many login attempts. Please try again later.",
+      retryAfter: rateLimitResult.retryAfter,
+    });
+  }
   try {
     const { companyId, email, password } = loginSchema.parse(req.body);
     
@@ -70,6 +87,8 @@ router.post("/login", async (req, res) => {
       user.mustResetPassword
     );
     setCompanyCookie(res, token);
+    
+    resetRateLimit(rateLimitKey);
     
     await storage.logChange({
       actorType: "company_user",
@@ -140,8 +159,8 @@ router.get("/me", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, r
 
 const passwordResetSchema = z.object({
   currentPassword: z.string().min(8),
-  newPassword: z.string().min(8),
-  confirmPassword: z.string().min(8),
+  newPassword: z.string().min(12, "Password must be at least 12 characters"),
+  confirmPassword: z.string().min(12),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -211,6 +230,178 @@ router.post("/password-reset", requireCompanyAuth, async (req: AuthenticatedComp
       return res.status(400).json({ error: fromZodError(error).message });
     }
     console.error("Password reset error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ============ ADMIN ENDPOINTS ============
+// All admin endpoints require CompanyAdmin role
+
+router.get("/admin/users", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const users = await storage.getCompanyUsers(req.companyUser!.companyId);
+    
+    const safeUsers = users.map(user => ({
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      isActive: user.isActive,
+      mustResetPassword: user.mustResetPassword,
+      createdAt: user.createdAt,
+    }));
+    
+    return res.json(safeUsers);
+  } catch (error) {
+    console.error("Get company users error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+const createUserSchema = z.object({
+  email: z.string().email(),
+  fullName: z.string().min(1),
+  role: z.enum(["CompanyAdmin", "Auditor", "Reviewer", "StaffReadOnly"]),
+});
+
+router.post("/admin/users", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const data = createUserSchema.parse(req.body);
+    const companyId = req.companyUser!.companyId;
+    
+    const existingUser = await storage.getCompanyUserByEmail(companyId, data.email);
+    if (existingUser) {
+      return res.status(400).json({ error: "A user with this email already exists" });
+    }
+    
+    const tempPassword = generateSecurePassword();
+    const tempPasswordHash = await hashPassword(tempPassword);
+    
+    const newUser = await storage.createCompanyUser({
+      companyId,
+      email: data.email.toLowerCase(),
+      fullName: data.fullName,
+      role: data.role,
+      tempPasswordHash,
+      mustResetPassword: true,
+      isActive: true,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: req.companyUser!.companyUserId,
+      companyId,
+      action: "COMPANY_USER_CREATED",
+      entityType: "company_user",
+      entityId: newUser.id,
+      beforeJson: null,
+      afterJson: { email: newUser.email, role: newUser.role, fullName: newUser.fullName },
+    });
+    
+    return res.status(201).json({
+      id: newUser.id,
+      email: newUser.email,
+      fullName: newUser.fullName,
+      role: newUser.role,
+      tempPassword,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: fromZodError(error).message });
+    }
+    console.error("Create company user error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+const updateUserSchema = z.object({
+  fullName: z.string().min(1).optional(),
+  role: z.enum(["CompanyAdmin", "Auditor", "Reviewer", "StaffReadOnly"]).optional(),
+  isActive: z.boolean().optional(),
+});
+
+router.patch("/admin/users/:id", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const userId = req.params.id;
+    const updates = updateUserSchema.parse(req.body);
+    const companyId = req.companyUser!.companyId;
+    
+    const existingUser = await storage.getCompanyUser(userId);
+    
+    if (!existingUser || existingUser.companyId !== companyId) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    const beforeJson = {
+      fullName: existingUser.fullName,
+      role: existingUser.role,
+      isActive: existingUser.isActive,
+    };
+    
+    const updatedUser = await storage.updateCompanyUser(userId, companyId, updates);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: req.companyUser!.companyUserId,
+      companyId,
+      action: "COMPANY_USER_UPDATED",
+      entityType: "company_user",
+      entityId: userId,
+      beforeJson,
+      afterJson: updates,
+    });
+    
+    return res.json({
+      id: updatedUser.id,
+      email: updatedUser.email,
+      fullName: updatedUser.fullName,
+      role: updatedUser.role,
+      isActive: updatedUser.isActive,
+      mustResetPassword: updatedUser.mustResetPassword,
+      createdAt: updatedUser.createdAt,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: fromZodError(error).message });
+    }
+    console.error("Update company user error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/admin/users/:id/reset-temp-password", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const userId = req.params.id;
+    const companyId = req.companyUser!.companyId;
+    
+    const existingUser = await storage.getCompanyUser(userId);
+    
+    if (!existingUser || existingUser.companyId !== companyId) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    const tempPassword = generateSecurePassword();
+    const tempPasswordHash = await hashPassword(tempPassword);
+    
+    await storage.setTempPassword(userId, companyId, tempPasswordHash);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: req.companyUser!.companyUserId,
+      companyId,
+      action: "COMPANY_USER_TEMP_PASSWORD_RESET",
+      entityType: "company_user",
+      entityId: userId,
+      beforeJson: { mustResetPassword: existingUser.mustResetPassword },
+      afterJson: { mustResetPassword: true },
+    });
+    
+    return res.json({
+      tempPassword,
+      message: "Temporary password generated. User must reset password on next login.",
+    });
+  } catch (error) {
+    console.error("Reset temp password error:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

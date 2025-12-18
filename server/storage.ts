@@ -42,7 +42,10 @@ export interface IStorage {
   getCompanyUser(id: string): Promise<CompanyUser | undefined>;
   getCompanyUserByEmail(companyId: string, email: string): Promise<CompanyUser | undefined>;
   getCompanyAdmin(companyId: string): Promise<{ email: string; fullName: string } | undefined>;
+  getCompanyUsers(companyId: string): Promise<CompanyUser[]>;
   updateCompanyUserPassword(id: string, passwordHash: string): Promise<CompanyUser>;
+  updateCompanyUser(id: string, companyId: string, updates: { fullName?: string; role?: "CompanyAdmin" | "Auditor" | "Reviewer" | "StaffReadOnly"; isActive?: boolean }): Promise<CompanyUser>;
+  setTempPassword(id: string, companyId: string, tempPasswordHash: string): Promise<CompanyUser>;
   
   // Company Roles
   createCompanyRole(role: InsertCompanyRole): Promise<CompanyRole>;
@@ -153,6 +156,14 @@ export class DatabaseStorage implements IStorage {
     return admin || undefined;
   }
 
+  async getCompanyUsers(companyId: string): Promise<CompanyUser[]> {
+    return await db
+      .select()
+      .from(companyUsers)
+      .where(eq(companyUsers.companyId, companyId))
+      .orderBy(companyUsers.createdAt);
+  }
+
   async updateCompanyUserPassword(id: string, passwordHash: string): Promise<CompanyUser> {
     const [user] = await db
       .update(companyUsers)
@@ -162,6 +173,28 @@ export class DatabaseStorage implements IStorage {
         mustResetPassword: false,
       })
       .where(eq(companyUsers.id, id))
+      .returning();
+    return user;
+  }
+
+  async updateCompanyUser(id: string, companyId: string, updates: { fullName?: string; role?: "CompanyAdmin" | "Auditor" | "Reviewer" | "StaffReadOnly"; isActive?: boolean }): Promise<CompanyUser> {
+    const [user] = await db
+      .update(companyUsers)
+      .set(updates)
+      .where(and(eq(companyUsers.id, id), eq(companyUsers.companyId, companyId)))
+      .returning();
+    return user;
+  }
+
+  async setTempPassword(id: string, companyId: string, tempPasswordHash: string): Promise<CompanyUser> {
+    const [user] = await db
+      .update(companyUsers)
+      .set({
+        tempPasswordHash,
+        mustResetPassword: true,
+        passwordHash: null,
+      })
+      .where(and(eq(companyUsers.id, id), eq(companyUsers.companyId, companyId)))
       .returning();
     return user;
   }
