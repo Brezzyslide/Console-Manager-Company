@@ -13,6 +13,10 @@ import CreateCompanyPage from "@/pages/console/CreateCompanyPage";
 import CompanyDetailsPage from "@/pages/console/CompanyDetailsPage";
 import { ConsoleLayout } from "@/pages/console/ConsoleLayout";
 
+// Company Pages
+import CompanyLoginPage from "@/pages/company/CompanyLoginPage";
+import PasswordResetPage from "@/pages/company/PasswordResetPage";
+
 function ProtectedConsolePage({ component: Component }: { component: React.ComponentType }) {
   return (
     <ConsoleLayout>
@@ -40,6 +44,18 @@ function Router() {
       </Route>
       <Route path="/console/companies">
         <ProtectedConsolePage component={CompaniesListPage} />
+      </Route>
+
+      {/* Company User Routes */}
+      <Route path="/company/login" component={CompanyLoginPage} />
+      <Route path="/company/password-reset" component={PasswordResetPage} />
+      <Route path="/company/dashboard">
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold text-primary">Provider Dashboard</h1>
+            <p className="text-muted-foreground">Welcome! Dashboard coming soon in future sprints.</p>
+          </div>
+        </div>
       </Route>
 
       {/* Main App Routes (not part of this sprint) */}
