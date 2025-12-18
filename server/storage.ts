@@ -24,7 +24,7 @@ import {
   type InsertCompanyServiceSelection,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, asc } from "drizzle-orm";
+import { eq, and, inArray, asc, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Console Users
@@ -66,6 +66,7 @@ export interface IStorage {
   
   // Change Log
   logChange(change: InsertChangeLog): Promise<void>;
+  getRecentChangeLogs(limit?: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -272,6 +273,14 @@ export class DatabaseStorage implements IStorage {
   // Change Log
   async logChange(insertChange: InsertChangeLog): Promise<void> {
     await db.insert(changeLog).values(insertChange);
+  }
+
+  async getRecentChangeLogs(limit: number = 100): Promise<any[]> {
+    return await db
+      .select()
+      .from(changeLog)
+      .orderBy(desc(changeLog.createdAt))
+      .limit(limit);
   }
 }
 

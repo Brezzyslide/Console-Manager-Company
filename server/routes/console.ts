@@ -353,6 +353,17 @@ router.get("/support-catalogue", requireConsoleAuth, async (req, res) => {
   }
 });
 
+// GET /api/console/audit-logs - Get recent audit logs
+router.get("/audit-logs", requireConsoleAuth, async (req: AuthenticatedConsoleRequest, res) => {
+  try {
+    const logs = await storage.getRecentChangeLogs(200);
+    return res.json(logs);
+  } catch (error) {
+    console.error("Get audit logs error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Helper: Generate secure temporary password
 function generateSecurePassword(): string {
   const length = 16;

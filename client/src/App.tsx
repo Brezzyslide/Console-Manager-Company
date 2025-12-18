@@ -11,6 +11,8 @@ import ConsoleLoginPage from "@/pages/console/ConsoleLoginPage";
 import CompaniesListPage from "@/pages/console/CompaniesListPage";
 import CreateCompanyPage from "@/pages/console/CreateCompanyPage";
 import CompanyDetailsPage from "@/pages/console/CompanyDetailsPage";
+import AuditLogPage from "@/pages/console/AuditLogPage";
+import SettingsPage from "@/pages/console/SettingsPage";
 import { ConsoleLayout } from "@/pages/console/ConsoleLayout";
 
 // Company Pages
@@ -47,6 +49,12 @@ function Router() {
       </Route>
       <Route path="/console/companies">
         <ProtectedConsolePage component={CompaniesListPage} />
+      </Route>
+      <Route path="/console/audit">
+        <ProtectedConsolePage component={AuditLogPage} />
+      </Route>
+      <Route path="/console/settings">
+        <ProtectedConsolePage component={SettingsPage} />
       </Route>
 
       {/* Company User Routes */}
