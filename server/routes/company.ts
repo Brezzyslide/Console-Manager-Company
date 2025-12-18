@@ -166,6 +166,16 @@ router.post("/password-reset", requireCompanyAuth, async (req: AuthenticatedComp
     }
     
     if (!isCurrentPasswordValid) {
+      await storage.logChange({
+        actorType: "company_user",
+        actorId: user.id,
+        companyId: user.companyId,
+        action: "COMPANY_PASSWORD_RESET_FAILED",
+        entityType: "company_user",
+        entityId: user.id,
+        beforeJson: null,
+        afterJson: { reason: "invalid_current_password" },
+      });
       return res.status(401).json({ error: "Current password is incorrect" });
     }
     

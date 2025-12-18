@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect, useMemo } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
@@ -20,20 +20,29 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function CompanyLoginPage() {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const { user, isAuthenticated, requiresPasswordReset, login, isLoggingIn, loginError } = useCompanyAuth();
   const [error, setError] = useState<string | null>(null);
   
-  const urlParams = new URLSearchParams(window.location.search);
-  const companyIdFromUrl = urlParams.get("company");
+  const companyIdFromUrl = useMemo(() => {
+    const params = new URLSearchParams(searchString);
+    return params.get("company") || "";
+  }, [searchString]);
   
   const form = useForm<CompanyLoginInput>({
     resolver: zodResolver(companyLoginSchema),
     defaultValues: {
-      companyId: companyIdFromUrl || "",
+      companyId: companyIdFromUrl,
       email: "",
       password: "",
     },
   });
+
+  useEffect(() => {
+    if (companyIdFromUrl) {
+      form.setValue("companyId", companyIdFromUrl);
+    }
+  }, [companyIdFromUrl, form]);
 
   useEffect(() => {
     if (isAuthenticated) {
