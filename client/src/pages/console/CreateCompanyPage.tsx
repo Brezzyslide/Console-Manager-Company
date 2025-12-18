@@ -40,7 +40,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 
-const SCOPE_OPTIONS = ["Core", "SIL", "BSP", "Medication", "Complex Care"];
+const SCOPE_OPTIONS = ["Core", "SIL", "BSP", "Medication"];
 
 export default function CreateCompanyPage() {
   const [, setLocation] = useLocation();
