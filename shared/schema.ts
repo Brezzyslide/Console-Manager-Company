@@ -33,6 +33,8 @@ export const companies = pgTable("companies", {
   status: text("status", { enum: ["active", "suspended", "onboarding"] }).notNull().default("onboarding"),
   serviceSelectionMode: text("service_selection_mode", { enum: ["ALL", "CATEGORY", "CUSTOM"] }).default("CUSTOM"),
   serviceCatalogueVersion: text("service_catalogue_version"),
+  onboardingStatus: text("onboarding_status", { enum: ["not_started", "in_progress", "completed"] }).notNull().default("not_started"),
+  onboardingCompletedAt: timestamp("onboarding_completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
 });
@@ -160,3 +162,67 @@ export const insertCompanyServiceSelectionSchema = createInsertSchema(companySer
 
 export type InsertCompanyServiceSelection = z.infer<typeof insertCompanyServiceSelectionSchema>;
 export type CompanyServiceSelection = typeof companyServiceSelections.$inferSelect;
+
+// Company Settings (Tenant-scoped configuration)
+export const companySettings = pgTable("company_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }).unique(),
+  tradingName: text("trading_name"),
+  businessAddress: text("business_address"),
+  primaryPhone: text("primary_phone"),
+  ndisRegistrationGroups: json("ndis_registration_groups").$type<string[]>(),
+  operatingRegions: json("operating_regions").$type<string[]>(),
+  supportDeliveryContexts: json("support_delivery_contexts").$type<string[]>(),
+  keyRisksSummary: text("key_risks_summary"),
+  documentRetentionNote: text("document_retention_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertCompanySettingsSchema = createInsertSchema(companySettings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
+export type CompanySettings = typeof companySettings.$inferSelect;
+
+// Company Documents (Tenant-scoped document storage)
+export const companyDocuments = pgTable("company_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  docType: text("doc_type", { 
+    enum: [
+      "policy_pack",
+      "org_chart",
+      "incident_management_policy",
+      "medication_policy",
+      "behaviour_support_policy",
+      "restrictive_practice_policy",
+      "training_matrix",
+      "insurance",
+      "service_agreement_template",
+      "privacy_policy",
+      "complaints_policy",
+      "other"
+    ] 
+  }).notNull(),
+  title: text("title").notNull(),
+  storageKind: text("storage_kind", { enum: ["upload", "link"] }).notNull(),
+  filePath: text("file_path"),
+  fileName: text("file_name"),
+  fileMime: text("file_mime"),
+  fileSize: integer("file_size"),
+  externalLink: text("external_link"),
+  notes: text("notes"),
+  uploadedByCompanyUserId: varchar("uploaded_by_company_user_id").references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCompanyDocumentSchema = createInsertSchema(companyDocuments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCompanyDocument = z.infer<typeof insertCompanyDocumentSchema>;
+export type CompanyDocument = typeof companyDocuments.$inferSelect;
