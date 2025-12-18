@@ -1,7 +1,24 @@
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { getCompanies, Company } from "@/lib/console-api";
-import { Plus, Search, Building2, MoreHorizontal, Calendar, Globe, Loader2, AlertCircle } from "lucide-react";
+import { 
+  Plus, 
+  Search, 
+  Building2, 
+  MoreHorizontal, 
+  Calendar, 
+  Globe, 
+  Loader2, 
+  AlertCircle,
+  Users,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Mail,
+  Hash,
+  ChevronRight
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,13 +30,53 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 
+type StatusFilter = "all" | "active" | "onboarding" | "suspended";
+
 export default function CompaniesListPage() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  
   const { data: companies, isLoading, error } = useQuery({
     queryKey: ["companies"],
     queryFn: getCompanies,
   });
+
+  const filteredCompanies = useMemo(() => {
+    if (!companies) return [];
+    
+    return companies.filter((company) => {
+      const matchesSearch = searchQuery === "" || 
+        company.legalName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        company.primaryContactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        company.primaryContactEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (company.abn && company.abn.includes(searchQuery));
+      
+      const matchesStatus = statusFilter === "all" || company.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [companies, searchQuery, statusFilter]);
+
+  const stats = useMemo(() => {
+    if (!companies) return { total: 0, active: 0, onboarding: 0, suspended: 0 };
+    
+    return {
+      total: companies.length,
+      active: companies.filter(c => c.status === "active").length,
+      onboarding: companies.filter(c => c.status === "onboarding").length,
+      suspended: companies.filter(c => c.status === "suspended").length,
+    };
+  }, [companies]);
 
   const getStatusColor = (status: Company['status']) => {
     switch (status) {
@@ -27,6 +84,15 @@ export default function CompaniesListPage() {
       case 'suspended': return 'bg-destructive/15 text-destructive dark:text-red-400 border-destructive/20';
       case 'onboarding': return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20';
       default: return 'bg-secondary text-secondary-foreground';
+    }
+  };
+
+  const getStatusIcon = (status: Company['status']) => {
+    switch (status) {
+      case 'active': return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+      case 'suspended': return <XCircle className="h-4 w-4 text-destructive" />;
+      case 'onboarding': return <Clock className="h-4 w-4 text-amber-500" />;
+      default: return null;
     }
   };
 
@@ -54,120 +120,221 @@ export default function CompaniesListPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Companies</h2>
-          <p className="text-muted-foreground mt-1">Manage tenant organizations and their subscriptions.</p>
+          <h2 className="text-3xl font-bold tracking-tight">Company Directory</h2>
+          <p className="text-muted-foreground mt-1">Manage all registered NDIS provider organizations.</p>
         </div>
-        <Link href="/console/companies/new">
-          <Button className="shadow-lg shadow-primary/20">
+        <Link href="/console/companies/new" data-testid="link-create-company">
+          <Button className="shadow-lg shadow-primary/20" data-testid="button-create-company">
             <Plus className="mr-2 h-4 w-4" />
-            Create Company
+            New Company
           </Button>
         </Link>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search companies..." 
-            className="pl-9 bg-card" 
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">Filter</Button>
-          <Button variant="outline" size="sm">Sort</Button>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-card/50" data-testid="stat-total">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Total Companies
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{stats.total}</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-card/50 border-emerald-500/20" data-testid="stat-active">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" />
+              Active
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{stats.active}</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-card/50 border-amber-500/20" data-testid="stat-onboarding">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <Clock className="h-4 w-4" />
+              Onboarding
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{stats.onboarding}</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-card/50 border-destructive/20" data-testid="stat-suspended">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-4 w-4" />
+              Suspended
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-destructive">{stats.suspended}</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-        <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 p-4 bg-muted/30 border-b text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          <div>Company</div>
-          <div>Primary Contact</div>
-          <div>Status</div>
-          <div>Created</div>
-          <div className="w-[40px]"></div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search by name, contact, email, or ABN..." 
+            className="pl-10 bg-card" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            data-testid="input-search"
+          />
         </div>
         
-        <div className="divide-y divide-border">
-          {companies?.map((company) => (
-            <div key={company.id} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 p-4 items-center hover:bg-muted/20 transition-colors">
-              <div className="min-w-0">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Building2 className="h-5 w-5 text-primary" />
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+          <TabsList>
+            <TabsTrigger value="all" data-testid="filter-all">
+              All ({stats.total})
+            </TabsTrigger>
+            <TabsTrigger value="active" data-testid="filter-active">
+              Active ({stats.active})
+            </TabsTrigger>
+            <TabsTrigger value="onboarding" data-testid="filter-onboarding">
+              Onboarding ({stats.onboarding})
+            </TabsTrigger>
+            <TabsTrigger value="suspended" data-testid="filter-suspended">
+              Suspended ({stats.suspended})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className="space-y-3">
+        {filteredCompanies.map((company) => (
+          <Card 
+            key={company.id} 
+            className="hover:border-primary/30 transition-all hover:shadow-md group"
+            data-testid={`card-company-${company.id}`}
+          >
+            <CardContent className="p-0">
+              <Link href={`/console/companies/${company.id}`} data-testid={`link-company-${company.id}`}>
+                <div className="p-5 flex items-center gap-5 cursor-pointer">
+                  <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                    <Building2 className="h-7 w-7 text-primary" />
                   </div>
-                  <div className="overflow-hidden">
-                    <Link href={`/console/companies/${company.id}`}>
-                      <p className="font-semibold truncate cursor-pointer hover:text-primary transition-colors">
-                        {company.legalName}
+                  
+                  <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
+                          {company.legalName}
+                        </h3>
+                        <Badge variant="outline" className={`${getStatusColor(company.status)} capitalize shrink-0`}>
+                          {getStatusIcon(company.status)}
+                          <span className="ml-1">{company.status}</span>
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        {company.abn && (
+                          <span className="flex items-center gap-1">
+                            <Hash className="h-3 w-3" />
+                            ABN: {company.abn}
+                          </span>
+                        )}
+                        {company.ndisRegistrationNumber && company.ndisRegistrationNumber !== "N/A" && (
+                          <span className="flex items-center gap-1">
+                            NDIS: {company.ndisRegistrationNumber}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="truncate">{company.primaryContactName}</span>
                       </p>
-                    </Link>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {company.abn && <span>ABN: {company.abn}</span>}
-                      {company.timezone && (
-                        <span className="flex items-center gap-1">
-                          <Globe className="h-3 w-3" />
+                      <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                        <Mail className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{company.primaryContactEmail}</span>
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <p className="flex items-center gap-2">
+                          <Globe className="h-3 w-3 shrink-0" />
                           {company.timezone}
-                        </span>
-                      )}
+                        </p>
+                        <p className="flex items-center gap-2">
+                          <Calendar className="h-3 w-3 shrink-0" />
+                          Created {format(new Date(company.createdAt), 'MMM d, yyyy')}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                  
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                 </div>
-              </div>
+              </Link>
               
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{company.primaryContactName}</p>
-                <p className="text-xs text-muted-foreground truncate">{company.primaryContactEmail}</p>
-              </div>
-
-              <div>
-                <Badge variant="outline" className={`${getStatusColor(company.status)} capitalize`}>
-                  {company.status}
-                </Badge>
-              </div>
-
-              <div className="text-sm text-muted-foreground flex items-center gap-2">
-                <Calendar className="h-3.5 w-3.5" />
-                {format(new Date(company.createdAt), 'MMM d, yyyy')}
-              </div>
-
-              <div className="flex justify-end">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">Actions</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <Link href={`/console/companies/${company.id}`}>
-                      <DropdownMenuItem>View Details</DropdownMenuItem>
-                    </Link>
-                    <DropdownMenuItem>Manage Subscription</DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive">Suspend Tenant</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              {company.complianceScope && company.complianceScope.length > 0 && (
+                <div className="px-5 pb-4 pt-0 flex items-center gap-2 border-t border-dashed mt-0 pt-3">
+                  <span className="text-xs text-muted-foreground font-medium">Compliance:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {company.complianceScope.map((scope) => (
+                      <Badge key={scope} variant="secondary" className="text-xs px-2 py-0">
+                        {scope}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+        
+        {filteredCompanies.length === 0 && companies && companies.length > 0 && (
+          <Card className="p-12 text-center">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+              <Search className="h-6 w-6 text-muted-foreground" />
             </div>
-          ))}
-          
-          {companies?.length === 0 && (
-            <div className="p-12 text-center">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
-                <Building2 className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium">No companies found</h3>
-              <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
-                Get started by creating your first tenant organization.
-              </p>
+            <h3 className="text-lg font-medium">No matching companies</h3>
+            <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
+              Try adjusting your search query or filters.
+            </p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={() => { setSearchQuery(""); setStatusFilter("all"); }}
+            >
+              Clear Filters
+            </Button>
+          </Card>
+        )}
+        
+        {companies?.length === 0 && (
+          <Card className="p-12 text-center">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+              <Building2 className="h-6 w-6 text-muted-foreground" />
             </div>
-          )}
-        </div>
+            <h3 className="text-lg font-medium">No companies yet</h3>
+            <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
+              Get started by creating your first NDIS provider organization.
+            </p>
+            <Link href="/console/companies/new">
+              <Button className="mt-4">
+                <Plus className="mr-2 h-4 w-4" />
+                Create First Company
+              </Button>
+            </Link>
+          </Card>
+        )}
       </div>
     </div>
   );
