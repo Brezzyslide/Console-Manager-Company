@@ -7,6 +7,7 @@ import { bootstrapConsoleUser } from "./lib/consoleAuth";
 import { seedSupportCatalogue } from "./seed-catalogue";
 import consoleRoutes from "./routes/console";
 import companyRoutes from "./routes/company";
+import onboardingRoutes from "./routes/onboarding";
 
 const app = express();
 const httpServer = createServer(app);
@@ -77,6 +78,9 @@ app.use((req, res, next) => {
   
   // Mount company routes
   app.use("/api/company", companyRoutes);
+  
+  // Mount onboarding routes (under /api/company)
+  app.use("/api/company", onboardingRoutes);
   
   await registerRoutes(httpServer, app);
 

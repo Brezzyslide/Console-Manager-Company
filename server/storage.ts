@@ -7,6 +7,8 @@ import {
   supportCategories,
   supportLineItems,
   companyServiceSelections,
+  companySettings,
+  companyDocuments,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -22,6 +24,10 @@ import {
   type InsertSupportLineItem,
   type CompanyServiceSelection,
   type InsertCompanyServiceSelection,
+  type CompanySettings,
+  type InsertCompanySettings,
+  type CompanyDocument,
+  type InsertCompanyDocument,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc } from "drizzle-orm";
@@ -64,6 +70,22 @@ export interface IStorage {
   // Company Service Selections
   createCompanyServiceSelections(selections: InsertCompanyServiceSelection[]): Promise<void>;
   getCompanyServiceSelections(companyId: string): Promise<CompanyServiceSelection[]>;
+  deleteCompanyServiceSelections(companyId: string): Promise<void>;
+  getCompanyServiceSelectionsCount(companyId: string): Promise<number>;
+  
+  // Company Settings
+  getCompanySettings(companyId: string): Promise<CompanySettings | undefined>;
+  upsertCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings>;
+  
+  // Company Documents
+  getCompanyDocuments(companyId: string): Promise<CompanyDocument[]>;
+  getCompanyDocument(id: string, companyId: string): Promise<CompanyDocument | undefined>;
+  createCompanyDocument(document: InsertCompanyDocument): Promise<CompanyDocument>;
+  updateCompanyDocument(id: string, companyId: string, updates: Partial<InsertCompanyDocument>): Promise<CompanyDocument | undefined>;
+  getCompanyDocumentsCount(companyId: string): Promise<number>;
+  
+  // Onboarding
+  updateCompanyOnboardingStatus(companyId: string, status: "not_started" | "in_progress" | "completed", completedAt?: Date): Promise<Company | undefined>;
   
   // Change Log
   logChange(change: InsertChangeLog): Promise<void>;
@@ -282,6 +304,105 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(companyServiceSelections)
       .where(eq(companyServiceSelections.companyId, companyId));
+  }
+
+  async deleteCompanyServiceSelections(companyId: string): Promise<void> {
+    await db.delete(companyServiceSelections).where(eq(companyServiceSelections.companyId, companyId));
+  }
+
+  async getCompanyServiceSelectionsCount(companyId: string): Promise<number> {
+    const selections = await db
+      .select()
+      .from(companyServiceSelections)
+      .where(eq(companyServiceSelections.companyId, companyId));
+    return selections.length;
+  }
+
+  // Company Settings
+  async getCompanySettings(companyId: string): Promise<CompanySettings | undefined> {
+    const [settings] = await db
+      .select()
+      .from(companySettings)
+      .where(eq(companySettings.companyId, companyId));
+    return settings || undefined;
+  }
+
+  async upsertCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings> {
+    const existing = await this.getCompanySettings(settings.companyId);
+    if (existing) {
+      const { companyId, ...updateFields } = settings;
+      const [updated] = await db
+        .update(companySettings)
+        .set({ ...updateFields, updatedAt: new Date() })
+        .where(eq(companySettings.companyId, companyId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(companySettings)
+        .values(settings)
+        .returning();
+      return created;
+    }
+  }
+
+  // Company Documents
+  async getCompanyDocuments(companyId: string): Promise<CompanyDocument[]> {
+    return await db
+      .select()
+      .from(companyDocuments)
+      .where(eq(companyDocuments.companyId, companyId))
+      .orderBy(desc(companyDocuments.createdAt));
+  }
+
+  async getCompanyDocument(id: string, companyId: string): Promise<CompanyDocument | undefined> {
+    const [doc] = await db
+      .select()
+      .from(companyDocuments)
+      .where(and(eq(companyDocuments.id, id), eq(companyDocuments.companyId, companyId)));
+    return doc || undefined;
+  }
+
+  async createCompanyDocument(document: InsertCompanyDocument): Promise<CompanyDocument> {
+    const [created] = await db
+      .insert(companyDocuments)
+      .values(document)
+      .returning();
+    return created;
+  }
+
+  async updateCompanyDocument(id: string, companyId: string, updates: Partial<InsertCompanyDocument>): Promise<CompanyDocument | undefined> {
+    const [updated] = await db
+      .update(companyDocuments)
+      .set(updates)
+      .where(and(eq(companyDocuments.id, id), eq(companyDocuments.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getCompanyDocumentsCount(companyId: string): Promise<number> {
+    const docs = await db
+      .select()
+      .from(companyDocuments)
+      .where(eq(companyDocuments.companyId, companyId));
+    return docs.length;
+  }
+
+  // Onboarding
+  async updateCompanyOnboardingStatus(companyId: string, status: "not_started" | "in_progress" | "completed", completedAt?: Date): Promise<Company | undefined> {
+    const updateData: any = { onboardingStatus: status, updatedAt: new Date() };
+    if (completedAt) {
+      updateData.onboardingCompletedAt = completedAt;
+    }
+    if (status === "completed") {
+      updateData.status = "active";
+    }
+    const [company] = await db
+      .update(companies)
+      .set(updateData)
+      .where(eq(companies.id, companyId))
+      .returning();
+    return company || undefined;
   }
 
   // Change Log

@@ -20,6 +20,7 @@ import CompanyLoginPage from "@/pages/company/CompanyLoginPage";
 import PasswordResetPage from "@/pages/company/PasswordResetPage";
 import DashboardPage from "@/pages/company/DashboardPage";
 import AdminUsersPage from "@/pages/company/AdminUsersPage";
+import OnboardingPage from "@/pages/company/OnboardingPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 function ProtectedConsolePage({ component: Component }: { component: React.ComponentType }) {
@@ -70,13 +71,36 @@ function Router() {
           <AdminUsersPage />
         </CompanyLayout>
       </Route>
+      
+      {/* Company Onboarding */}
+      <Route path="/onboarding">
+        <CompanyLayout skipOnboardingCheck>
+          <OnboardingPage />
+        </CompanyLayout>
+      </Route>
+      
+      {/* Main App Routes - Protected with onboarding check */}
+      <Route path="/app">
+        <CompanyLayout>
+          <DashboardPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/app/admin/users">
+        <CompanyLayout requireRole={["CompanyAdmin"]}>
+          <AdminUsersPage />
+        </CompanyLayout>
+      </Route>
 
-      {/* Main App Routes (not part of this sprint) */}
+      {/* Landing */}
       <Route path="/">
         <div className="flex h-screen items-center justify-center bg-background text-foreground">
           <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold text-primary">App Landing</h1>
-            <p className="text-muted-foreground">Go to <a href="/console/login" className="text-primary underline">/console/login</a> to manage tenants.</p>
+            <h1 className="text-4xl font-bold text-primary">NDIS Provider Hub</h1>
+            <p className="text-muted-foreground">
+              <a href="/console/login" className="text-primary underline">Console Manager</a>
+              {" | "}
+              <a href="/company/login" className="text-primary underline">Provider Login</a>
+            </p>
           </div>
         </div>
       </Route>

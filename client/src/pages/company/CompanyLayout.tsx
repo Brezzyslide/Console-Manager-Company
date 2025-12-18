@@ -1,6 +1,8 @@
 import { ReactNode, useEffect } from "react";
 import { useLocation, Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
+import { getOnboardingStatus } from "@/lib/company-api";
 import { Button } from "@/components/ui/button";
 import { 
   Building2, 
@@ -8,17 +10,26 @@ import {
   LayoutDashboard, 
   LogOut, 
   Loader2,
-  Shield
+  Shield,
+  FileText,
+  Settings
 } from "lucide-react";
 
 interface CompanyLayoutProps {
   children: ReactNode;
   requireRole?: ("CompanyAdmin" | "Auditor" | "Reviewer" | "StaffReadOnly")[];
+  skipOnboardingCheck?: boolean;
 }
 
-export function CompanyLayout({ children, requireRole }: CompanyLayoutProps) {
+export function CompanyLayout({ children, requireRole, skipOnboardingCheck = false }: CompanyLayoutProps) {
   const [location, setLocation] = useLocation();
   const { user, isLoading, isAuthenticated, requiresPasswordReset, logout } = useCompanyAuth();
+  
+  const { data: onboardingStatus, isLoading: onboardingLoading } = useQuery({
+    queryKey: ["onboardingStatus"],
+    queryFn: getOnboardingStatus,
+    enabled: isAuthenticated && !requiresPasswordReset && !skipOnboardingCheck,
+  });
   
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -31,8 +42,16 @@ export function CompanyLayout({ children, requireRole }: CompanyLayoutProps) {
       setLocation("/company/password-reset");
     }
   }, [isAuthenticated, requiresPasswordReset, location, setLocation]);
+  
+  useEffect(() => {
+    if (!skipOnboardingCheck && isAuthenticated && !requiresPasswordReset && onboardingStatus) {
+      if (onboardingStatus.onboardingStatus !== "completed" && location !== "/onboarding") {
+        setLocation("/onboarding");
+      }
+    }
+  }, [skipOnboardingCheck, isAuthenticated, requiresPasswordReset, onboardingStatus, location, setLocation]);
 
-  if (isLoading) {
+  if (isLoading || (!skipOnboardingCheck && onboardingLoading && isAuthenticated && !requiresPasswordReset)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
