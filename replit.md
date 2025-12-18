@@ -5,7 +5,7 @@
 This is a multi-tenant SaaS application for NDIS (National Disability Insurance Scheme) provider management. The platform consists of two distinct spaces:
 
 1. **Console Manager** - Platform-level administration for managing tenant companies
-2. **Provider App** - Tenant-specific functionality (planned for future sprints)
+2. **Provider App** - Tenant-specific functionality with RBAC and user management (Sprint 1 complete)
 
 The core purpose is to enable platform administrators to create and manage NDIS provider companies (tenants), with strict data isolation between tenants enforced from the database level.
 
@@ -55,9 +55,24 @@ Key tables:
 
 ### Authentication Flow
 - Console Manager uses separate JWT auth with `console_token` cookie
-- Company users will have their own auth flow (scoped by tenant)
-- Token expiry: 8 hours
+- Company users use separate JWT auth with `company_token` cookie
+- Both token types expire after 8 hours
 - Bootstrap function creates initial console admin if none exists
+- Company users require Company ID + email + password to login
+- First login forces password reset (temp password provided at user creation)
+
+### RBAC (Role-Based Access Control)
+- Four company roles: CompanyAdmin, Auditor, Reviewer, StaffReadOnly
+- CompanyAdmin can manage users within their organization
+- requireRole middleware enforces role checks at API level
+- Frontend route guards mirror backend RBAC for UX
+- All mutations scoped by companyId at both route handler and storage layer (defense in depth)
+
+### Security Features
+- Rate limiting on login endpoints (5 attempts per 15 minutes per company/email)
+- Password minimum 12 characters for new passwords
+- Tenant isolation enforced at database query level with AND clauses
+- All security-sensitive actions logged to change_log table
 
 ## External Dependencies
 
@@ -75,6 +90,7 @@ Key tables:
 ### Environment Variables Required
 - `DATABASE_URL` - PostgreSQL connection string
 - `CONSOLE_JWT_SECRET` - Secret for signing console JWT tokens (defaults to dev value)
+- `COMPANY_JWT_SECRET` - Secret for signing company JWT tokens (defaults to dev value)
 
 ### Replit-Specific Integrations
 - `@replit/vite-plugin-runtime-error-modal` - Error overlay in development
