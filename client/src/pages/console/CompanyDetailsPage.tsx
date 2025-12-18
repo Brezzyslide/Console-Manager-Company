@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Link, useRoute } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { getCompany, CompanyDetails } from "@/lib/console-api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { getCompany, updateCompany, updateCompanySchema, CompanyDetails, UpdateCompanyInput } from "@/lib/console-api";
 import { 
   ArrowLeft, 
   Building2, 
@@ -13,11 +16,14 @@ import {
   AlertCircle,
   Clock,
   Loader2,
-  ListChecks
+  ListChecks,
+  Pencil
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -26,17 +32,91 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
+
+const TIMEZONE_OPTIONS = [
+  "Australia/Melbourne",
+  "Australia/Sydney", 
+  "Australia/Brisbane",
+  "Australia/Perth",
+  "Australia/Adelaide",
+  "Australia/Darwin",
+  "Australia/Hobart",
+];
+
+const COMPLIANCE_OPTIONS = [
+  { value: "Core", label: "Core Supports" },
+  { value: "SIL", label: "Supported Independent Living" },
+  { value: "BSP", label: "Behaviour Support" },
+  { value: "Medication", label: "Medication Management" },
+];
 
 export default function CompanyDetailsPage() {
   const [, params] = useRoute("/console/companies/:id");
   const companyId = params?.id;
+  const queryClient = useQueryClient();
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedCompliance, setSelectedCompliance] = useState<string[]>([]);
 
   const { data: company, isLoading, error } = useQuery({
     queryKey: ["company", companyId],
     queryFn: () => getCompany(companyId!),
     enabled: !!companyId,
   });
+
+  const form = useForm<UpdateCompanyInput>({
+    resolver: zodResolver(updateCompanySchema),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: UpdateCompanyInput) => updateCompany(companyId!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company", companyId] });
+      setShowEditDialog(false);
+    },
+  });
+
+  const openEditDialog = () => {
+    if (company) {
+      form.reset({
+        legalName: company.legalName,
+        abn: company.abn || "",
+        ndisRegistrationNumber: company.ndisRegistrationNumber || "",
+        primaryContactName: company.primaryContactName,
+        primaryContactEmail: company.primaryContactEmail,
+        timezone: company.timezone,
+        status: company.status,
+      });
+      setSelectedCompliance(company.complianceScope || []);
+      setShowEditDialog(true);
+    }
+  };
+
+  const onSubmit = (data: UpdateCompanyInput) => {
+    updateMutation.mutate({ ...data, complianceScope: selectedCompliance });
+  };
+
+  const toggleCompliance = (value: string) => {
+    setSelectedCompliance(prev => 
+      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
+    );
+  };
 
   if (isLoading) {
     return (
@@ -95,7 +175,10 @@ export default function CompanyDetailsPage() {
             </span>
           </p>
         </div>
-        <Button variant="outline">Edit Details</Button>
+        <Button variant="outline" onClick={openEditDialog} data-testid="button-edit-company">
+          <Pencil className="h-4 w-4 mr-2" />
+          Edit Details
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -278,6 +361,140 @@ export default function CompanyDetailsPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Company Details</DialogTitle>
+            <DialogDescription>
+              Update the company information below.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="legalName">Legal Name</Label>
+                <Input
+                  id="legalName"
+                  {...form.register("legalName")}
+                  data-testid="input-legal-name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="abn">ABN</Label>
+                <Input
+                  id="abn"
+                  {...form.register("abn")}
+                  data-testid="input-abn"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="ndisRegistrationNumber">NDIS Registration Number</Label>
+                <Input
+                  id="ndisRegistrationNumber"
+                  {...form.register("ndisRegistrationNumber")}
+                  data-testid="input-ndis-reg"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone</Label>
+                <Select
+                  value={form.watch("timezone")}
+                  onValueChange={(value) => form.setValue("timezone", value)}
+                >
+                  <SelectTrigger data-testid="select-timezone">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONE_OPTIONS.map((tz) => (
+                      <SelectItem key={tz} value={tz}>{tz}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="primaryContactName">Primary Contact Name</Label>
+                <Input
+                  id="primaryContactName"
+                  {...form.register("primaryContactName")}
+                  data-testid="input-contact-name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="primaryContactEmail">Primary Contact Email</Label>
+                <Input
+                  id="primaryContactEmail"
+                  type="email"
+                  {...form.register("primaryContactEmail")}
+                  data-testid="input-contact-email"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={form.watch("status")}
+                  onValueChange={(value: any) => form.setValue("status", value)}
+                >
+                  <SelectTrigger data-testid="select-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="onboarding">Onboarding</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Compliance Scope</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {COMPLIANCE_OPTIONS.map((option) => (
+                  <div key={option.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`compliance-${option.value}`}
+                      checked={selectedCompliance.includes(option.value)}
+                      onCheckedChange={() => toggleCompliance(option.value)}
+                      data-testid={`checkbox-compliance-${option.value}`}
+                    />
+                    <Label htmlFor={`compliance-${option.value}`} className="text-sm font-normal">
+                      {option.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {updateMutation.error && (
+              <p className="text-sm text-destructive">{(updateMutation.error as Error).message}</p>
+            )}
+            
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending} data-testid="button-save-company">
+                {updateMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

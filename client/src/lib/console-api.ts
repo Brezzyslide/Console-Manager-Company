@@ -183,3 +183,31 @@ export async function getSupportCatalogue(): Promise<CategoryWithItems[]> {
   
   return res.json();
 }
+
+export const updateCompanySchema = z.object({
+  legalName: z.string().min(2).optional(),
+  abn: z.string().optional(),
+  ndisRegistrationNumber: z.string().optional(),
+  primaryContactName: z.string().min(2).optional(),
+  primaryContactEmail: z.string().email().optional(),
+  timezone: z.string().optional(),
+  complianceScope: z.array(z.string()).optional(),
+  status: z.enum(['active', 'suspended', 'onboarding']).optional(),
+});
+
+export type UpdateCompanyInput = z.infer<typeof updateCompanySchema>;
+
+export async function updateCompany(id: string, data: UpdateCompanyInput): Promise<Company> {
+  const res = await fetch(`/api/console/companies/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || "Failed to update company");
+  }
+  
+  return res.json();
+}

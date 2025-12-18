@@ -324,6 +324,75 @@ router.get("/companies/:id", requireConsoleAuth, async (req, res) => {
   }
 });
 
+// PATCH /api/console/companies/:id - Update company details
+const updateCompanySchema = z.object({
+  legalName: z.string().min(2).optional(),
+  abn: z.string().optional(),
+  ndisRegistrationNumber: z.string().optional(),
+  primaryContactName: z.string().min(2).optional(),
+  primaryContactEmail: z.string().email().optional(),
+  timezone: z.string().optional(),
+  complianceScope: z.array(z.string()).optional(),
+  status: z.enum(['active', 'suspended', 'onboarding']).optional(),
+});
+
+router.patch("/companies/:id", requireConsoleAuth, async (req: AuthenticatedConsoleRequest, res) => {
+  try {
+    const companyId = req.params.id;
+    const updates = updateCompanySchema.parse(req.body);
+    
+    const existingCompany = await storage.getCompany(companyId);
+    if (!existingCompany) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+    
+    const beforeJson = {
+      legalName: existingCompany.legalName,
+      abn: existingCompany.abn,
+      ndisRegistrationNumber: existingCompany.ndisRegistrationNumber,
+      primaryContactName: existingCompany.primaryContactName,
+      primaryContactEmail: existingCompany.primaryContactEmail,
+      timezone: existingCompany.timezone,
+      complianceScope: existingCompany.complianceScope,
+      status: existingCompany.status,
+    };
+    
+    const updatedCompany = await storage.updateCompany(companyId, updates);
+    
+    if (!updatedCompany) {
+      return res.status(404).json({ error: "Company not found or update failed" });
+    }
+    
+    await storage.logChange({
+      actorType: "console",
+      actorId: req.consoleUser!.consoleUserId,
+      companyId,
+      action: "COMPANY_UPDATED",
+      entityType: "company",
+      entityId: companyId,
+      beforeJson,
+      afterJson: {
+        legalName: updatedCompany.legalName,
+        abn: updatedCompany.abn,
+        ndisRegistrationNumber: updatedCompany.ndisRegistrationNumber,
+        primaryContactName: updatedCompany.primaryContactName,
+        primaryContactEmail: updatedCompany.primaryContactEmail,
+        timezone: updatedCompany.timezone,
+        complianceScope: updatedCompany.complianceScope,
+        status: updatedCompany.status,
+      },
+    });
+    
+    return res.json(updatedCompany);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: fromZodError(error).message });
+    }
+    console.error("Update company error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // GET /api/console/support-catalogue
 router.get("/support-catalogue", requireConsoleAuth, async (req, res) => {
   try {

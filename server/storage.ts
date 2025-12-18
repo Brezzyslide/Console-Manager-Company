@@ -36,6 +36,7 @@ export interface IStorage {
   getCompanies(): Promise<Company[]>;
   getCompany(id: string): Promise<Company | undefined>;
   createCompany(company: InsertCompany): Promise<Company>;
+  updateCompany(id: string, updates: Partial<InsertCompany>): Promise<Company | undefined>;
   
   // Company Users
   createCompanyUser(user: InsertCompanyUser): Promise<CompanyUser>;
@@ -111,6 +112,19 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return company;
+  }
+
+  async updateCompany(id: string, updates: Partial<InsertCompany>): Promise<Company | undefined> {
+    const updateData: any = { ...updates, updatedAt: new Date() };
+    if (updates.primaryContactEmail) {
+      updateData.primaryContactEmail = updates.primaryContactEmail.toLowerCase();
+    }
+    const [company] = await db
+      .update(companies)
+      .set(updateData)
+      .where(eq(companies.id, id))
+      .returning();
+    return company || undefined;
   }
 
   // Company Users
