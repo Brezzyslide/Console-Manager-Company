@@ -21,6 +21,13 @@ import PasswordResetPage from "@/pages/company/PasswordResetPage";
 import DashboardPage from "@/pages/company/DashboardPage";
 import AdminUsersPage from "@/pages/company/AdminUsersPage";
 import OnboardingPage from "@/pages/company/OnboardingPage";
+import AuditsHomePage from "@/pages/company/AuditsHomePage";
+import CreateAuditPage from "@/pages/company/CreateAuditPage";
+import AuditScopePage from "@/pages/company/AuditScopePage";
+import AuditTemplateSelectPage from "@/pages/company/AuditTemplateSelectPage";
+import AuditRunnerPage from "@/pages/company/AuditRunnerPage";
+import AuditReviewPage from "@/pages/company/AuditReviewPage";
+import FindingsRegisterPage from "@/pages/company/FindingsRegisterPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 function ProtectedConsolePage({ component: Component }: { component: React.ComponentType }) {
@@ -88,6 +95,43 @@ function Router() {
       <Route path="/app/admin/users">
         <CompanyLayout requireRole={["CompanyAdmin"]}>
           <AdminUsersPage />
+        </CompanyLayout>
+      </Route>
+      
+      {/* Audit Routes */}
+      <Route path="/audits">
+        <CompanyLayout>
+          <AuditsHomePage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/audits/new">
+        <CompanyLayout requireRole={["CompanyAdmin", "Auditor"]}>
+          <CreateAuditPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/audits/:id/scope">
+        <CompanyLayout requireRole={["CompanyAdmin", "Auditor"]}>
+          <AuditScopePage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/audits/:id/template">
+        <CompanyLayout requireRole={["CompanyAdmin", "Auditor"]}>
+          <AuditTemplateSelectPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/audits/:id/run">
+        <CompanyLayout requireRole={["CompanyAdmin", "Auditor"]}>
+          <AuditRunnerPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/audits/:id/review">
+        <CompanyLayout>
+          <AuditReviewPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/findings">
+        <CompanyLayout>
+          <FindingsRegisterPage />
         </CompanyLayout>
       </Route>
 

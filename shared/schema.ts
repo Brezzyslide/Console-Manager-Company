@@ -226,3 +226,157 @@ export const insertCompanyDocumentSchema = createInsertSchema(companyDocuments).
 
 export type InsertCompanyDocument = z.infer<typeof insertCompanyDocumentSchema>;
 export type CompanyDocument = typeof companyDocuments.$inferSelect;
+
+// Audit type enums
+export const auditTypeEnum = ["INTERNAL", "EXTERNAL"] as const;
+export const auditStatusEnum = ["DRAFT", "IN_PROGRESS", "IN_REVIEW", "CLOSED"] as const;
+export const indicatorRatingEnum = ["CONFORMANCE", "OBSERVATION", "MINOR_NC", "MAJOR_NC"] as const;
+export const findingStatusEnum = ["OPEN", "UNDER_REVIEW", "CLOSED"] as const;
+export const serviceContextEnum = ["SIL", "COMMUNITY_ACCESS", "IN_HOME", "CENTRE_BASED", "OTHER"] as const;
+export const riskLevelEnum = ["LOW", "MEDIUM", "HIGH"] as const;
+export const responseStatusEnum = ["OPEN", "CLOSED"] as const;
+
+// Audits (Tenant-scoped)
+export const audits = pgTable("audits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  auditType: text("audit_type", { enum: auditTypeEnum }).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status", { enum: auditStatusEnum }).notNull().default("DRAFT"),
+  serviceContext: text("service_context", { enum: serviceContextEnum }).notNull(),
+  scopeTimeFrom: timestamp("scope_time_from").notNull(),
+  scopeTimeTo: timestamp("scope_time_to").notNull(),
+  createdByCompanyUserId: varchar("created_by_company_user_id").references(() => companyUsers.id),
+  createdByConsoleUserId: varchar("created_by_console_user_id").references(() => consoleUsers.id),
+  externalAuditorName: text("external_auditor_name"),
+  externalAuditorOrg: text("external_auditor_org"),
+  externalAuditorEmail: text("external_auditor_email"),
+  scopeLocked: boolean("scope_locked").notNull().default(false),
+  closeReason: text("close_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertAuditSchema = createInsertSchema(audits).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAudit = z.infer<typeof insertAuditSchema>;
+export type Audit = typeof audits.$inferSelect;
+
+// Audit Scope Line Items (Links audits to selected line items)
+export const auditScopeLineItems = pgTable("audit_scope_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  lineItemId: varchar("line_item_id").notNull().references(() => supportLineItems.id, { onDelete: "cascade" }),
+});
+
+export const insertAuditScopeLineItemSchema = createInsertSchema(auditScopeLineItems).omit({
+  id: true,
+});
+
+export type InsertAuditScopeLineItem = z.infer<typeof insertAuditScopeLineItemSchema>;
+export type AuditScopeLineItem = typeof auditScopeLineItems.$inferSelect;
+
+// Audit Templates (Tenant-scoped)
+export const auditTemplates = pgTable("audit_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuditTemplateSchema = createInsertSchema(auditTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditTemplate = z.infer<typeof insertAuditTemplateSchema>;
+export type AuditTemplate = typeof auditTemplates.$inferSelect;
+
+// Audit Template Indicators
+export const auditTemplateIndicators = pgTable("audit_template_indicators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => auditTemplates.id, { onDelete: "cascade" }),
+  indicatorText: text("indicator_text").notNull(),
+  guidanceText: text("guidance_text"),
+  evidenceRequirements: text("evidence_requirements"),
+  riskLevel: text("risk_level", { enum: riskLevelEnum }).notNull().default("MEDIUM"),
+  isCriticalControl: boolean("is_critical_control").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuditTemplateIndicatorSchema = createInsertSchema(auditTemplateIndicators).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditTemplateIndicator = z.infer<typeof insertAuditTemplateIndicatorSchema>;
+export type AuditTemplateIndicator = typeof auditTemplateIndicators.$inferSelect;
+
+// Audit Runs (Links audit to selected template)
+export const auditRuns = pgTable("audit_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }).unique(),
+  templateId: varchar("template_id").notNull().references(() => auditTemplates.id, { onDelete: "cascade" }),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuditRunSchema = createInsertSchema(auditRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditRun = z.infer<typeof insertAuditRunSchema>;
+export type AuditRun = typeof auditRuns.$inferSelect;
+
+// Audit Indicator Responses
+export const auditIndicatorResponses = pgTable("audit_indicator_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  templateIndicatorId: varchar("template_indicator_id").notNull().references(() => auditTemplateIndicators.id, { onDelete: "cascade" }),
+  rating: text("rating", { enum: indicatorRatingEnum }).notNull(),
+  comment: text("comment"),
+  status: text("status", { enum: responseStatusEnum }).notNull().default("OPEN"),
+  createdByCompanyUserId: varchar("created_by_company_user_id").notNull().references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertAuditIndicatorResponseSchema = createInsertSchema(auditIndicatorResponses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditIndicatorResponse = z.infer<typeof insertAuditIndicatorResponseSchema>;
+export type AuditIndicatorResponse = typeof auditIndicatorResponses.$inferSelect;
+
+// Findings (Auto-generated from non-conformance responses)
+export const findings = pgTable("findings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  templateIndicatorId: varchar("template_indicator_id").notNull().references(() => auditTemplateIndicators.id, { onDelete: "cascade" }),
+  severity: text("severity", { enum: ["MINOR_NC", "MAJOR_NC"] }).notNull(),
+  findingText: text("finding_text").notNull(),
+  status: text("status", { enum: findingStatusEnum }).notNull().default("OPEN"),
+  ownerCompanyUserId: varchar("owner_company_user_id").references(() => companyUsers.id),
+  dueDate: timestamp("due_date"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertFindingSchema = createInsertSchema(findings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFinding = z.infer<typeof insertFindingSchema>;
+export type Finding = typeof findings.$inferSelect;

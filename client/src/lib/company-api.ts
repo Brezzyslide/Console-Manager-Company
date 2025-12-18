@@ -395,3 +395,315 @@ export async function updateDocument(
   }
   return res.json();
 }
+
+// ============ AUDIT API ============
+
+export type AuditType = "INTERNAL" | "EXTERNAL";
+export type AuditStatus = "DRAFT" | "IN_PROGRESS" | "IN_REVIEW" | "CLOSED";
+export type ServiceContext = "SIL" | "COMMUNITY_ACCESS" | "IN_HOME" | "CENTRE_BASED" | "OTHER";
+export type IndicatorRating = "CONFORMANCE" | "OBSERVATION" | "MINOR_NC" | "MAJOR_NC";
+export type FindingStatus = "OPEN" | "UNDER_REVIEW" | "CLOSED";
+export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
+
+export interface Audit {
+  id: string;
+  companyId: string;
+  auditType: AuditType;
+  title: string;
+  description: string | null;
+  status: AuditStatus;
+  serviceContext: ServiceContext;
+  scopeTimeFrom: string;
+  scopeTimeTo: string;
+  createdByCompanyUserId: string | null;
+  externalAuditorName: string | null;
+  externalAuditorOrg: string | null;
+  externalAuditorEmail: string | null;
+  scopeLocked: boolean;
+  closeReason: string | null;
+  createdAt: string;
+}
+
+export interface AuditTemplate {
+  id: string;
+  companyId: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  indicatorCount?: number;
+}
+
+export interface AuditTemplateIndicator {
+  id: string;
+  templateId: string;
+  indicatorText: string;
+  guidanceText: string | null;
+  evidenceRequirements: string | null;
+  riskLevel: RiskLevel;
+  isCriticalControl: boolean;
+  sortOrder: number;
+}
+
+export interface AuditIndicatorResponse {
+  id: string;
+  auditId: string;
+  templateIndicatorId: string;
+  rating: IndicatorRating;
+  comment: string | null;
+  status: "OPEN" | "CLOSED";
+  createdByCompanyUserId: string;
+}
+
+export interface Finding {
+  id: string;
+  companyId: string;
+  auditId: string;
+  templateIndicatorId: string;
+  severity: "MINOR_NC" | "MAJOR_NC";
+  findingText: string;
+  status: FindingStatus;
+  ownerCompanyUserId: string | null;
+  dueDate: string | null;
+  createdAt: string;
+}
+
+export interface ScopeOption {
+  category: { id: string; categoryKey: string; categoryLabel: string };
+  lineItems: { id: string; itemCode: string; itemLabel: string; budgetGroup: string }[];
+}
+
+export interface AuditRunnerData {
+  audit: Audit;
+  template: AuditTemplate | null;
+  indicators: AuditTemplateIndicator[];
+  responses: AuditIndicatorResponse[];
+  scopeItems: { id: string; auditId: string; lineItemId: string }[];
+  progress: { total: number; completed: number };
+}
+
+export async function createAudit(input: {
+  auditType: AuditType;
+  title: string;
+  description?: string;
+  serviceContext: ServiceContext;
+  scopeTimeFrom: string;
+  scopeTimeTo: string;
+  externalAuditorName?: string;
+  externalAuditorOrg?: string;
+  externalAuditorEmail?: string;
+}): Promise<Audit> {
+  const res = await fetch("/api/company/audits", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to create audit");
+  }
+  return res.json();
+}
+
+export async function getAudits(filters?: { status?: AuditStatus; auditType?: AuditType }): Promise<Audit[]> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.auditType) params.set("auditType", filters.auditType);
+  
+  const res = await fetch(`/api/company/audits?${params}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch audits");
+  return res.json();
+}
+
+export async function getAudit(id: string): Promise<Audit & { scopeLineItems: any[]; auditRun: any; template: AuditTemplate | null }> {
+  const res = await fetch(`/api/company/audits/${id}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch audit");
+  return res.json();
+}
+
+export async function getScopeOptions(): Promise<{ categories: ScopeOption[] }> {
+  const res = await fetch("/api/company/audits/new/scope-options", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch scope options");
+  return res.json();
+}
+
+export async function getAuditScopeOptions(auditId: string): Promise<{ categories: ScopeOption[] }> {
+  const res = await fetch(`/api/company/audits/${auditId}/scope-options`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch scope options");
+  return res.json();
+}
+
+export async function updateAuditScope(auditId: string, lineItemIds: string[]): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/company/audits/${auditId}/scope`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ lineItemIds }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to update scope");
+  }
+  return res.json();
+}
+
+export async function getAuditTemplates(): Promise<AuditTemplate[]> {
+  const res = await fetch("/api/company/audit-templates", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch templates");
+  return res.json();
+}
+
+export async function getAuditTemplate(id: string): Promise<AuditTemplate & { indicators: AuditTemplateIndicator[] }> {
+  const res = await fetch(`/api/company/audit-templates/${id}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch template");
+  return res.json();
+}
+
+export async function createAuditTemplate(input: { name: string; description?: string }): Promise<AuditTemplate> {
+  const res = await fetch("/api/company/audit-templates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to create template");
+  }
+  return res.json();
+}
+
+export async function addTemplateIndicator(
+  templateId: string,
+  input: {
+    indicatorText: string;
+    guidanceText?: string;
+    evidenceRequirements?: string;
+    riskLevel?: RiskLevel;
+    isCriticalControl?: boolean;
+    sortOrder?: number;
+  }
+): Promise<AuditTemplateIndicator> {
+  const res = await fetch(`/api/company/audit-templates/${templateId}/indicators`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to add indicator");
+  }
+  return res.json();
+}
+
+export async function selectAuditTemplate(auditId: string, templateId: string): Promise<any> {
+  const res = await fetch(`/api/company/audits/${auditId}/template`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ templateId }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to select template");
+  }
+  return res.json();
+}
+
+export async function startAudit(auditId: string): Promise<{ success: boolean; status: string }> {
+  const res = await fetch(`/api/company/audits/${auditId}/start`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to start audit");
+  }
+  return res.json();
+}
+
+export async function getAuditRunner(auditId: string): Promise<AuditRunnerData> {
+  const res = await fetch(`/api/company/audits/${auditId}/runner`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch runner data");
+  return res.json();
+}
+
+export async function saveIndicatorResponse(
+  auditId: string,
+  indicatorId: string,
+  input: { rating: IndicatorRating; comment?: string }
+): Promise<AuditIndicatorResponse> {
+  const res = await fetch(`/api/company/audits/${auditId}/responses/${indicatorId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to save response");
+  }
+  return res.json();
+}
+
+export async function submitAudit(auditId: string): Promise<{ success: boolean; status: string }> {
+  const res = await fetch(`/api/company/audits/${auditId}/submit`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to submit audit");
+  }
+  return res.json();
+}
+
+export async function closeAudit(auditId: string, closeReason?: string): Promise<{ success: boolean; status: string }> {
+  const res = await fetch(`/api/company/audits/${auditId}/close`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ closeReason }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to close audit");
+  }
+  return res.json();
+}
+
+export async function getFindings(filters?: { status?: FindingStatus; severity?: string; auditId?: string }): Promise<Finding[]> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.severity) params.set("severity", filters.severity);
+  if (filters?.auditId) params.set("auditId", filters.auditId);
+  
+  const res = await fetch(`/api/company/findings?${params}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch findings");
+  return res.json();
+}
+
+export async function getFinding(id: string): Promise<Finding & { audit: Audit; indicator: AuditTemplateIndicator }> {
+  const res = await fetch(`/api/company/findings/${id}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch finding");
+  return res.json();
+}
+
+export async function updateFinding(
+  id: string,
+  updates: { ownerCompanyUserId?: string | null; dueDate?: string | null; status?: FindingStatus }
+): Promise<Finding> {
+  const res = await fetch(`/api/company/findings/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to update finding");
+  }
+  return res.json();
+}

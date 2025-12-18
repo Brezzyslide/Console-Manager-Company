@@ -9,6 +9,13 @@ import {
   companyServiceSelections,
   companySettings,
   companyDocuments,
+  audits,
+  auditScopeLineItems,
+  auditTemplates,
+  auditTemplateIndicators,
+  auditRuns,
+  auditIndicatorResponses,
+  findings,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -28,6 +35,20 @@ import {
   type InsertCompanySettings,
   type CompanyDocument,
   type InsertCompanyDocument,
+  type Audit,
+  type InsertAudit,
+  type AuditScopeLineItem,
+  type InsertAuditScopeLineItem,
+  type AuditTemplate,
+  type InsertAuditTemplate,
+  type AuditTemplateIndicator,
+  type InsertAuditTemplateIndicator,
+  type AuditRun,
+  type InsertAuditRun,
+  type AuditIndicatorResponse,
+  type InsertAuditIndicatorResponse,
+  type Finding,
+  type InsertFinding,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc } from "drizzle-orm";
@@ -90,6 +111,43 @@ export interface IStorage {
   // Change Log
   logChange(change: InsertChangeLog): Promise<void>;
   getRecentChangeLogs(limit?: number): Promise<any[]>;
+  
+  // Audits
+  createAudit(audit: InsertAudit): Promise<Audit>;
+  getAudit(id: string, companyId: string): Promise<Audit | undefined>;
+  getAudits(companyId: string, filters?: { status?: string; auditType?: string }): Promise<Audit[]>;
+  updateAudit(id: string, companyId: string, updates: Partial<InsertAudit>): Promise<Audit | undefined>;
+  
+  // Audit Scope Line Items
+  getAuditScopeLineItems(auditId: string): Promise<AuditScopeLineItem[]>;
+  setAuditScopeLineItems(auditId: string, lineItemIds: string[]): Promise<void>;
+  
+  // Audit Templates
+  createAuditTemplate(template: InsertAuditTemplate): Promise<AuditTemplate>;
+  getAuditTemplate(id: string, companyId: string): Promise<AuditTemplate | undefined>;
+  getAuditTemplates(companyId: string): Promise<AuditTemplate[]>;
+  
+  // Audit Template Indicators
+  createAuditTemplateIndicator(indicator: InsertAuditTemplateIndicator): Promise<AuditTemplateIndicator>;
+  getAuditTemplateIndicators(templateId: string): Promise<AuditTemplateIndicator[]>;
+  getAuditTemplateIndicator(id: string): Promise<AuditTemplateIndicator | undefined>;
+  
+  // Audit Runs
+  getAuditRun(auditId: string): Promise<AuditRun | undefined>;
+  upsertAuditRun(run: InsertAuditRun): Promise<AuditRun>;
+  updateAuditRun(auditId: string, updates: Partial<InsertAuditRun>): Promise<AuditRun | undefined>;
+  
+  // Audit Indicator Responses
+  getAuditIndicatorResponses(auditId: string): Promise<AuditIndicatorResponse[]>;
+  getAuditIndicatorResponse(auditId: string, indicatorId: string): Promise<AuditIndicatorResponse | undefined>;
+  upsertAuditIndicatorResponse(response: InsertAuditIndicatorResponse): Promise<AuditIndicatorResponse>;
+  
+  // Findings
+  createFinding(finding: InsertFinding): Promise<Finding>;
+  getFinding(id: string, companyId: string): Promise<Finding | undefined>;
+  getFindings(companyId: string, filters?: { status?: string; severity?: string; auditId?: string }): Promise<Finding[]>;
+  getFindingByAuditAndIndicator(auditId: string, indicatorId: string, companyId: string): Promise<Finding | undefined>;
+  updateFinding(id: string, companyId: string, updates: Partial<InsertFinding>): Promise<Finding | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -416,6 +474,229 @@ export class DatabaseStorage implements IStorage {
       .from(changeLog)
       .orderBy(desc(changeLog.createdAt))
       .limit(limit);
+  }
+
+  // Audits
+  async createAudit(audit: InsertAudit): Promise<Audit> {
+    const [created] = await db.insert(audits).values(audit).returning();
+    return created;
+  }
+
+  async getAudit(id: string, companyId: string): Promise<Audit | undefined> {
+    const [audit] = await db
+      .select()
+      .from(audits)
+      .where(and(eq(audits.id, id), eq(audits.companyId, companyId)));
+    return audit || undefined;
+  }
+
+  async getAudits(companyId: string, filters?: { status?: string; auditType?: string }): Promise<Audit[]> {
+    let query = db.select().from(audits).where(eq(audits.companyId, companyId));
+    
+    const conditions: any[] = [eq(audits.companyId, companyId)];
+    if (filters?.status) {
+      conditions.push(eq(audits.status, filters.status as any));
+    }
+    if (filters?.auditType) {
+      conditions.push(eq(audits.auditType, filters.auditType as any));
+    }
+    
+    return await db
+      .select()
+      .from(audits)
+      .where(and(...conditions))
+      .orderBy(desc(audits.createdAt));
+  }
+
+  async updateAudit(id: string, companyId: string, updates: Partial<InsertAudit>): Promise<Audit | undefined> {
+    const [updated] = await db
+      .update(audits)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(audits.id, id), eq(audits.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Audit Scope Line Items
+  async getAuditScopeLineItems(auditId: string): Promise<AuditScopeLineItem[]> {
+    return await db
+      .select()
+      .from(auditScopeLineItems)
+      .where(eq(auditScopeLineItems.auditId, auditId));
+  }
+
+  async setAuditScopeLineItems(auditId: string, lineItemIds: string[]): Promise<void> {
+    await db.delete(auditScopeLineItems).where(eq(auditScopeLineItems.auditId, auditId));
+    if (lineItemIds.length > 0) {
+      await db.insert(auditScopeLineItems).values(
+        lineItemIds.map(lineItemId => ({ auditId, lineItemId }))
+      );
+    }
+  }
+
+  // Audit Templates
+  async createAuditTemplate(template: InsertAuditTemplate): Promise<AuditTemplate> {
+    const [created] = await db.insert(auditTemplates).values(template).returning();
+    return created;
+  }
+
+  async getAuditTemplate(id: string, companyId: string): Promise<AuditTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(auditTemplates)
+      .where(and(eq(auditTemplates.id, id), eq(auditTemplates.companyId, companyId)));
+    return template || undefined;
+  }
+
+  async getAuditTemplates(companyId: string): Promise<AuditTemplate[]> {
+    return await db
+      .select()
+      .from(auditTemplates)
+      .where(and(eq(auditTemplates.companyId, companyId), eq(auditTemplates.isActive, true)))
+      .orderBy(desc(auditTemplates.createdAt));
+  }
+
+  // Audit Template Indicators
+  async createAuditTemplateIndicator(indicator: InsertAuditTemplateIndicator): Promise<AuditTemplateIndicator> {
+    const [created] = await db.insert(auditTemplateIndicators).values(indicator).returning();
+    return created;
+  }
+
+  async getAuditTemplateIndicators(templateId: string): Promise<AuditTemplateIndicator[]> {
+    return await db
+      .select()
+      .from(auditTemplateIndicators)
+      .where(eq(auditTemplateIndicators.templateId, templateId))
+      .orderBy(asc(auditTemplateIndicators.sortOrder));
+  }
+
+  async getAuditTemplateIndicator(id: string): Promise<AuditTemplateIndicator | undefined> {
+    const [indicator] = await db
+      .select()
+      .from(auditTemplateIndicators)
+      .where(eq(auditTemplateIndicators.id, id));
+    return indicator || undefined;
+  }
+
+  // Audit Runs
+  async getAuditRun(auditId: string): Promise<AuditRun | undefined> {
+    const [run] = await db
+      .select()
+      .from(auditRuns)
+      .where(eq(auditRuns.auditId, auditId));
+    return run || undefined;
+  }
+
+  async upsertAuditRun(run: InsertAuditRun): Promise<AuditRun> {
+    const existing = await this.getAuditRun(run.auditId);
+    if (existing) {
+      const [updated] = await db
+        .update(auditRuns)
+        .set({ templateId: run.templateId })
+        .where(eq(auditRuns.auditId, run.auditId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(auditRuns).values(run).returning();
+      return created;
+    }
+  }
+
+  async updateAuditRun(auditId: string, updates: Partial<InsertAuditRun>): Promise<AuditRun | undefined> {
+    const [updated] = await db
+      .update(auditRuns)
+      .set(updates)
+      .where(eq(auditRuns.auditId, auditId))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Audit Indicator Responses
+  async getAuditIndicatorResponses(auditId: string): Promise<AuditIndicatorResponse[]> {
+    return await db
+      .select()
+      .from(auditIndicatorResponses)
+      .where(eq(auditIndicatorResponses.auditId, auditId));
+  }
+
+  async getAuditIndicatorResponse(auditId: string, indicatorId: string): Promise<AuditIndicatorResponse | undefined> {
+    const [response] = await db
+      .select()
+      .from(auditIndicatorResponses)
+      .where(and(
+        eq(auditIndicatorResponses.auditId, auditId),
+        eq(auditIndicatorResponses.templateIndicatorId, indicatorId)
+      ));
+    return response || undefined;
+  }
+
+  async upsertAuditIndicatorResponse(response: InsertAuditIndicatorResponse): Promise<AuditIndicatorResponse> {
+    const existing = await this.getAuditIndicatorResponse(response.auditId, response.templateIndicatorId);
+    if (existing) {
+      const [updated] = await db
+        .update(auditIndicatorResponses)
+        .set({ rating: response.rating, comment: response.comment, updatedAt: new Date() })
+        .where(eq(auditIndicatorResponses.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(auditIndicatorResponses).values(response).returning();
+      return created;
+    }
+  }
+
+  // Findings
+  async createFinding(finding: InsertFinding): Promise<Finding> {
+    const [created] = await db.insert(findings).values(finding).returning();
+    return created;
+  }
+
+  async getFinding(id: string, companyId: string): Promise<Finding | undefined> {
+    const [finding] = await db
+      .select()
+      .from(findings)
+      .where(and(eq(findings.id, id), eq(findings.companyId, companyId)));
+    return finding || undefined;
+  }
+
+  async getFindings(companyId: string, filters?: { status?: string; severity?: string; auditId?: string }): Promise<Finding[]> {
+    const conditions: any[] = [eq(findings.companyId, companyId)];
+    if (filters?.status) {
+      conditions.push(eq(findings.status, filters.status as any));
+    }
+    if (filters?.severity) {
+      conditions.push(eq(findings.severity, filters.severity as any));
+    }
+    if (filters?.auditId) {
+      conditions.push(eq(findings.auditId, filters.auditId));
+    }
+    
+    return await db
+      .select()
+      .from(findings)
+      .where(and(...conditions))
+      .orderBy(desc(findings.createdAt));
+  }
+
+  async getFindingByAuditAndIndicator(auditId: string, indicatorId: string, companyId: string): Promise<Finding | undefined> {
+    const [finding] = await db
+      .select()
+      .from(findings)
+      .where(and(
+        eq(findings.auditId, auditId),
+        eq(findings.templateIndicatorId, indicatorId),
+        eq(findings.companyId, companyId)
+      ));
+    return finding || undefined;
+  }
+
+  async updateFinding(id: string, companyId: string, updates: Partial<InsertFinding>): Promise<Finding | undefined> {
+    const [updated] = await db
+      .update(findings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(findings.id, id), eq(findings.companyId, companyId)))
+      .returning();
+    return updated || undefined;
   }
 }
 

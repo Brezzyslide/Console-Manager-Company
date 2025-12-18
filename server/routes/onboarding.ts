@@ -60,7 +60,7 @@ router.get("/onboarding/status", requireCompanyAuth, async (req: AuthenticatedCo
 });
 
 // POST /api/company/onboarding/start
-router.post("/onboarding/start", requireCompanyAuth, requireRole("CompanyAdmin"), async (req: AuthenticatedCompanyRequest, res) => {
+router.post("/onboarding/start", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
     const company = await storage.getCompany(companyId);
@@ -94,7 +94,7 @@ router.post("/onboarding/start", requireCompanyAuth, requireRole("CompanyAdmin")
 });
 
 // POST /api/company/onboarding/complete - CompanyAdmin only
-router.post("/onboarding/complete", requireCompanyAuth, requireRole("CompanyAdmin"), async (req: AuthenticatedCompanyRequest, res) => {
+router.post("/onboarding/complete", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
     
@@ -160,7 +160,7 @@ const settingsSchema = z.object({
   documentRetentionNote: z.string().nullable().optional(),
 });
 
-router.put("/settings", requireCompanyAuth, requireRole("CompanyAdmin"), async (req: AuthenticatedCompanyRequest, res) => {
+router.put("/settings", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
     const input = settingsSchema.parse(req.body);
@@ -244,7 +244,7 @@ const servicesUpdateSchema = z.object({
   selectedLineItemIds: z.array(z.string()).optional(),
 });
 
-router.put("/services", requireCompanyAuth, requireRole("CompanyAdmin"), async (req: AuthenticatedCompanyRequest, res) => {
+router.put("/services", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
     const input = servicesUpdateSchema.parse(req.body);
@@ -339,7 +339,7 @@ const documentLinkSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
-router.post("/documents", requireCompanyAuth, requireRole("CompanyAdmin"), async (req: AuthenticatedCompanyRequest, res) => {
+router.post("/documents", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
   const companyId = req.companyUser!.companyId;
   
   // Check if this is a link submission (JSON body)
@@ -461,7 +461,7 @@ const documentUpdateSchema = z.object({
   externalLink: z.string().url().optional(),
 });
 
-router.patch("/documents/:id", requireCompanyAuth, requireRole("CompanyAdmin"), async (req: AuthenticatedCompanyRequest, res) => {
+router.patch("/documents/:id", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
     const docId = req.params.id;

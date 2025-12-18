@@ -8,6 +8,7 @@ import { seedSupportCatalogue } from "./seed-catalogue";
 import consoleRoutes from "./routes/console";
 import companyRoutes from "./routes/company";
 import onboardingRoutes from "./routes/onboarding";
+import auditRoutes from "./routes/audit";
 
 const app = express();
 const httpServer = createServer(app);
@@ -81,6 +82,9 @@ app.use((req, res, next) => {
   
   // Mount onboarding routes (under /api/company)
   app.use("/api/company", onboardingRoutes);
+  
+  // Mount audit routes (under /api/company)
+  app.use("/api/company", auditRoutes);
   
   await registerRoutes(httpServer, app);
 
