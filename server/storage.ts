@@ -32,6 +32,7 @@ export interface IStorage {
   createCompanyUser(user: InsertCompanyUser): Promise<CompanyUser>;
   getCompanyUser(id: string): Promise<CompanyUser | undefined>;
   getCompanyUserByEmail(companyId: string, email: string): Promise<CompanyUser | undefined>;
+  getCompanyAdmin(companyId: string): Promise<{ email: string; fullName: string } | undefined>;
   updateCompanyUserPassword(id: string, passwordHash: string): Promise<CompanyUser>;
   
   // Company Roles
@@ -114,6 +115,20 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return user || undefined;
+  }
+
+  async getCompanyAdmin(companyId: string): Promise<{ email: string; fullName: string } | undefined> {
+    const [admin] = await db
+      .select({ email: companyUsers.email, fullName: companyUsers.fullName })
+      .from(companyUsers)
+      .where(
+        and(
+          eq(companyUsers.companyId, companyId),
+          eq(companyUsers.role, "CompanyAdmin")
+        )
+      )
+      .limit(1);
+    return admin || undefined;
   }
 
   async updateCompanyUserPassword(id: string, passwordHash: string): Promise<CompanyUser> {

@@ -228,7 +228,15 @@ router.get("/companies/:id", requireConsoleAuth, async (req, res) => {
       return res.status(404).json({ error: "Company not found" });
     }
     
-    return res.json(company);
+    const roles = await storage.getCompanyRoles(company.id);
+    const admin = await storage.getCompanyAdmin(company.id);
+    
+    return res.json({
+      ...company,
+      roles: roles.map(r => ({ id: r.id, roleKey: r.roleKey, roleLabel: r.roleLabel })),
+      adminEmail: admin?.email || null,
+      adminName: admin?.fullName || null,
+    });
   } catch (error) {
     console.error("Get company error:", error);
     return res.status(500).json({ error: "Internal server error" });

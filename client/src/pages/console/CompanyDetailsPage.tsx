@@ -1,6 +1,6 @@
 import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { getCompany } from "@/lib/console-api";
+import { getCompany, CompanyDetails } from "@/lib/console-api";
 import { 
   ArrowLeft, 
   Building2, 
@@ -184,17 +184,15 @@ export default function CompanyDetailsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {[
-                  { label: "Company Admin", desc: "Full access" },
-                  { label: "Auditor", desc: "Read-only + Compliance" },
-                  { label: "Reviewer", desc: "Case review access" },
-                  { label: "Staff (Read Only)", desc: "Limited view" },
-                ].map((role) => (
-                  <div key={role.label} className="flex items-center justify-between text-sm p-2 rounded hover:bg-muted/50 transition-colors">
-                    <span className="font-medium">{role.label}</span>
-                    <span className="text-xs text-muted-foreground">{role.desc}</span>
+                {company.roles?.map((role) => (
+                  <div key={role.id} className="flex items-center justify-between text-sm p-2 rounded hover:bg-muted/50 transition-colors" data-testid={`role-${role.roleKey}`}>
+                    <span className="font-medium">{role.roleLabel}</span>
+                    <span className="text-xs text-muted-foreground font-mono">{role.roleKey}</span>
                   </div>
                 ))}
+                {(!company.roles || company.roles.length === 0) && (
+                  <span className="text-sm text-muted-foreground italic">No roles provisioned.</span>
+                )}
               </div>
             </CardContent>
             <CardFooter className="border-t bg-muted/20 p-3">
@@ -203,6 +201,32 @@ export default function CompanyDetailsPage() {
               </p>
             </CardFooter>
           </Card>
+          
+          {company.adminEmail && (
+            <Card className="bg-primary/5 border-primary/20">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Company Admin
+                </CardTitle>
+                <CardDescription>
+                  Initial administrator for this tenant.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium" data-testid="admin-name">{company.adminName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground" data-testid="admin-email">{company.adminEmail}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

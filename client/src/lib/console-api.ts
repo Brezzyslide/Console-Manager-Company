@@ -3,8 +3,8 @@ import { z } from "zod";
 export const companySchema = z.object({
   id: z.string(),
   legalName: z.string(),
-  abn: z.string().optional(),
-  ndisRegistrationNumber: z.string().optional(),
+  abn: z.string().optional().nullable(),
+  ndisRegistrationNumber: z.string().optional().nullable(),
   primaryContactName: z.string(),
   primaryContactEmail: z.string(),
   timezone: z.string(),
@@ -14,6 +14,22 @@ export const companySchema = z.object({
 });
 
 export type Company = z.infer<typeof companySchema>;
+
+export const companyRoleSchema = z.object({
+  id: z.string(),
+  roleKey: z.string(),
+  roleLabel: z.string(),
+});
+
+export type CompanyRole = z.infer<typeof companyRoleSchema>;
+
+export const companyDetailsSchema = companySchema.extend({
+  roles: z.array(companyRoleSchema),
+  adminEmail: z.string().nullable(),
+  adminName: z.string().nullable(),
+});
+
+export type CompanyDetails = z.infer<typeof companyDetailsSchema>;
 
 export const createCompanySchema = z.object({
   legalName: z.string().min(2, "Legal name is required"),
@@ -84,7 +100,7 @@ export async function getCompanies(): Promise<Company[]> {
   return res.json();
 }
 
-export async function getCompany(id: string): Promise<Company> {
+export async function getCompany(id: string): Promise<CompanyDetails> {
   const res = await fetch(`/api/console/companies/${id}`);
   
   if (!res.ok) {
