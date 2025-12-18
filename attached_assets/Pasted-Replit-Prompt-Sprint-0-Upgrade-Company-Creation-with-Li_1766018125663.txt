@@ -1,0 +1,290 @@
+Replit Prompt: Sprint 0 Upgrade — Company Creation with Line Items and Support Categories
+
+You are working inside an existing monorepo app with:
+
+Frontend: Vite + React 18 + TypeScript + Tailwind + shadcn/ui + Wouter
+
+Backend: Express (same port 5000)
+
+DB: Postgres
+
+ORM: Drizzle
+
+Requirement: strict multi-tenancy from the start
+
+Goal
+
+Extend Sprint 0 Console Manager “Create Company” flow so that when Console Manager creates a company, they can also configure the provider’s In-Scope Services using an NDIS-style Support Category + Line Item catalogue.
+
+The company creation form must support:
+
+One click “Select all services we deliver”
+
+Option to select by category (select all within category)
+
+Option to select individually (line items)
+
+Store the selected services under the new company for later auditing/reporting
+
+Default catalogue is seeded (console-controlled) with major categories relevant to disability service providers:
+
+Core Supports (common daily life + community participation items)
+
+Capacity Building (including Improved Daily Living, Improved Relationships, etc.)
+
+Behaviour Support (specialist behaviour supports under Improved Relationships conceptually)
+
+Assistive Technology (AT-related catalogue group)
+
+Therapy items (Speech Pathology) under Improved Daily Living conceptually
+
+This catalogue must be editable later by Console Manager (seeded defaults, then maintainable)
+
+Important: Do NOT hardcode every single NDIA line item from the entire Support Catalogue (it’s large and changes). Instead, create a structured catalogue that starts with common items for our operations, and can be expanded later.
+
+1) Database changes (Drizzle)
+1.1 New tables
+support_categories
+
+id (uuid pk)
+
+category_key (unique string) // e.g. CORE, CAPACITY_BUILDING, AT, BEHAVIOUR_SUPPORT, THERAPIES
+
+category_label (string) // e.g. “Core Supports”
+
+sort_order (int)
+
+created_at
+
+support_line_items
+
+id (uuid pk)
+
+category_id (uuid fk support_categories.id)
+
+item_code (string) // allow “0120” style short codes and/or full ref formats later
+
+item_label (string) // e.g. “Participate Community”
+
+budget_group (string) // e.g. “Core”, “Capacity Building”, “Capital”
+
+is_active (boolean default true)
+
+sort_order (int)
+
+created_at
+
+company_service_selections
+
+id (uuid pk)
+
+company_id (uuid fk companies.id)
+
+line_item_id (uuid fk support_line_items.id)
+
+selected_by_console_user_id (uuid nullable fk console_users.id)
+
+created_at
+
+unique(company_id, line_item_id)
+
+Notes:
+
+These tables are “global catalogue” (support_categories + support_line_items), not tenant-scoped.
+
+company_service_selections is tenant-scoped by company_id.
+
+1.2 Update companies table
+
+Add:
+
+service_selection_mode (enum: ALL, CATEGORY, CUSTOM) default CUSTOM
+
+service_catalogue_version (string nullable) // e.g. “seed-v1”
+
+updated_at
+
+1.3 Update change_log
+
+Ensure company creation + service selections write change_log entries:
+
+COMPANY_CREATED
+
+COMPANY_SERVICES_SELECTED
+
+COMPANY_SERVICE_MODE_SET
+
+2) Seed data: major categories + common line items
+
+On server start (or migration seed script), if support_categories is empty:
+Insert categories:
+
+CORE — “Core Supports”
+
+CAPACITY_BUILDING — “Capacity Building”
+
+BEHAVIOUR_SUPPORT — “Behaviour Support”
+
+THERAPIES — “Therapies”
+
+AT — “Assistive Technology”
+
+Seed a practical starter list of line items relevant to typical operations, including:
+
+Core (examples)
+
+0120 Participate Community
+
+0117 Household Tasks
+
+0107 Assist Travel / Transport / Transition
+
+0106 Assist Life Stage Transition
+
+Capacity Building (examples)
+
+0108 Development Life Skills
+
+Add common capacity building buckets as items even if final codes differ (label clearly)
+
+Behaviour Support (examples)
+
+Add items labelled for Specialist Positive Behaviour Support / Behaviour Management Plan & Training (store as line items with codes if known, otherwise store as “TBD” code but keep the label)
+
+Therapies (Speech Pathology)
+
+“Speech Pathology Assessment”
+
+“Speech Pathology Therapy”
+Store them as Therapy line items under THERAPIES and tag budget_group = “Capacity Building (Improved Daily Living)” conceptually.
+
+Assistive Technology
+
+Seed as broad line items:
+
+“Low Cost AT”
+
+“Assistive Technology – Assessment / Advice”
+
+“Assistive Technology – Training”
+
+“Consumables – AT related”
+Store as AT items and tag budget_group as “Capital/Consumables” as appropriate.
+
+Critical: Mark these as “Seed v1” and build the system so Console Manager can add/edit items later.
+
+3) Backend API changes
+3.1 Console endpoints (protected by requireConsoleAuth)
+
+Add:
+
+GET /api/console/support-catalogue
+
+Returns:
+
+categories with nested line items
+
+only active items
+
+POST /api/console/companies (extend existing)
+
+Accept additional fields:
+
+serviceSelectionMode: "ALL" | "CATEGORY" | "CUSTOM"
+
+selectedCategoryIds?: uuid[]
+
+selectedLineItemIds?: uuid[]
+
+Rules:
+
+If serviceSelectionMode=ALL → automatically select ALL active line items into company_service_selections
+
+If CATEGORY → select all line items under selected categories
+
+If CUSTOM → select selectedLineItemIds only
+
+Always write change_log with after_json containing selected IDs and mode
+
+Return a response containing companyId, mode, and the list count selected
+
+Also return initial Company Admin temp password (only on create) as previously implemented.
+
+CRUD for catalogue management (console only)
+
+POST /api/console/support-catalogue/categories
+
+POST /api/console/support-catalogue/line-items
+
+PATCH endpoints for label/code/is_active/order
+
+Keep validation strict and defensive.
+
+4) Frontend changes (Console UI)
+4.1 Update CreateCompanyPage
+
+Add a new section: “Services Delivered (NDIS in-scope supports)”
+UI requirements:
+
+A toggle/radio for selection mode:
+
+“All services”
+
+“Select by category”
+
+“Select individually”
+
+Fetch catalogue from GET /api/console/support-catalogue
+
+If category mode: show category cards with “Select all in this category”
+
+If individual mode: show searchable list with checkboxes grouped by category
+
+Always show a live count: “Selected: X line items”
+
+On submit, send the mode and selected IDs to POST /api/console/companies
+
+After successful creation:
+
+Confirmation panel includes:
+
+company created
+
+admin email
+
+temp password (display once)
+
+selected services summary (mode + number selected)
+
+link to CompanyDetailsPage
+
+4.2 Update CompanyDetailsPage
+
+Display:
+
+serviceSelectionMode
+
+selected services grouped by category
+
+total selected
+Read-only.
+
+5) Acceptance checks
+
+Console Manager can create company AND configure services in one flow
+
+“All services” selects all active line items
+
+Category selection selects all items under chosen categories
+
+Custom selection selects only picked items
+
+company_service_selections records are created correctly and tenant-scoped
+
+change_log records the selection action
+
+UI shows selected count and grouping clearly
+
+No tenant leakage and no cross-company edits
+
+Now implement everything above with strong typing, schema validation, and consistent dark-accent styling using shadcn/ui components.

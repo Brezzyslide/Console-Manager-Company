@@ -132,13 +132,25 @@ router.get("/companies", requireConsoleAuth, async (req, res) => {
   }
 });
 
+// Extended create company schema with service selection
+const createCompanyWithServicesSchema = insertCompanySchema.extend({
+  serviceSelectionMode: z.enum(["ALL", "CATEGORY", "CUSTOM"]).default("CUSTOM"),
+  selectedCategoryIds: z.array(z.string()).optional(),
+  selectedLineItemIds: z.array(z.string()).optional(),
+});
+
 // POST /api/console/companies
 router.post("/companies", requireConsoleAuth, async (req: AuthenticatedConsoleRequest, res) => {
   try {
-    const data = insertCompanySchema.parse(req.body);
+    const data = createCompanyWithServicesSchema.parse(req.body);
+    const { serviceSelectionMode, selectedCategoryIds, selectedLineItemIds, ...companyData } = data;
     
-    // Create company
-    const company = await storage.createCompany(data);
+    // Create company with service selection mode
+    const company = await storage.createCompany({
+      ...companyData,
+      serviceSelectionMode,
+      serviceCatalogueVersion: "seed-v1",
+    });
     
     // Log company creation
     await storage.logChange({
@@ -179,6 +191,41 @@ router.post("/companies", requireConsoleAuth, async (req: AuthenticatedConsoleRe
       afterJson: defaultRoles,
     });
     
+    // Handle service selections based on mode
+    let selectedItemIds: string[] = [];
+    
+    if (serviceSelectionMode === "ALL") {
+      const allItems = await storage.getActiveLineItems();
+      selectedItemIds = allItems.map(item => item.id);
+    } else if (serviceSelectionMode === "CATEGORY" && selectedCategoryIds?.length) {
+      const categoryItems = await storage.getLineItemsByCategoryIds(selectedCategoryIds);
+      selectedItemIds = categoryItems.map(item => item.id);
+    } else if (serviceSelectionMode === "CUSTOM" && selectedLineItemIds?.length) {
+      selectedItemIds = selectedLineItemIds;
+    }
+    
+    // Create company service selections
+    if (selectedItemIds.length > 0) {
+      const selections = selectedItemIds.map(lineItemId => ({
+        companyId: company.id,
+        lineItemId,
+        selectedByConsoleUserId: req.consoleUser!.consoleUserId,
+      }));
+      
+      await storage.createCompanyServiceSelections(selections);
+      
+      await storage.logChange({
+        actorType: "console",
+        actorId: req.consoleUser!.consoleUserId,
+        companyId: company.id,
+        action: "COMPANY_SERVICES_SELECTED",
+        entityType: "company",
+        entityId: company.id,
+        beforeJson: null,
+        afterJson: { mode: serviceSelectionMode, selectedCount: selectedItemIds.length, selectedItemIds },
+      });
+    }
+    
     // Generate temporary password for Company Admin
     const tempPassword = generateSecurePassword();
     const tempPasswordHash = await hashPassword(tempPassword);
@@ -186,8 +233,8 @@ router.post("/companies", requireConsoleAuth, async (req: AuthenticatedConsoleRe
     // Create initial Company Admin user
     const adminUser = await storage.createCompanyUser({
       companyId: company.id,
-      email: data.primaryContactEmail,
-      fullName: data.primaryContactName,
+      email: companyData.primaryContactEmail,
+      fullName: companyData.primaryContactName,
       role: "CompanyAdmin",
       tempPasswordHash,
       mustResetPassword: true,
@@ -208,7 +255,11 @@ router.post("/companies", requireConsoleAuth, async (req: AuthenticatedConsoleRe
     return res.status(201).json({
       company,
       adminEmail: adminUser.email,
-      tempPassword, // Return only once
+      tempPassword,
+      serviceSelection: {
+        mode: serviceSelectionMode,
+        selectedCount: selectedItemIds.length,
+      },
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -231,14 +282,73 @@ router.get("/companies/:id", requireConsoleAuth, async (req, res) => {
     const roles = await storage.getCompanyRoles(company.id);
     const admin = await storage.getCompanyAdmin(company.id);
     
+    // Get service selections with full details
+    const selections = await storage.getCompanyServiceSelections(company.id);
+    const allLineItems = await storage.getSupportLineItems();
+    const categories = await storage.getSupportCategories();
+    
+    const selectedItems = selections.map(sel => {
+      const item = allLineItems.find(i => i.id === sel.lineItemId);
+      const category = item ? categories.find(c => c.id === item.categoryId) : null;
+      return item ? {
+        id: item.id,
+        itemCode: item.itemCode,
+        itemLabel: item.itemLabel,
+        budgetGroup: item.budgetGroup,
+        categoryKey: category?.categoryKey,
+        categoryLabel: category?.categoryLabel,
+      } : null;
+    }).filter(Boolean);
+    
+    // Group by category
+    const servicesByCategory = categories.map(cat => ({
+      categoryKey: cat.categoryKey,
+      categoryLabel: cat.categoryLabel,
+      items: selectedItems.filter(item => item?.categoryKey === cat.categoryKey),
+    })).filter(cat => cat.items.length > 0);
+    
     return res.json({
       ...company,
       roles: roles.map(r => ({ id: r.id, roleKey: r.roleKey, roleLabel: r.roleLabel })),
       adminEmail: admin?.email || null,
       adminName: admin?.fullName || null,
+      serviceSelection: {
+        mode: company.serviceSelectionMode,
+        totalSelected: selectedItems.length,
+        byCategory: servicesByCategory,
+      },
     });
   } catch (error) {
     console.error("Get company error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/console/support-catalogue
+router.get("/support-catalogue", requireConsoleAuth, async (req, res) => {
+  try {
+    const categories = await storage.getSupportCategories();
+    const lineItems = await storage.getActiveLineItems();
+    
+    const catalogueWithItems = categories.map(cat => ({
+      id: cat.id,
+      categoryKey: cat.categoryKey,
+      categoryLabel: cat.categoryLabel,
+      sortOrder: cat.sortOrder,
+      lineItems: lineItems
+        .filter(item => item.categoryId === cat.id)
+        .map(item => ({
+          id: item.id,
+          itemCode: item.itemCode,
+          itemLabel: item.itemLabel,
+          budgetGroup: item.budgetGroup,
+          sortOrder: item.sortOrder,
+        })),
+    }));
+    
+    return res.json(catalogueWithItems);
+  } catch (error) {
+    console.error("Get support catalogue error:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

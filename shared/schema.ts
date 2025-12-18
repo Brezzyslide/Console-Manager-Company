@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, json, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -31,7 +31,10 @@ export const companies = pgTable("companies", {
   timezone: text("timezone").notNull().default("Australia/Melbourne"),
   complianceScope: text("compliance_scope").array().notNull().default(sql`ARRAY[]::text[]`),
   status: text("status", { enum: ["active", "suspended", "onboarding"] }).notNull().default("onboarding"),
+  serviceSelectionMode: text("service_selection_mode", { enum: ["ALL", "CATEGORY", "CUSTOM"] }).default("CUSTOM"),
+  serviceCatalogueVersion: text("service_catalogue_version"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
 });
 
 export const insertCompanySchema = createInsertSchema(companies).omit({
@@ -103,3 +106,57 @@ export const insertChangeLogSchema = createInsertSchema(changeLog).omit({
 
 export type InsertChangeLog = z.infer<typeof insertChangeLogSchema>;
 export type ChangeLog = typeof changeLog.$inferSelect;
+
+// Support Categories (Global catalogue - not tenant-scoped)
+export const supportCategories = pgTable("support_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryKey: text("category_key").notNull().unique(),
+  categoryLabel: text("category_label").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertSupportCategorySchema = createInsertSchema(supportCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSupportCategory = z.infer<typeof insertSupportCategorySchema>;
+export type SupportCategory = typeof supportCategories.$inferSelect;
+
+// Support Line Items (Global catalogue - not tenant-scoped)
+export const supportLineItems = pgTable("support_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: varchar("category_id").notNull().references(() => supportCategories.id, { onDelete: "cascade" }),
+  itemCode: text("item_code").notNull(),
+  itemLabel: text("item_label").notNull(),
+  budgetGroup: text("budget_group").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertSupportLineItemSchema = createInsertSchema(supportLineItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSupportLineItem = z.infer<typeof insertSupportLineItemSchema>;
+export type SupportLineItem = typeof supportLineItems.$inferSelect;
+
+// Company Service Selections (Tenant-scoped by company_id)
+export const companyServiceSelections = pgTable("company_service_selections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  lineItemId: varchar("line_item_id").notNull().references(() => supportLineItems.id, { onDelete: "cascade" }),
+  selectedByConsoleUserId: varchar("selected_by_console_user_id").references(() => consoleUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCompanyServiceSelectionSchema = createInsertSchema(companyServiceSelections).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCompanyServiceSelection = z.infer<typeof insertCompanyServiceSelectionSchema>;
+export type CompanyServiceSelection = typeof companyServiceSelections.$inferSelect;

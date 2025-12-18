@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  Loader2
+  Loader2,
+  ListChecks
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -166,6 +167,54 @@ export default function CompanyDetailsPage() {
                   <span className="text-sm text-muted-foreground italic">No compliance scope configured.</span>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <ListChecks className="h-5 w-5 text-primary" />
+                  Services Delivered
+                </CardTitle>
+                {company.serviceSelection && (
+                  <Badge variant="secondary">
+                    {company.serviceSelection.totalSelected} line items
+                  </Badge>
+                )}
+              </div>
+              <CardDescription>
+                NDIS in-scope supports configured for this provider.
+                {company.serviceSelectionMode && (
+                  <span className="ml-1">
+                    Selection mode: <span className="font-medium">{company.serviceSelectionMode}</span>
+                  </span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {company.serviceSelection && company.serviceSelection.byCategory.length > 0 ? (
+                <div className="space-y-4">
+                  {company.serviceSelection.byCategory.map((cat) => (
+                    <div key={cat.categoryKey} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-foreground">{cat.categoryLabel}</h4>
+                        <Badge variant="outline" className="text-xs">{cat.items.length} items</Badge>
+                      </div>
+                      <div className="grid gap-1 pl-2 border-l-2 border-muted">
+                        {cat.items.map((item) => (
+                          <div key={item.id} className="flex items-center gap-2 text-sm py-1">
+                            <Badge variant="outline" className="font-mono text-xs">{item.itemCode}</Badge>
+                            <span className="text-muted-foreground">{item.itemLabel}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground italic">No services configured.</span>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -4,6 +4,9 @@ import {
   companyUsers, 
   companyRoles,
   changeLog,
+  supportCategories,
+  supportLineItems,
+  companyServiceSelections,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -13,9 +16,15 @@ import {
   type CompanyRole,
   type InsertCompanyRole,
   type InsertChangeLog,
+  type SupportCategory,
+  type InsertSupportCategory,
+  type SupportLineItem,
+  type InsertSupportLineItem,
+  type CompanyServiceSelection,
+  type InsertCompanyServiceSelection,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Console Users
@@ -38,6 +47,19 @@ export interface IStorage {
   // Company Roles
   createCompanyRole(role: InsertCompanyRole): Promise<CompanyRole>;
   getCompanyRoles(companyId: string): Promise<CompanyRole[]>;
+  
+  // Support Catalogue
+  getSupportCategories(): Promise<SupportCategory[]>;
+  createSupportCategory(category: InsertSupportCategory): Promise<SupportCategory>;
+  getSupportLineItems(): Promise<SupportLineItem[]>;
+  getActiveLineItems(): Promise<SupportLineItem[]>;
+  getLineItemsByCategory(categoryId: string): Promise<SupportLineItem[]>;
+  getLineItemsByCategoryIds(categoryIds: string[]): Promise<SupportLineItem[]>;
+  createSupportLineItem(item: InsertSupportLineItem): Promise<SupportLineItem>;
+  
+  // Company Service Selections
+  createCompanyServiceSelections(selections: InsertCompanyServiceSelection[]): Promise<void>;
+  getCompanyServiceSelections(companyId: string): Promise<CompanyServiceSelection[]>;
   
   // Change Log
   logChange(change: InsertChangeLog): Promise<void>;
@@ -155,6 +177,63 @@ export class DatabaseStorage implements IStorage {
 
   async getCompanyRoles(companyId: string): Promise<CompanyRole[]> {
     return await db.select().from(companyRoles).where(eq(companyRoles.companyId, companyId));
+  }
+
+  // Support Catalogue
+  async getSupportCategories(): Promise<SupportCategory[]> {
+    return await db.select().from(supportCategories).orderBy(asc(supportCategories.sortOrder));
+  }
+
+  async createSupportCategory(category: InsertSupportCategory): Promise<SupportCategory> {
+    const [created] = await db.insert(supportCategories).values(category).returning();
+    return created;
+  }
+
+  async getSupportLineItems(): Promise<SupportLineItem[]> {
+    return await db.select().from(supportLineItems).orderBy(asc(supportLineItems.sortOrder));
+  }
+
+  async getActiveLineItems(): Promise<SupportLineItem[]> {
+    return await db
+      .select()
+      .from(supportLineItems)
+      .where(eq(supportLineItems.isActive, true))
+      .orderBy(asc(supportLineItems.sortOrder));
+  }
+
+  async getLineItemsByCategory(categoryId: string): Promise<SupportLineItem[]> {
+    return await db
+      .select()
+      .from(supportLineItems)
+      .where(and(eq(supportLineItems.categoryId, categoryId), eq(supportLineItems.isActive, true)))
+      .orderBy(asc(supportLineItems.sortOrder));
+  }
+
+  async getLineItemsByCategoryIds(categoryIds: string[]): Promise<SupportLineItem[]> {
+    if (categoryIds.length === 0) return [];
+    return await db
+      .select()
+      .from(supportLineItems)
+      .where(and(inArray(supportLineItems.categoryId, categoryIds), eq(supportLineItems.isActive, true)))
+      .orderBy(asc(supportLineItems.sortOrder));
+  }
+
+  async createSupportLineItem(item: InsertSupportLineItem): Promise<SupportLineItem> {
+    const [created] = await db.insert(supportLineItems).values(item).returning();
+    return created;
+  }
+
+  // Company Service Selections
+  async createCompanyServiceSelections(selections: InsertCompanyServiceSelection[]): Promise<void> {
+    if (selections.length === 0) return;
+    await db.insert(companyServiceSelections).values(selections);
+  }
+
+  async getCompanyServiceSelections(companyId: string): Promise<CompanyServiceSelection[]> {
+    return await db
+      .select()
+      .from(companyServiceSelections)
+      .where(eq(companyServiceSelections.companyId, companyId));
   }
 
   // Change Log

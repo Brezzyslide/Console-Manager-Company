@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { bootstrapConsoleUser } from "./lib/consoleAuth";
+import { seedSupportCatalogue } from "./seed-catalogue";
 import consoleRoutes from "./routes/console";
 import companyRoutes from "./routes/company";
 
@@ -67,6 +68,9 @@ app.use((req, res, next) => {
 (async () => {
   // Bootstrap console user on startup
   await bootstrapConsoleUser();
+  
+  // Seed support catalogue
+  await seedSupportCatalogue();
   
   // Mount console routes
   app.use("/api/console", consoleRoutes);

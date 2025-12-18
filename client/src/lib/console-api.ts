@@ -10,10 +10,51 @@ export const companySchema = z.object({
   timezone: z.string(),
   complianceScope: z.array(z.string()),
   status: z.enum(['active', 'suspended', 'onboarding']),
+  serviceSelectionMode: z.enum(['ALL', 'CATEGORY', 'CUSTOM']).nullable().optional(),
+  serviceCatalogueVersion: z.string().nullable().optional(),
   createdAt: z.string(),
 });
 
 export type Company = z.infer<typeof companySchema>;
+
+export const lineItemSchema = z.object({
+  id: z.string(),
+  itemCode: z.string(),
+  itemLabel: z.string(),
+  budgetGroup: z.string(),
+  sortOrder: z.number(),
+});
+
+export type LineItem = z.infer<typeof lineItemSchema>;
+
+export const categoryWithItemsSchema = z.object({
+  id: z.string(),
+  categoryKey: z.string(),
+  categoryLabel: z.string(),
+  sortOrder: z.number(),
+  lineItems: z.array(lineItemSchema),
+});
+
+export type CategoryWithItems = z.infer<typeof categoryWithItemsSchema>;
+
+export const serviceSelectionSummarySchema = z.object({
+  mode: z.enum(['ALL', 'CATEGORY', 'CUSTOM']).nullable(),
+  totalSelected: z.number(),
+  byCategory: z.array(z.object({
+    categoryKey: z.string(),
+    categoryLabel: z.string(),
+    items: z.array(z.object({
+      id: z.string(),
+      itemCode: z.string(),
+      itemLabel: z.string(),
+      budgetGroup: z.string(),
+      categoryKey: z.string().optional(),
+      categoryLabel: z.string().optional(),
+    })),
+  })),
+});
+
+export type ServiceSelectionSummary = z.infer<typeof serviceSelectionSummarySchema>;
 
 export const companyRoleSchema = z.object({
   id: z.string(),
@@ -27,6 +68,7 @@ export const companyDetailsSchema = companySchema.extend({
   roles: z.array(companyRoleSchema),
   adminEmail: z.string().nullable(),
   adminName: z.string().nullable(),
+  serviceSelection: serviceSelectionSummarySchema.optional(),
 });
 
 export type CompanyDetails = z.infer<typeof companyDetailsSchema>;
@@ -39,6 +81,9 @@ export const createCompanySchema = z.object({
   primaryContactEmail: z.string().email("Valid email is required"),
   timezone: z.string().default("Australia/Melbourne"),
   complianceScope: z.array(z.string()).default([]),
+  serviceSelectionMode: z.enum(["ALL", "CATEGORY", "CUSTOM"]).default("CUSTOM"),
+  selectedCategoryIds: z.array(z.string()).optional(),
+  selectedLineItemIds: z.array(z.string()).optional(),
 });
 
 export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
@@ -114,6 +159,7 @@ export async function createCompany(data: CreateCompanyInput): Promise<{
   company: Company;
   adminEmail: string;
   tempPassword: string;
+  serviceSelection: { mode: string; selectedCount: number };
 }> {
   const res = await fetch("/api/console/companies", {
     method: "POST",
@@ -123,6 +169,16 @@ export async function createCompany(data: CreateCompanyInput): Promise<{
   
   if (!res.ok) {
     throw new Error("Failed to create company");
+  }
+  
+  return res.json();
+}
+
+export async function getSupportCatalogue(): Promise<CategoryWithItems[]> {
+  const res = await fetch("/api/console/support-catalogue");
+  
+  if (!res.ok) {
+    throw new Error("Failed to fetch support catalogue");
   }
   
   return res.json();
