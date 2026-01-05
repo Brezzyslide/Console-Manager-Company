@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -104,10 +104,12 @@ export default function AuditRunnerPage() {
   };
 
   // Initialize form with existing response when current indicator changes
-  if (existingResponse && rating === null) {
-    setRating(existingResponse.rating);
-    setComment(existingResponse.comment || "");
-  }
+  useEffect(() => {
+    if (existingResponse) {
+      setRating(existingResponse.rating);
+      setComment(existingResponse.comment || "");
+    }
+  }, [currentIndicator?.id]);
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
