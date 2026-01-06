@@ -1,0 +1,59 @@
+Based on the logs provided, the core issue is a React "Infinite Loop" occurring on the frontend, despite the logs coming from your backend (Express) terminal.
+
+The specific error message:
+
+Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate.
+
+What is happening?
+A React component is re-rendering, and during that render (or immediately after), it triggers another update. This creates a loop that would freeze the browser if React didn't automatically kill the process.
+
+The Most Likely Culprit
+Looking at your network logs, the loop seems to trigger right after the frontend fetches the Support Catalogue data:
+
+12:31:34 AM [express] GET /api/console/support-catalogue 304
+
+Immediately followed by the RUNTIME_ERROR.
+
+The logic likely looks like this in your frontend code:
+
+The component renders.
+
+An useEffect or a function in the body of the component receives the Support Catalogue data.
+
+That code calls a setState or a dispatch (e.g., setCatalogue(data)).
+
+The Problem: The useEffect dependencies are likely missing or incorrect (e.g., the effect depends on the very state it is setting), or the state change triggers a parent component to re-render, which recreates the child, which fetches the data again.
+
+How to Fix It
+Check the React component that displays the Support Catalogue. Look for these patterns:
+
+1. The Missing Dependency Array
+If you are fetching data inside useEffect without a dependency array, it runs on every single render.
+
+JavaScript
+
+// ❌ WRONG: Runs every time the component updates
+useEffect(() => {
+  fetchData().then(data => setData(data)); 
+}); 
+
+// ✅ RIGHT: Only runs once on mount
+useEffect(() => {
+  fetchData().then(data => setData(data));
+}, []); 
+2. Derived State in the Render Body
+If you are transforming the catalogue data (e.g., mapping through categories) and saving that result back into a state variable directly in the component body:
+
+JavaScript
+
+// ❌ WRONG: Triggers a re-render, which triggers this code again...
+const [items, setItems] = useState([]);
+const processed = data.map(...) 
+setItems(processed); 
+3. Updating a Parent from a Child
+If the Catalogue component calls a function passed down from a parent (like onDataLoaded) without wrapping it in a useEffect or useCallback, it can cause the parent to re-render the child indefinitely.
+
+Recommended Next Steps
+Check the Frontend Console: Open your browser's Developer Tools (F12). The stack trace there will be much more descriptive than the one passed to the backend logs; it will point you to the exact line in your .tsx file causing the loop.
+
+Verify useEffect hooks: Specifically look at any hook that runs after GET /api/console/support-catalogue.

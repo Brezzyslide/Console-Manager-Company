@@ -44,7 +44,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 
 const SCOPE_OPTIONS = ["Core", "SIL", "BSP", "Medication"];
@@ -532,37 +531,36 @@ export default function CreateCompanyPage() {
                         {filteredCatalogue.map((cat) => {
                           const selectedInCategory = cat.lineItems.filter(item => selectedLineItemIds.includes(item.id)).length;
                           return (
-                          <Collapsible key={cat.id}>
-                            <div className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors">
-                              <CollapsibleTrigger className="flex items-center gap-2 flex-1">
-                                <ChevronRight className="h-4 w-4 text-muted-foreground collapsible-chevron" />
-                                <span className="font-medium text-sm">{cat.categoryLabel}</span>
-                                <Badge variant="secondary" className="text-xs">
-                                  {selectedInCategory}/{cat.lineItems.length}
-                                </Badge>
-                              </CollapsibleTrigger>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="text-xs"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  selectAllInCategory(cat);
-                                }}
-                              >
-                                Toggle all
-                              </Button>
-                            </div>
-                            <CollapsibleContent>
+                            <details key={cat.id} className="group">
+                              <summary className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors cursor-pointer list-none">
+                                <div className="flex items-center gap-2 flex-1">
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground group-open:rotate-90 transition-transform" />
+                                  <span className="font-medium text-sm">{cat.categoryLabel}</span>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {selectedInCategory}/{cat.lineItems.length}
+                                  </Badge>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    selectAllInCategory(cat);
+                                  }}
+                                >
+                                  Toggle all
+                                </Button>
+                              </summary>
                               <div className="pl-8 pr-3 pb-3 space-y-1">
                                 {cat.lineItems.map((item) => (
-                                  <div
+                                  <label
                                     key={item.id}
                                     className={`flex items-center space-x-2 p-2 rounded hover:bg-muted/50 transition-colors cursor-pointer ${
                                       selectedLineItemIds.includes(item.id) ? "bg-primary/5" : ""
                                     }`}
-                                    onClick={() => toggleLineItemSelection(item.id, !selectedLineItemIds.includes(item.id))}
                                   >
                                     <Checkbox
                                       checked={selectedLineItemIds.includes(item.id)}
@@ -575,12 +573,11 @@ export default function CreateCompanyPage() {
                                       </Badge>
                                       <span className="text-sm">{item.itemLabel}</span>
                                     </div>
-                                  </div>
+                                  </label>
                                 ))}
                               </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        );
+                            </details>
+                          );
                         })}
                       </div>
                     </div>
