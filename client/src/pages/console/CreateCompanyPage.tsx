@@ -548,8 +548,8 @@ export default function CreateCompanyPage() {
                             open={expandedCategories.has(cat.id)}
                             onOpenChange={() => toggleCategory(cat.id)}
                           >
-                            <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors">
-                              <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors">
+                              <CollapsibleTrigger className="flex items-center gap-2 flex-1">
                                 {expandedCategories.has(cat.id) ? (
                                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                 ) : (
@@ -559,7 +559,7 @@ export default function CreateCompanyPage() {
                                 <Badge variant="secondary" className="text-xs">
                                   {cat.lineItems.filter(item => selectedLineItemIds.includes(item.id)).length}/{cat.lineItems.length}
                                 </Badge>
-                              </div>
+                              </CollapsibleTrigger>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -572,7 +572,7 @@ export default function CreateCompanyPage() {
                               >
                                 Toggle all
                               </Button>
-                            </CollapsibleTrigger>
+                            </div>
                             <CollapsibleContent>
                               <div className="pl-8 pr-3 pb-3 space-y-1">
                                 {cat.lineItems.map((item) => (
