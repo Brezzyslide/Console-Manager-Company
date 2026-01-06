@@ -33,7 +33,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
   
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      setLocation("/company/login");
+      setLocation("/?mode=provider");
     }
   }, [isLoading, isAuthenticated, setLocation]);
   
@@ -80,7 +80,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
 
   const handleLogout = async () => {
     await logout();
-    setLocation("/company/login");
+    setLocation("/?mode=provider");
   };
 
   const isAdmin = user?.role === "CompanyAdmin";

@@ -20,7 +20,7 @@ export function ConsoleLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      setLocation("/console/login");
+      setLocation("/?mode=console");
     }
   }, [isLoading, isAuthenticated, setLocation]);
 
