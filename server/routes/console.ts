@@ -473,7 +473,7 @@ router.post("/companies/:id/users/:userId/reset-password", requireConsoleAuth, a
     const tempPassword = generateSecurePassword();
     const tempPasswordHash = await hashPassword(tempPassword);
     
-    await storage.updateCompanyUserPassword(user.id, tempPasswordHash);
+    await storage.setTempPassword(user.id, user.companyId, tempPasswordHash);
     
     await storage.logChange({
       actorType: "console",
@@ -482,8 +482,8 @@ router.post("/companies/:id/users/:userId/reset-password", requireConsoleAuth, a
       action: "COMPANY_USER_PASSWORD_RESET",
       entityType: "company_user",
       entityId: user.id,
-      beforeJson: null,
-      afterJson: { email: user.email, resetBy: "console" },
+      beforeJson: { mustResetPassword: false },
+      afterJson: { email: user.email, resetBy: "console", mustResetPassword: true },
     });
     
     return res.json({
