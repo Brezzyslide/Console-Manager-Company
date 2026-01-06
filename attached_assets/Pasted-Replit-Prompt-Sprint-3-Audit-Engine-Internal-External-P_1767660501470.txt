@@ -1,0 +1,629 @@
+Replit Prompt — Sprint 3: Audit Engine (Internal + External Pathways, Line Item First)
+
+You are working inside an existing monorepo app with:
+
+Frontend: Vite + React 18 + TypeScript + Tailwind + shadcn/ui + Wouter
+
+Backend: Express (same port 5000)
+
+DB: Postgres
+
+ORM: Drizzle
+
+Requirements:
+
+strict multi-tenancy and RBAC
+
+NO mock data or seeded demo content
+
+audit scope must be line-item first (support delivered context), with service delivery type/context as a required scope dimension
+
+must support two audit pathways: Internal and External
+
+Existing (from Sprints 0–2):
+
+Console Manager + Company creation
+
+Company service selection (line items/support categories) stored in company_service_selections
+
+Company user auth + CompanyAdmin management
+
+Onboarding wizard: company_settings + company_documents + services review
+
+change_log is active and required
+
+Sprint 3 Goal
+
+Build the Audit Creation + Scoping + Runner foundation with two pathways:
+
+Internal Audit (provider audits themselves inside their tenant)
+
+External Audit (external auditor audits a provider; includes “audit onboarding” if provider does not yet exist in the system)
+
+This sprint must deliver:
+
+“Create Audit” flow with Internal/External selection
+
+Audit scope screen that forces:
+
+line items selection
+
+service delivery context selection (e.g. SIL, Community Access, In-home)
+
+timeframe
+
+Audit runner that allows scoring per indicator and stores responses
+
+Findings generation from non-conformance scoring (open by default)
+
+Basic registers/lists to view audits and findings
+
+Important: Do NOT build AI generation yet. That comes later.
+
+1) Database (Drizzle)
+1.1 New enums
+
+audit_type: "INTERNAL" | "EXTERNAL"
+
+audit_status: "DRAFT" | "IN_PROGRESS" | "IN_REVIEW" | "CLOSED"
+
+indicator_rating: "CONFORMANCE" | "OBSERVATION" | "MINOR_NC" | "MAJOR_NC"
+
+finding_status: "OPEN" | "UNDER_REVIEW" | "CLOSED"
+
+service_context: "SIL" | "COMMUNITY_ACCESS" | "IN_HOME" | "CENTRE_BASED" | "OTHER"
+
+1.2 New tables
+audits
+
+Tenant-scoped:
+
+id (uuid pk)
+
+company_id (uuid fk companies.id)
+
+audit_type (enum audit_type)
+
+title (string required)
+
+description (text nullable)
+
+status (enum audit_status default DRAFT)
+
+service_context (enum service_context required)
+
+scope_time_from (date required)
+
+scope_time_to (date required)
+
+created_by_company_user_id (uuid nullable fk company_users.id) // internal initiator
+
+created_by_console_user_id (uuid nullable fk console_users.id) // if created by console (optional)
+
+external_auditor_name (string nullable)
+
+external_auditor_org (string nullable)
+
+external_auditor_email (string nullable)
+
+scope_locked (boolean default false) // must lock for external audits once started
+
+created_at
+
+updated_at
+
+audit_scope_line_items
+
+id (uuid pk)
+
+audit_id (uuid fk audits.id)
+
+line_item_id (uuid fk support_line_items.id)
+
+unique(audit_id, line_item_id)
+
+audit_templates (minimal v1, no mock seed)
+
+We need templates but cannot seed them.
+Allow companies to create minimal templates.
+
+id (uuid pk)
+
+company_id (uuid fk)
+
+name (string required)
+
+description (text nullable)
+
+is_active (boolean default true)
+
+created_at
+
+audit_template_indicators
+
+id (uuid pk)
+
+template_id (uuid fk audit_templates.id)
+
+indicator_text (text required)
+
+guidance_text (text nullable)
+
+evidence_requirements (text nullable)
+
+risk_level (enum: "LOW" | "MEDIUM" | "HIGH" default MEDIUM)
+
+is_critical_control (boolean default false)
+
+sort_order (int)
+
+created_at
+
+audit_runs
+
+Connect an audit to a template selection:
+
+id (uuid pk)
+
+audit_id (uuid fk audits.id, unique)
+
+template_id (uuid fk audit_templates.id)
+
+started_at (timestamp nullable)
+
+completed_at (timestamp nullable)
+
+created_at
+
+audit_indicator_responses
+
+One row per indicator per audit:
+
+id (uuid pk)
+
+audit_id (uuid fk audits.id)
+
+template_indicator_id (uuid fk audit_template_indicators.id)
+
+rating (enum indicator_rating required)
+
+comment (text nullable)
+
+status (enum: "OPEN" | "CLOSED" default "OPEN") // status per indicator
+
+created_by_company_user_id (uuid fk company_users.id)
+
+created_at
+
+updated_at
+Constraints:
+
+comment is required for OBSERVATION/MINOR_NC/MAJOR_NC
+
+findings
+
+id (uuid pk)
+
+company_id (uuid fk)
+
+audit_id (uuid fk audits.id)
+
+template_indicator_id (uuid fk audit_template_indicators.id)
+
+severity (enum: "MINOR_NC" | "MAJOR_NC")
+
+finding_text (text required) // initially generated from indicator_text + comment (no AI yet)
+
+status (enum finding_status default OPEN)
+
+owner_company_user_id (uuid nullable fk company_users.id)
+
+due_date (date nullable)
+
+created_at
+
+updated_at
+
+Notes:
+
+Keep everything tenant-scoped.
+
+External audit identity is stored on the audit row for now (no external user accounts yet).
+
+We will add external auditor accounts later; for Sprint 3 store identity fields only.
+
+1.3 change_log actions (must write)
+
+AUDIT_CREATED
+
+AUDIT_SCOPE_UPDATED
+
+AUDIT_TEMPLATE_SELECTED
+
+AUDIT_STARTED
+
+AUDIT_RESPONSE_SAVED
+
+FINDING_CREATED
+
+AUDIT_SUBMITTED_FOR_REVIEW
+
+AUDIT_CLOSED
+
+2) Backend API (Express)
+
+All tenant endpoints must:
+
+requireCompanyAuth
+
+derive companyId from token
+
+enforce RBAC
+
+enforce scope locking for external audits
+
+2.1 Audit creation endpoints
+POST /api/company/audits
+
+Creates an audit (DRAFT).
+Input:
+
+auditType ("INTERNAL" | "EXTERNAL")
+
+title
+
+description (optional)
+
+serviceContext (required)
+
+scopeTimeFrom (required)
+
+scopeTimeTo (required)
+
+externalAuditorName/org/email (required if auditType=EXTERNAL)
+Rules:
+
+If INTERNAL:
+
+created_by_company_user_id = current user
+
+If EXTERNAL:
+
+allow creation only by CompanyAdmin or Auditor
+
+set scope_locked=false initially
+Write change_log AUDIT_CREATED
+
+GET /api/company/audits
+
+List audits for company with filters:
+
+status, auditType, date range
+
+GET /api/company/audits/:id
+
+Return audit details + selected scope line items + selected template (if any)
+
+2.2 Audit scope endpoints (line item first)
+GET /api/company/audits/:id/scope-options
+
+Return available line items for selection:
+
+Only those the company has selected in company_service_selections
+
+Grouped by category
+
+PUT /api/company/audits/:id/scope
+
+Input:
+
+lineItemIds (uuid[] required, min 1)
+Rules:
+
+If audit.scope_locked is true, reject
+
+Replace audit_scope_line_items transactionally
+Write change_log AUDIT_SCOPE_UPDATED
+
+2.3 Template endpoints (no seeding)
+POST /api/company/audit-templates
+
+CompanyAdmin/Auditor only.
+Input:
+
+name, description
+Creates empty template.
+
+POST /api/company/audit-templates/:id/indicators
+
+Add indicator rows.
+Input:
+
+indicatorText (required)
+
+guidanceText (optional)
+
+evidenceRequirements (optional)
+
+riskLevel (optional)
+
+isCriticalControl (optional)
+
+sortOrder (optional)
+No mock indicators; user must create them.
+
+GET /api/company/audit-templates
+
+List templates + indicator counts
+
+GET /api/company/audit-templates/:id
+
+Return template + indicators ordered by sort_order
+
+2.4 Select template for an audit
+PUT /api/company/audits/:id/template
+
+Input:
+
+templateId (required)
+Rules:
+
+If audit.scope_locked is true and audit.status != DRAFT, reject changes
+
+Create/Upsert audit_runs row linking audit to template
+Write change_log AUDIT_TEMPLATE_SELECTED
+
+2.5 Start audit / runner endpoints
+POST /api/company/audits/:id/start
+
+Rules:
+
+Must have at least 1 scope line item selected
+
+Must have template selected
+
+Set audit.status = IN_PROGRESS
+
+If audit.audit_type == EXTERNAL:
+
+set scope_locked = true immediately upon start
+
+Set audit_runs.started_at
+Write change_log AUDIT_STARTED
+
+GET /api/company/audits/:id/runner
+
+Return:
+
+audit details
+
+scope line items
+
+ordered list of indicators for the template
+
+any saved responses for those indicators
+
+PUT /api/company/audits/:id/responses/:indicatorId
+
+Save response for one indicator.
+Input:
+
+rating
+
+comment (required unless CONFORMANCE)
+Rules:
+
+Must be IN_PROGRESS
+
+Enforce comment required for OBSERVATION/MINOR_NC/MAJOR_NC
+
+Upsert audit_indicator_responses
+
+If rating is MINOR_NC or MAJOR_NC:
+
+create finding if not already exists for that indicator + audit
+
+finding_text should be a deterministic composition:
+“Indicator: {indicator_text}. Auditor comment: {comment}.”
+Write change_log AUDIT_RESPONSE_SAVED and FINDING_CREATED if created
+
+POST /api/company/audits/:id/submit
+
+Moves audit to IN_REVIEW.
+Rules:
+
+Must have responses for all indicators (or allow partial submit but mark incomplete; prefer require all)
+Write change_log AUDIT_SUBMITTED_FOR_REVIEW
+
+POST /api/company/audits/:id/close
+
+Reviewer or CompanyAdmin only.
+Rules:
+
+Can close only if no open MAJOR findings OR if company chooses to close with open findings, require a reason field (store on audit.description append or new field close_reason)
+
+Set audit.status=CLOSED
+Write change_log AUDIT_CLOSED
+
+2.6 Findings endpoints
+GET /api/company/findings
+
+List findings with filters:
+
+status, severity, auditId, owner, dueDate
+
+GET /api/company/findings/:id
+
+Return finding details + linked audit + indicator + response
+
+PATCH /api/company/findings/:id
+
+Update:
+
+owner_company_user_id
+
+due_date
+
+status (only allow CLOSED by Reviewer/CompanyAdmin; keep OPEN/UNDER_REVIEW for others)
+Write change_log accordingly.
+
+3) Frontend (React + Wouter) — Audit Pathways UI
+
+Create:
+
+src/app/audits/
+
+routes/audit-routes.tsx
+
+pages/AuditsHomePage.tsx
+
+pages/CreateAuditPage.tsx
+
+pages/AuditScopePage.tsx
+
+pages/AuditTemplateSelectPage.tsx
+
+pages/AuditRunnerPage.tsx
+
+pages/AuditReviewPage.tsx (basic review + submit)
+
+pages/FindingsRegisterPage.tsx
+
+components/AuditTypePicker.tsx
+
+components/LineItemSelector.tsx
+
+components/ServiceContextSelector.tsx
+
+hooks/useAudits.ts, useAudit.ts, useFindings.ts
+
+Routes:
+
+/audits
+
+/audits/new
+
+/audits/:id/scope
+
+/audits/:id/template
+
+/audits/:id/run
+
+/audits/:id/review
+
+/findings
+
+3.1 CreateAuditPage
+
+Must implement the “boom” moment:
+Step 1: Select Audit Type
+
+Internal
+
+External
+
+If Internal selected:
+
+show fields: title, timeframe, service context
+
+If External selected:
+
+show same fields + external auditor identity fields (name/org/email)
+
+show explanation that scope locks once audit starts
+
+On submit:
+
+POST /api/company/audits
+
+redirect to /audits/:id/scope
+
+3.2 AuditScopePage (line item first)
+
+Fetch scope options from /scope-options
+
+Selector supports:
+
+Select all available line items
+
+Select by category
+
+Select individually
+
+Save -> PUT /scope
+
+Next -> /template
+
+Only allow selecting line items that exist in company_service_selections.
+
+3.3 AuditTemplateSelectPage
+
+List existing templates
+
+Allow creating a new template (modal) and adding indicators (basic UI)
+
+Select template -> PUT /template
+
+Next -> Start audit
+
+Note: No mock templates. User must create at least 1 template and add indicators.
+
+3.4 AuditRunnerPage
+
+Loads runner payload: indicators + any responses
+
+Shows progress count
+
+For each indicator:
+
+rating buttons
+
+comment box (required when rating is not conformance)
+
+save button
+
+Provide Next/Prev navigation
+
+When all indicators have responses:
+
+enable “Submit for review” -> POST /submit -> redirect to /review
+
+3.5 FindingsRegisterPage
+
+Table/list view of findings
+
+Filters by severity/status/audit
+
+Click to view finding details (simple drawer or page)
+
+Allow setting owner and due date (RBAC gated)
+
+Allow closing finding only by Reviewer/CompanyAdmin
+
+3.6 Guards and UX rules
+
+If company onboarding not completed, block audit routes and redirect to /onboarding
+
+Scope lock:
+
+For external audits, once audit started, hide/disable scope edits with clear message
+
+Show clean validation messages and no generic error text
+
+Styling must match the existing dark-accent theme
+
+4) Acceptance Criteria (Sprint 3)
+
+After Sprint 3, a company can:
+
+Create an Internal audit, select scope (line items + service context + timeframe), select template, run audit, record responses, auto-create findings
+
+Create an External audit record, capture external auditor identity, then same flow, with scope locking on start
+
+View a list of audits and findings
+
+All actions are tenant-scoped and logged in change_log
+
+No mock data is introduced; templates and indicators must be created by users.
+
+Now implement everything above with clean code, strong typing, Zod validation, defensive error handling, and consistent UI using shadcn/ui components.
