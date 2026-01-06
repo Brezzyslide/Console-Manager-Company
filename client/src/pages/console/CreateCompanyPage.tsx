@@ -54,7 +54,6 @@ export default function CreateCompanyPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   
   const [successData, setSuccessData] = useState<{
     id: string;
@@ -113,18 +112,6 @@ export default function CreateCompanyPage() {
       ),
     })).filter(cat => cat.lineItems.length > 0 || cat.categoryLabel.toLowerCase().includes(query));
   }, [catalogue, searchQuery]);
-
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategories(prev => {
-      const next = new Set(prev);
-      if (next.has(categoryId)) {
-        next.delete(categoryId);
-      } else {
-        next.add(categoryId);
-      }
-      return next;
-    });
-  };
 
   const toggleCategorySelection = (categoryId: string, checked: boolean) => {
     const current = form.getValues("selectedCategoryIds") || [];
@@ -542,22 +529,16 @@ export default function CreateCompanyPage() {
                       </div>
 
                       <div className="border rounded-lg divide-y max-h-[400px] overflow-y-auto">
-                        {filteredCatalogue.map((cat) => (
-                          <Collapsible
-                            key={cat.id}
-                            open={expandedCategories.has(cat.id)}
-                            onOpenChange={() => toggleCategory(cat.id)}
-                          >
+                        {filteredCatalogue.map((cat) => {
+                          const selectedInCategory = cat.lineItems.filter(item => selectedLineItemIds.includes(item.id)).length;
+                          return (
+                          <Collapsible key={cat.id}>
                             <div className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors">
                               <CollapsibleTrigger className="flex items-center gap-2 flex-1">
-                                {expandedCategories.has(cat.id) ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                )}
+                                <ChevronRight className="h-4 w-4 text-muted-foreground collapsible-chevron" />
                                 <span className="font-medium text-sm">{cat.categoryLabel}</span>
                                 <Badge variant="secondary" className="text-xs">
-                                  {cat.lineItems.filter(item => selectedLineItemIds.includes(item.id)).length}/{cat.lineItems.length}
+                                  {selectedInCategory}/{cat.lineItems.length}
                                 </Badge>
                               </CollapsibleTrigger>
                               <Button
@@ -599,7 +580,8 @@ export default function CreateCompanyPage() {
                               </div>
                             </CollapsibleContent>
                           </Collapsible>
-                        ))}
+                        );
+                        })}
                       </div>
                     </div>
                   )}
