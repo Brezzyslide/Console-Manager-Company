@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useLocation, Link } from "wouter";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,16 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Loader2, ClipboardCheck, UserCheck, AlertTriangle } from "lucide-react";
-import { createAudit, type AuditType, type ServiceContext } from "@/lib/company-api";
-
-const serviceContextOptions: { value: ServiceContext; label: string }[] = [
-  { value: "SIL", label: "Supported Independent Living (SIL)" },
-  { value: "COMMUNITY_ACCESS", label: "Community Access" },
-  { value: "IN_HOME", label: "In-Home Support" },
-  { value: "CENTRE_BASED", label: "Centre Based" },
-  { value: "OTHER", label: "Other" },
-];
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ArrowLeft, ArrowRight, Loader2, ClipboardCheck, UserCheck, AlertTriangle, Settings } from "lucide-react";
+import { createAudit, getAuditOptions, type AuditType } from "@/lib/company-api";
 
 export default function CreateAuditPage() {
   const [, navigate] = useLocation();
@@ -27,12 +20,18 @@ export default function CreateAuditPage() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    serviceContext: "" as ServiceContext | "",
+    serviceContextKey: "",
+    serviceContextLabel: "",
     scopeTimeFrom: "",
     scopeTimeTo: "",
     externalAuditorName: "",
     externalAuditorOrg: "",
     externalAuditorEmail: "",
+  });
+
+  const { data: auditOptions, isLoading: optionsLoading } = useQuery({
+    queryKey: ["auditOptions"],
+    queryFn: getAuditOptions,
   });
 
   const createMutation = useMutation({
@@ -42,14 +41,26 @@ export default function CreateAuditPage() {
     },
   });
 
+  const handleServiceContextChange = (label: string) => {
+    const context = auditOptions?.serviceContexts.find(c => c.label === label);
+    if (context) {
+      setFormData(prev => ({ 
+        ...prev, 
+        serviceContextKey: context.key,
+        serviceContextLabel: context.label,
+      }));
+    }
+  };
+
   const handleSubmit = () => {
-    if (!auditType || !formData.serviceContext) return;
+    if (!auditType || !formData.serviceContextLabel) return;
     
     createMutation.mutate({
       auditType,
       title: formData.title,
       description: formData.description || undefined,
-      serviceContext: formData.serviceContext,
+      serviceContextKey: formData.serviceContextKey,
+      serviceContextLabel: formData.serviceContextLabel,
       scopeTimeFrom: formData.scopeTimeFrom,
       scopeTimeTo: formData.scopeTimeTo,
       externalAuditorName: auditType === "EXTERNAL" ? formData.externalAuditorName : undefined,
@@ -58,10 +69,14 @@ export default function CreateAuditPage() {
     });
   };
 
+  const serviceContextsConfigured = (auditOptions?.serviceContexts?.length ?? 0) > 0;
+  const lineItemsConfigured = (auditOptions?.selectedLineItemCount ?? 0) > 0;
+  const isOnboardingComplete = serviceContextsConfigured && lineItemsConfigured;
+
   const isStep1Valid = auditType !== null;
   const isStep2Valid = 
     formData.title.trim() !== "" &&
-    formData.serviceContext !== "" &&
+    formData.serviceContextLabel !== "" &&
     formData.scopeTimeFrom !== "" &&
     formData.scopeTimeTo !== "" &&
     (auditType === "INTERNAL" || (
@@ -69,6 +84,64 @@ export default function CreateAuditPage() {
       formData.externalAuditorOrg.trim() !== "" &&
       formData.externalAuditorEmail.trim() !== ""
     ));
+
+  if (optionsLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!isOnboardingComplete) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-2xl">
+        <Button variant="ghost" className="mb-4" onClick={() => navigate("/audits")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Audits
+        </Button>
+
+        <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-yellow-500" />
+              Complete Onboarding First
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              Before creating an audit, you need to configure your organization's service scope and delivery contexts.
+            </p>
+            
+            {!serviceContextsConfigured && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Service delivery contexts are not configured. These define what types of services you provide (e.g., SIL, Community Access).
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {!lineItemsConfigured && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  No service line items have been selected. Please configure your service scope in onboarding.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <Button asChild className="mt-4" data-testid="button-go-to-onboarding">
+              <Link href="/onboarding">
+                Complete Onboarding
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-2xl">
@@ -172,18 +245,21 @@ export default function CreateAuditPage() {
               <div className="space-y-2">
                 <Label>Service Delivery Context *</Label>
                 <Select 
-                  value={formData.serviceContext} 
-                  onValueChange={(v) => setFormData(prev => ({ ...prev, serviceContext: v as ServiceContext }))}
+                  value={formData.serviceContextLabel} 
+                  onValueChange={handleServiceContextChange}
                 >
                   <SelectTrigger data-testid="select-service-context">
                     <SelectValue placeholder="Select service context" />
                   </SelectTrigger>
                   <SelectContent>
-                    {serviceContextOptions.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    {auditOptions?.serviceContexts.map(opt => (
+                      <SelectItem key={opt.label} value={opt.label}>{opt.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  These options are configured in your organization's onboarding settings
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

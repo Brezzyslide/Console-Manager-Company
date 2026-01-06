@@ -473,6 +473,35 @@ export interface ScopeOption {
   lineItems: { id: string; itemCode: string; itemLabel: string; budgetGroup: string }[];
 }
 
+export interface ServiceContextOption {
+  key: string;
+  label: string;
+}
+
+export interface LineItemOption {
+  lineItemId: string;
+  code: string;
+  label: string;
+}
+
+export interface LineItemsByCategory {
+  categoryId: string;
+  categoryKey: string;
+  categoryLabel: string;
+  items: LineItemOption[];
+}
+
+export interface AuditOptions {
+  serviceContexts: ServiceContextOption[];
+  lineItemsByCategory: LineItemsByCategory[];
+  selectedLineItemCount: number;
+}
+
+export interface ScopeOptionsResponse {
+  lineItemsByCategory: LineItemsByCategory[];
+  selectedLineItemCount: number;
+}
+
 export interface AuditRunnerData {
   audit: Audit;
   template: AuditTemplate | null;
@@ -482,11 +511,18 @@ export interface AuditRunnerData {
   progress: { total: number; completed: number };
 }
 
+export async function getAuditOptions(): Promise<AuditOptions> {
+  const res = await fetch("/api/company/audits/options", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch audit options");
+  return res.json();
+}
+
 export async function createAudit(input: {
   auditType: AuditType;
   title: string;
   description?: string;
-  serviceContext: ServiceContext;
+  serviceContextKey: string;
+  serviceContextLabel: string;
   scopeTimeFrom: string;
   scopeTimeTo: string;
   externalAuditorName?: string;
@@ -501,7 +537,7 @@ export async function createAudit(input: {
   });
   if (!res.ok) {
     const data = await res.json();
-    throw new Error(data.error || "Failed to create audit");
+    throw new Error(data.error || data.message || "Failed to create audit");
   }
   return res.json();
 }
@@ -528,7 +564,7 @@ export async function getScopeOptions(): Promise<{ categories: ScopeOption[] }> 
   return res.json();
 }
 
-export async function getAuditScopeOptions(auditId: string): Promise<{ categories: ScopeOption[] }> {
+export async function getAuditScopeOptions(auditId: string): Promise<ScopeOptionsResponse> {
   const res = await fetch(`/api/company/audits/${auditId}/scope-options`, { credentials: "include" });
   if (!res.ok) throw new Error("Failed to fetch scope options");
   return res.json();
