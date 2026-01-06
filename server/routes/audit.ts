@@ -11,11 +11,76 @@ import {
 
 const router = Router();
 
+const DEFAULT_SERVICE_CONTEXTS = [
+  { key: "SIL", label: "Supported Independent Living (SIL)" },
+  { key: "COMMUNITY_ACCESS", label: "Community Access" },
+  { key: "IN_HOME", label: "In-Home Support" },
+  { key: "CENTRE_BASED", label: "Centre Based" },
+] as const;
+
+function mapLabelToEnumKey(label: string): typeof serviceContextEnum[number] {
+  const match = DEFAULT_SERVICE_CONTEXTS.find(
+    ctx => ctx.label.toLowerCase() === label.toLowerCase() || ctx.key.toLowerCase() === label.toLowerCase()
+  );
+  if (match) {
+    return match.key as typeof serviceContextEnum[number];
+  }
+  return "OTHER";
+}
+
+router.get("/audits/options", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    
+    const settings = await storage.getCompanySettings(companyId);
+    const selections = await storage.getCompanyServiceSelections(companyId);
+    const allLineItems = await storage.getSupportLineItems();
+    const categories = await storage.getSupportCategories();
+    
+    let serviceContexts: { key: string; label: string }[] = [];
+    
+    if (settings?.supportDeliveryContexts && settings.supportDeliveryContexts.length > 0) {
+      serviceContexts = settings.supportDeliveryContexts.map(label => ({
+        key: mapLabelToEnumKey(label),
+        label,
+      }));
+    }
+    
+    const lineItemIds = selections.map(s => s.lineItemId);
+    const availableLineItems = allLineItems.filter(li => lineItemIds.includes(li.id) && li.isActive);
+    
+    const lineItemsByCategory = categories
+      .map(cat => ({
+        categoryId: cat.id,
+        categoryKey: cat.categoryKey,
+        categoryLabel: cat.categoryLabel,
+        items: availableLineItems
+          .filter(li => li.categoryId === cat.id)
+          .map(li => ({
+            lineItemId: li.id,
+            code: li.itemCode,
+            label: li.itemLabel,
+          })),
+      }))
+      .filter(g => g.items.length > 0);
+    
+    return res.json({
+      serviceContexts,
+      lineItemsByCategory,
+      selectedLineItemCount: availableLineItems.length,
+    });
+  } catch (error) {
+    console.error("Get audit options error:", error);
+    return res.status(500).json({ error: "Failed to fetch audit options" });
+  }
+});
+
 const createAuditSchema = z.object({
   auditType: z.enum(auditTypeEnum),
   title: z.string().min(1, "Title is required"),
   description: z.string().nullable().optional(),
-  serviceContext: z.enum(serviceContextEnum),
+  serviceContextKey: z.string().min(1, "Service context is required"),
+  serviceContextLabel: z.string().min(1, "Service context label is required"),
   scopeTimeFrom: z.string().transform(s => new Date(s)),
   scopeTimeTo: z.string().transform(s => new Date(s)),
   externalAuditorName: z.string().optional(),
@@ -35,12 +100,30 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
     
     const input = createAuditSchema.parse(req.body);
     
+    const settings = await storage.getCompanySettings(companyId);
+    const configuredContexts = settings?.supportDeliveryContexts || [];
+    
+    if (configuredContexts.length > 0) {
+      const isValidContext = configuredContexts.some(
+        ctx => ctx.toLowerCase() === input.serviceContextLabel.toLowerCase()
+      );
+      if (!isValidContext) {
+        return res.status(400).json({ 
+          error: "Invalid service context", 
+          message: "The selected service context is not configured for this company" 
+        });
+      }
+    }
+    
+    const serviceContextEnum = mapLabelToEnumKey(input.serviceContextLabel);
+    
     const audit = await storage.createAudit({
       companyId,
       auditType: input.auditType,
       title: input.title,
       description: input.description || null,
-      serviceContext: input.serviceContext,
+      serviceContext: serviceContextEnum,
+      serviceContextLabel: input.serviceContextLabel,
       scopeTimeFrom: input.scopeTimeFrom,
       scopeTimeTo: input.scopeTimeTo,
       createdByCompanyUserId: userId,
@@ -57,7 +140,7 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
       action: "AUDIT_CREATED",
       entityType: "audit",
       entityId: audit.id,
-      afterJson: { auditType: input.auditType, title: input.title, serviceContext: input.serviceContext },
+      afterJson: { auditType: input.auditType, title: input.title, serviceContext: serviceContextEnum, serviceContextLabel: input.serviceContextLabel },
     });
     
     return res.status(201).json(audit);
@@ -125,22 +208,36 @@ router.get("/audits/:id/scope-options", requireCompanyAuth, async (req: Authenti
     const lineItemIds = selections.map(s => s.lineItemId);
     
     if (lineItemIds.length === 0) {
-      return res.json({ categories: [] });
+      return res.json({ 
+        lineItemsByCategory: [],
+        selectedLineItemCount: 0,
+      });
     }
     
     const allLineItems = await storage.getSupportLineItems();
     const categories = await storage.getSupportCategories();
     
-    const availableLineItems = allLineItems.filter(li => lineItemIds.includes(li.id));
+    const availableLineItems = allLineItems.filter(li => lineItemIds.includes(li.id) && li.isActive);
     
-    const grouped = categories
+    const lineItemsByCategory = categories
       .map(cat => ({
-        category: cat,
-        lineItems: availableLineItems.filter(li => li.categoryId === cat.id),
+        categoryId: cat.id,
+        categoryKey: cat.categoryKey,
+        categoryLabel: cat.categoryLabel,
+        items: availableLineItems
+          .filter(li => li.categoryId === cat.id)
+          .map(li => ({
+            lineItemId: li.id,
+            code: li.itemCode,
+            label: li.itemLabel,
+          })),
       }))
-      .filter(g => g.lineItems.length > 0);
+      .filter(g => g.items.length > 0);
     
-    return res.json({ categories: grouped });
+    return res.json({ 
+      lineItemsByCategory,
+      selectedLineItemCount: availableLineItems.length,
+    });
   } catch (error) {
     console.error("Get scope options error:", error);
     return res.status(500).json({ error: "Failed to fetch scope options" });
