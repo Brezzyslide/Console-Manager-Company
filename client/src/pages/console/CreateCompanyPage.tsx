@@ -85,6 +85,7 @@ export default function CreateCompanyPage() {
   const serviceSelectionMode = form.watch("serviceSelectionMode");
   const selectedCategoryIds = form.watch("selectedCategoryIds") || [];
   const selectedLineItemIds = form.watch("selectedLineItemIds") || [];
+  const complianceScope = form.watch("complianceScope") || [];
 
   const totalLineItems = useMemo(() => {
     return catalogue.reduce((acc, cat) => acc + cat.lineItems.length, 0);
@@ -423,24 +424,22 @@ export default function CreateCompanyPage() {
                   <Label>Compliance Scope</Label>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {SCOPE_OPTIONS.map((scope) => (
-                      <div key={scope} className="flex items-center space-x-2 border rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                      <label key={scope} className="flex items-center space-x-2 border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer">
                         <Checkbox 
-                          id={`scope-${scope}`} 
-                          checked={form.watch("complianceScope")?.includes(scope)}
+                          checked={complianceScope.includes(scope)}
                           onCheckedChange={(checked) => {
-                            const current = form.getValues("complianceScope") || [];
                             if (checked) {
-                              form.setValue("complianceScope", [...current, scope]);
+                              form.setValue("complianceScope", [...complianceScope, scope]);
                             } else {
-                              form.setValue("complianceScope", current.filter(s => s !== scope));
+                              form.setValue("complianceScope", complianceScope.filter(s => s !== scope));
                             }
                           }}
                           data-testid={`checkbox-scope-${scope.toLowerCase()}`}
                         />
-                        <Label htmlFor={`scope-${scope}`} className="cursor-pointer font-normal text-sm w-full">
+                        <span className="font-normal text-sm">
                           {scope}
-                        </Label>
-                      </div>
+                        </span>
+                      </label>
                     ))}
                   </div>
                 </div>
@@ -493,12 +492,11 @@ export default function CreateCompanyPage() {
                   {serviceSelectionMode === "CATEGORY" && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                       {catalogue.map((cat) => (
-                        <div 
+                        <label 
                           key={cat.id} 
                           className={`flex items-center space-x-3 border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer ${
                             selectedCategoryIds.includes(cat.id) ? "border-primary bg-primary/5" : ""
                           }`}
-                          onClick={() => toggleCategorySelection(cat.id, !selectedCategoryIds.includes(cat.id))}
                         >
                           <Checkbox 
                             checked={selectedCategoryIds.includes(cat.id)}
@@ -509,7 +507,7 @@ export default function CreateCompanyPage() {
                             <p className="font-medium text-sm">{cat.categoryLabel}</p>
                             <p className="text-xs text-muted-foreground">{cat.lineItems.length} line items</p>
                           </div>
-                        </div>
+                        </label>
                       ))}
                     </div>
                   )}
@@ -540,19 +538,25 @@ export default function CreateCompanyPage() {
                                     {selectedInCategory}/{cat.lineItems.length}
                                   </Badge>
                                 </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-xs"
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  className="text-xs text-primary hover:underline px-2 py-1"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     selectAllInCategory(cat);
                                   }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      selectAllInCategory(cat);
+                                    }
+                                  }}
                                 >
                                   Toggle all
-                                </Button>
+                                </span>
                               </summary>
                               <div className="pl-8 pr-3 pb-3 space-y-1">
                                 {cat.lineItems.map((item) => (
