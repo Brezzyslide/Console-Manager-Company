@@ -143,6 +143,9 @@ export default function CreateAuditPage() {
     );
   }
 
+  const configuredLineItemCount = auditOptions?.selectedLineItemCount ?? 0;
+  const configuredContextCount = auditOptions?.serviceContexts?.length ?? 0;
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-2xl">
       <Button variant="ghost" className="mb-4" onClick={() => navigate("/audits")}>
@@ -150,9 +153,22 @@ export default function CreateAuditPage() {
         Back to Audits
       </Button>
 
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold">Create New Audit</h1>
         <p className="text-muted-foreground">Set up your audit scope and parameters</p>
+      </div>
+
+      <div className="mb-6 p-4 bg-muted/50 rounded-lg border" data-testid="onboarding-summary">
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <Settings className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Available from onboarding:</span>
+          </div>
+          <div className="flex gap-4">
+            <span><strong>{configuredContextCount}</strong> service contexts</span>
+            <span><strong>{configuredLineItemCount}</strong> line items</span>
+          </div>
+        </div>
       </div>
 
       {step === 0 && (
