@@ -3,7 +3,7 @@ import { Link, useRoute } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { getCompany, updateCompany, updateCompanySchema, CompanyDetails, UpdateCompanyInput } from "@/lib/console-api";
+import { getCompany, updateCompany, updateCompanySchema, CompanyDetails, UpdateCompanyInput, getCompanyUsers, resetCompanyUserPassword, CompanyUser } from "@/lib/console-api";
 import { 
   ArrowLeft, 
   Building2, 
@@ -17,7 +17,10 @@ import {
   Clock,
   Loader2,
   ListChecks,
-  Pencil
+  Pencil,
+  KeyRound,
+  Copy,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,12 +76,39 @@ export default function CompanyDetailsPage() {
   const queryClient = useQueryClient();
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedCompliance, setSelectedCompliance] = useState<string[]>([]);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [resetResult, setResetResult] = useState<{ tempPassword: string; email: string; fullName: string } | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
 
   const { data: company, isLoading, error } = useQuery({
     queryKey: ["company", companyId],
     queryFn: () => getCompany(companyId!),
     enabled: !!companyId,
   });
+
+  const { data: companyUsers = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["companyUsers", companyId],
+    queryFn: () => getCompanyUsers(companyId!),
+    enabled: !!companyId,
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: (userId: string) => resetCompanyUserPassword(companyId!, userId),
+    onSuccess: (result) => {
+      setResetResult(result);
+      setShowPasswordDialog(true);
+      setCopiedPassword(false);
+      queryClient.invalidateQueries({ queryKey: ["companyUsers", companyId] });
+    },
+  });
+
+  const handleCopyPassword = () => {
+    if (resetResult) {
+      navigator.clipboard.writeText(resetResult.tempPassword);
+      setCopiedPassword(true);
+      setTimeout(() => setCopiedPassword(false), 2000);
+    }
+  };
 
   const form = useForm<UpdateCompanyInput>({
     resolver: zodResolver(updateCompanySchema),
@@ -250,6 +280,76 @@ export default function CompanyDetailsPage() {
                   <span className="text-sm text-muted-foreground italic">No compliance scope configured.</span>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Company Users
+                </CardTitle>
+                <Badge variant="secondary">{companyUsers.length} users</Badge>
+              </div>
+              <CardDescription>
+                Manage users within this tenant organization.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {usersLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : companyUsers.length > 0 ? (
+                <div className="space-y-3">
+                  {companyUsers.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20" data-testid={`user-row-${user.id}`}>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                          {user.fullName.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="font-medium flex items-center gap-2">
+                            {user.fullName}
+                            {!user.isActive && (
+                              <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                            <Mail className="h-3.5 w-3.5" />
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline">{user.role}</Badge>
+                        {user.mustResetPassword && (
+                          <Badge variant="secondary" className="text-xs">Password Reset Required</Badge>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => resetPasswordMutation.mutate(user.id)}
+                          disabled={resetPasswordMutation.isPending}
+                          data-testid={`button-reset-password-${user.id}`}
+                        >
+                          {resetPasswordMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <KeyRound className="h-4 w-4 mr-1" />
+                              Reset Password
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground italic">No users found.</span>
+              )}
             </CardContent>
           </Card>
 
@@ -493,6 +593,64 @@ export default function CompanyDetailsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-primary" />
+              Password Reset Successful
+            </DialogTitle>
+            <DialogDescription>
+              A new temporary password has been generated for this user.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {resetResult && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">User</div>
+                <div className="font-medium">{resetResult.fullName}</div>
+                <div className="text-sm text-muted-foreground">{resetResult.email}</div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Temporary Password</div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 p-3 bg-muted rounded-lg font-mono text-sm border" data-testid="temp-password-display">
+                    {resetResult.tempPassword}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyPassword}
+                    data-testid="button-copy-password"
+                  >
+                    {copiedPassword ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  The user will be required to set a new password on their next login.
+                  Please share this temporary password securely.
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button onClick={() => setShowPasswordDialog(false)} data-testid="button-close-password-dialog">
+              Done
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

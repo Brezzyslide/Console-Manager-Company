@@ -211,3 +211,43 @@ export async function updateCompany(id: string, data: UpdateCompanyInput): Promi
   
   return res.json();
 }
+
+export const companyUserSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  fullName: z.string(),
+  role: z.enum(['CompanyAdmin', 'Auditor', 'Reviewer', 'StaffReadOnly']),
+  isActive: z.boolean(),
+  mustResetPassword: z.boolean(),
+  createdAt: z.string(),
+});
+
+export type CompanyUser = z.infer<typeof companyUserSchema>;
+
+export async function getCompanyUsers(companyId: string): Promise<CompanyUser[]> {
+  const res = await fetch(`/api/console/companies/${companyId}/users`);
+  
+  if (!res.ok) {
+    throw new Error("Failed to fetch company users");
+  }
+  
+  return res.json();
+}
+
+export async function resetCompanyUserPassword(companyId: string, userId: string): Promise<{
+  success: boolean;
+  tempPassword: string;
+  email: string;
+  fullName: string;
+}> {
+  const res = await fetch(`/api/console/companies/${companyId}/users/${userId}/reset-password`, {
+    method: "POST",
+  });
+  
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || "Failed to reset password");
+  }
+  
+  return res.json();
+}

@@ -433,6 +433,71 @@ router.get("/audit-logs", requireConsoleAuth, async (req: AuthenticatedConsoleRe
   }
 });
 
+// GET /api/console/companies/:id/users - Get company users
+router.get("/companies/:id/users", requireConsoleAuth, async (req: AuthenticatedConsoleRequest, res) => {
+  try {
+    const company = await storage.getCompany(req.params.id);
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+    
+    const users = await storage.getCompanyUsers(req.params.id);
+    return res.json(users.map(u => ({
+      id: u.id,
+      email: u.email,
+      fullName: u.fullName,
+      role: u.role,
+      isActive: u.isActive,
+      mustResetPassword: u.mustResetPassword,
+      createdAt: u.createdAt,
+    })));
+  } catch (error) {
+    console.error("Get company users error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/console/companies/:id/users/:userId/reset-password - Reset user password
+router.post("/companies/:id/users/:userId/reset-password", requireConsoleAuth, async (req: AuthenticatedConsoleRequest, res) => {
+  try {
+    const company = await storage.getCompany(req.params.id);
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+    
+    const user = await storage.getCompanyUser(req.params.userId);
+    if (!user || user.companyId !== req.params.id) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    const tempPassword = generateSecurePassword();
+    const tempPasswordHash = await hashPassword(tempPassword);
+    
+    await storage.updateCompanyUserPassword(user.id, tempPasswordHash);
+    
+    await storage.logChange({
+      actorType: "console",
+      actorId: req.consoleUser!.consoleUserId,
+      companyId: company.id,
+      action: "COMPANY_USER_PASSWORD_RESET",
+      entityType: "company_user",
+      entityId: user.id,
+      beforeJson: null,
+      afterJson: { email: user.email, resetBy: "console" },
+    });
+    
+    return res.json({
+      success: true,
+      tempPassword,
+      email: user.email,
+      fullName: user.fullName,
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Helper: Generate secure temporary password
 function generateSecurePassword(): string {
   const length = 16;
