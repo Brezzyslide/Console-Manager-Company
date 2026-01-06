@@ -1,0 +1,53 @@
+Replit Prompt: Update Provider Portal Dashboard to Reflect Sprint 3 Audit Plan (No Mock Data)
+
+Context
+You are working in an existing monorepo app:
+- Frontend: Vite + React 18 + TypeScript + Tailwind + shadcn/ui + Wouter
+- Backend: Express on same port (5000)
+- DB: Postgres + Drizzle
+- Strict multi tenancy + RBAC already exists
+- Sprint 3 audit engine exists (audits, scope, templates, findings)
+- Requirement: DO NOT add mock or seeded demo data. Only display real data if it exists, otherwise show empty state text like “No audits yet”.
+
+Goal
+Update the Provider Portal Dashboard (the screen shown in screenshot) so it reflects our Sprint 3 plan:
+- Remove “Services coming soon” and “Schedule coming soon”
+- Replace them with cards and panels that surface:
+  - Audits (Internal + External pathway entry lives under /audits, not on dashboard)
+  - Compliance Scope (line items selected for this provider)
+  - Findings overview (open findings counts)
+  - Readiness/last audit summary
+- Keep the same dark accent styling and calm tone used currently
+
+What the dashboard must show after change
+Top row should still be 4 cards, but update them to:
+1) Provider Portal (keep)
+   - Subtitle: “NDIS compliance and audit workspace”
+   - Small line: show onboarding status if available (Completed or In progress)
+
+2) Your Role (keep)
+   - Keep role label, plus optional small text: “Audit access enabled”
+
+3) Audits (NEW replaces Services)
+   - Primary text:
+     - If there is an active audit (DRAFT, IN_PROGRESS, IN_REVIEW): show “1 Active Audit” (or count)
+     - Else show “No Active Audits”
+   - Secondary text: “Create internal or external audits”
+   - Button: “Create Audit” linking to /audits/new
+   - Secondary link: “View audits” linking to /audits
+
+4) Compliance Scope (NEW replaces Schedule)
+   - Primary text: “X Line Items in Scope”
+     - X comes from company_service_selections join support_line_items where active
+   - Secondary text: “Services being audited”
+   - Link: “View scope” which opens a simple read only panel or routes to /onboarding step 2 or a new /scope page
+   - If zero line items selected, show: “Scope not set” with link to /onboarding
+
+Under cards, replace “Getting Started” panel with “Compliance Overview”
+Compliance Overview panel (wide)
+- Show 3 compact rows:
+  - Audit readiness: 
+    - If onboarding not completed -> “Not ready (complete onboarding)”
+    - Else -> “Ready for internal audit”
+  - Last audit:
+    - If none -> “No audits ye
