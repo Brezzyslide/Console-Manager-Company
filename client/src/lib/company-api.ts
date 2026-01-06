@@ -413,6 +413,7 @@ export interface Audit {
   description: string | null;
   status: AuditStatus;
   serviceContext: ServiceContext;
+  serviceContextLabel: string | null;
   scopeTimeFrom: string;
   scopeTimeTo: string;
   createdByCompanyUserId: string | null;
