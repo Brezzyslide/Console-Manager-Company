@@ -245,6 +245,7 @@ export const audits = pgTable("audits", {
   description: text("description"),
   status: text("status", { enum: auditStatusEnum }).notNull().default("DRAFT"),
   serviceContext: text("service_context", { enum: serviceContextEnum }).notNull(),
+  serviceContextLabel: text("service_context_label"),
   scopeTimeFrom: timestamp("scope_time_from").notNull(),
   scopeTimeTo: timestamp("scope_time_to").notNull(),
   createdByCompanyUserId: varchar("created_by_company_user_id").references(() => companyUsers.id),

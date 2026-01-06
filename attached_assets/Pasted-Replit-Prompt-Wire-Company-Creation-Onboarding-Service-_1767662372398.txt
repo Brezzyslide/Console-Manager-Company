@@ -1,0 +1,159 @@
+Replit Prompt: Wire Company Creation/Onboarding Service Data into Audit Pathways (Internal + External)
+
+Context
+Existing system has:
+- Console company creation flow
+- Company onboarding flow
+- support_categories + support_line_items global catalogue
+- company_service_selections tenant selections
+- company_settings capturing support delivery contexts (user entered or selected)
+- Sprint 3 audit pathway UI: Internal/External audit create -> scope -> select focus (service context like community access)
+Problem
+Audit pathway currently shows limited manual options for service context/audit focus and line item selection.
+
+Goal
+Make the audit pathway dynamically pull:
+1) Service delivery type / service context options from the company’s configured settings
+2) Line item codes + labels + support category from company selected services
+3) Enforce that audit scope can only use these company-selected options
+4) For External audits: if the provider is already onboarded, use their configured options; if not onboarded, route them through a lightweight onboarding step that sets services and delivery contexts before scoping.
+
+Hard rules
+- No mock data
+- Do not add fake line items or service types
+- Do not allow selecting audit scope items outside the company’s selected services/context
+- Tenant isolation must be enforced at API level
+
+-----------------------------------------
+1) Database alignment (minimal changes)
+-----------------------------------------
+
+1.1 Ensure company_settings has a structured field for service delivery contexts that can be used for audit scoping.
+If company_settings.support_delivery_contexts already exists as json array of strings, keep it.
+If not present, add:
+- service_delivery_contexts (json array of strings) nullable
+
+Make sure onboarding Step 1 saves it.
+
+1.2 Keep audits table field:
+- service_context (enum) OR string
+
+If it is currently enum service_context with fixed values:
+- Keep enum but ALSO add a string field on audits:
+  - service_context_label (string nullable)
+Use this approach:
+- UI shows company-specific contexts (strings)
+- Map to enum if matches known set, else set enum=OTHER and store label in service_context_label
+
+This avoids blocking providers with custom delivery contexts.
+
+-----------------------------------------
+2) Backend: new endpoints to supply real options
+-----------------------------------------
+
+Add these endpoints under /api/company/audits/ with requireCompanyAuth:
+
+2.1 GET /api/company/audits/options
+Returns the provider’s audit scope options in one payload:
+
+{
+  "serviceContexts": [
+    { "key": "COMMUNITY_ACCESS", "label": "Community Access" },
+    { "key": "SIL", "label": "SIL" },
+    ...
+  ],
+  "lineItemsByCategory": [
+    {
+      "categoryId": "...",
+      "categoryKey": "CORE",
+      "categoryLabel": "Core Supports",
+      "items": [
+        { "lineItemId": "...", "code": "0120", "label": "Participate Community" },
+        ...
+      ]
+    }
+  ],
+  "selectedLineItemCount": 5
+}
+
+Rules:
+- serviceContexts must be derived from company_settings.support_delivery_contexts (or service_delivery_contexts).
+  - If array is empty or null:
+    - return default list from a known enum set ONLY IF company has chosen a serviceSelectionMode=ALL at company creation
+    - otherwise return [] and UI must prompt user to complete onboarding
+- lineItemsByCategory must only include line items selected by this company:
+  company_service_selections -> support_line_items -> support_categories
+  Only include support_line_items where is_active=true
+
+2.2 Update existing GET /api/company/audits/:id/scope-options
+Replace it so it uses the exact same logic as /api/company/audits/options (line items filtered by company selections).
+Return grouped categories and items as above.
+
+2.3 Update POST /api/company/audits (create audit)
+Validate service context selection:
+- Accept: serviceContextKey + serviceContextLabel
+- If serviceContextKey is one of the enum values: store it
+- Else store enum=OTHER and store label in service_context_label
+Also validate that the chosen context is in the company’s configured serviceContexts from company_settings. If not, reject with clear message.
+
+2.4 Update PUT /api/company/audits/:id/scope
+Validate all submitted lineItemIds belong to the company (exist in company_service_selections). Reject any that don’t.
+
+-----------------------------------------
+3) Frontend: replace manual scope lists with dynamic options
+-----------------------------------------
+
+3.1 Audit Create page (/audits/new)
+When user selects Internal or External:
+- Fetch GET /api/company/audits/options
+- Populate the “Service delivery type / audit focus” dropdown from response.serviceContexts
+- If serviceContexts is empty:
+  - Show message: “Service delivery contexts are not set. Complete onboarding to continue.”
+  - Link to /onboarding
+- Store both key and label in form values
+
+3.2 Audit Scope page (/audits/:id/scope)
+- Remove any hardcoded line item list
+- Fetch GET /api/company/audits/:id/scope-options
+- Render grouped selector:
+  - Select all
+  - Select by category
+  - Select individual line items
+- Display code + label + category label clearly:
+  Example row: “0120 – Participate Community” with small text “Core Supports”
+- Show selected count
+- Save submits PUT /scope
+
+3.3 Optional: show “Scope Summary” sidebar
+- Display selected Service Context label
+- Display selected line item count
+- This helps user trust the system.
+
+-----------------------------------------
+4) External audit flow handling
+-----------------------------------------
+
+Current external audit pathway exists.
+
+Enhance logic:
+- If External audit is being created inside an already-onboarded provider tenant: use same company options.
+- If you later add “audit onboarding” for external providers:
+  - Ensure that step collects:
+    - services delivered (company_service_selections)
+    - service delivery contexts (company_settings.support_delivery_contexts)
+  - Only then allow audit scope selection.
+Do not guess or seed anything.
+
+-----------------------------------------
+5) Acceptance criteria
+-----------------------------------------
+
+- Audit create page shows real service delivery contexts configured for that company
+- Audit scope page shows real line items selected for that company, grouped by support category
+- Line item rows show code + label + category
+- User cannot choose line items outside company selections
+- User cannot choose a service context not configured for the company
+- If onboarding has not configured contexts or services, UI blocks and sends user to onboarding
+- No mock data is inserted anywhere
+
+Now implement these changes with strong typing, Zod validation on inputs, clean defensive error handling, and consistent shadcn dark styling.
