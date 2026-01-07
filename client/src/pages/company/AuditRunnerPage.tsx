@@ -58,6 +58,19 @@ export default function AuditRunnerPage() {
     },
   });
 
+  const indicators = runnerData?.indicators || [];
+  const responses = runnerData?.responses || [];
+  const currentIndicator = indicators[currentIndex];
+  const existingResponse = responses.find(r => r.templateIndicatorId === currentIndicator?.id);
+
+  // Initialize form with existing response when current indicator changes
+  useEffect(() => {
+    if (existingResponse) {
+      setRating(existingResponse.rating);
+      setComment(existingResponse.comment || "");
+    }
+  }, [currentIndicator?.id, existingResponse]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -65,11 +78,6 @@ export default function AuditRunnerPage() {
       </div>
     );
   }
-
-  const indicators = runnerData?.indicators || [];
-  const responses = runnerData?.responses || [];
-  const currentIndicator = indicators[currentIndex];
-  const existingResponse = responses.find(r => r.templateIndicatorId === currentIndicator?.id);
   
   const progressPercent = indicators.length > 0 
     ? (responses.length / indicators.length) * 100 
@@ -102,14 +110,6 @@ export default function AuditRunnerPage() {
       setComment("");
     }
   };
-
-  // Initialize form with existing response when current indicator changes
-  useEffect(() => {
-    if (existingResponse) {
-      setRating(existingResponse.rating);
-      setComment(existingResponse.comment || "");
-    }
-  }, [currentIndicator?.id]);
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
