@@ -6,9 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock } from "lucide-react";
-import { getAudit, getAuditRunner, getFindings, closeAudit } from "@/lib/company-api";
+import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText } from "lucide-react";
+import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, type EvidenceStatus } from "@/lib/company-api";
 import { format } from "date-fns";
+
+const evidenceStatusConfig: Record<EvidenceStatus, { label: string; color: string; icon: any }> = {
+  REQUESTED: { label: "Requested", color: "bg-blue-500", icon: Clock },
+  SUBMITTED: { label: "Submitted", color: "bg-yellow-500", icon: AlertCircle },
+  UNDER_REVIEW: { label: "Under Review", color: "bg-purple-500", icon: Eye },
+  ACCEPTED: { label: "Accepted", color: "bg-green-500", icon: CheckCircle2 },
+  REJECTED: { label: "Rejected", color: "bg-red-500", icon: XCircle },
+};
 
 const ratingIcons: Record<string, any> = {
   CONFORMANCE: CheckCircle2,
@@ -54,6 +62,12 @@ export default function AuditReviewPage() {
   const { data: findings } = useQuery({
     queryKey: ["findings", id],
     queryFn: () => getFindings({ auditId: id }),
+    enabled: !!id,
+  });
+
+  const { data: evidenceRequests } = useQuery({
+    queryKey: ["auditEvidenceRequests", id],
+    queryFn: () => getAuditEvidenceRequests(id!),
     enabled: !!id,
   });
 
@@ -167,6 +181,50 @@ export default function AuditReviewPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {evidenceRequests && evidenceRequests.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Evidence Requests ({evidenceRequests.length})
+            </CardTitle>
+            <CardDescription>Documents requested during this audit</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {evidenceRequests.map(request => {
+                const statusInfo = evidenceStatusConfig[request.status];
+                const StatusIcon = statusInfo.icon;
+                return (
+                  <div 
+                    key={request.id} 
+                    className="p-3 border rounded-lg flex justify-between items-start cursor-pointer hover:bg-accent"
+                    onClick={() => navigate(`/evidence/${request.id}`)}
+                    data-testid={`evidence-request-${request.id}`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge className={statusInfo.color}>
+                          <StatusIcon className="h-3 w-3 mr-1" />
+                          {statusInfo.label}
+                        </Badge>
+                        <Badge variant="outline">{request.evidenceType}</Badge>
+                      </div>
+                      <p className="text-sm line-clamp-2">{request.requestNote}</p>
+                    </div>
+                    {request.dueDate && (
+                      <span className="text-xs text-muted-foreground">
+                        Due: {format(new Date(request.dueDate), "MMM d")}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
