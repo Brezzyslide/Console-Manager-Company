@@ -171,7 +171,7 @@ export default function DashboardPage() {
           </CardContent>
           <CardFooter className="pt-2">
             <Button variant="ghost" size="sm" className="gap-1" asChild data-testid="link-view-scope">
-              <Link href="/onboarding">
+              <Link href="/company/settings/services">
                 {totalLineItems > 0 ? "View scope" : "Set up scope"}
                 <ChevronRight className="h-3 w-3" />
               </Link>

@@ -108,16 +108,28 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
               </Link>
               
               {isAdmin && (
-                <Link href="/company/admin/users">
-                  <Button 
-                    variant={location === "/company/admin/users" ? "secondary" : "ghost"} 
-                    size="sm"
-                    data-testid="nav-admin-users"
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    User Management
-                  </Button>
-                </Link>
+                <>
+                  <Link href="/company/admin/users">
+                    <Button 
+                      variant={location === "/company/admin/users" ? "secondary" : "ghost"} 
+                      size="sm"
+                      data-testid="nav-admin-users"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      User Management
+                    </Button>
+                  </Link>
+                  <Link href="/company/settings/services">
+                    <Button 
+                      variant={location === "/company/settings/services" ? "secondary" : "ghost"} 
+                      size="sm"
+                      data-testid="nav-services"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Services
+                    </Button>
+                  </Link>
+                </>
               )}
             </nav>
           </div>

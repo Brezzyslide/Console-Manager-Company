@@ -29,6 +29,7 @@ import AuditTemplateSelectPage from "@/pages/company/AuditTemplateSelectPage";
 import AuditRunnerPage from "@/pages/company/AuditRunnerPage";
 import AuditReviewPage from "@/pages/company/AuditReviewPage";
 import FindingsRegisterPage from "@/pages/company/FindingsRegisterPage";
+import ServicesSettingsPage from "@/pages/company/ServicesSettingsPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 function ProtectedConsolePage({ component: Component }: { component: React.ComponentType }) {
@@ -77,6 +78,11 @@ function Router() {
       <Route path="/company/admin/users">
         <CompanyLayout requireRole={["CompanyAdmin"]}>
           <AdminUsersPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/company/settings/services">
+        <CompanyLayout requireRole={["CompanyAdmin"]}>
+          <ServicesSettingsPage />
         </CompanyLayout>
       </Route>
       
