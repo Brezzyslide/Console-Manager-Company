@@ -37,15 +37,6 @@ router.get("/audits/options", requireCompanyAuth, async (req: AuthenticatedCompa
     const allLineItems = await storage.getSupportLineItems();
     const categories = await storage.getSupportCategories();
     
-    let serviceContexts: { key: string; label: string }[] = [];
-    
-    if (settings?.supportDeliveryContexts && settings.supportDeliveryContexts.length > 0) {
-      serviceContexts = settings.supportDeliveryContexts.map(label => ({
-        key: mapLabelToEnumKey(label),
-        label,
-      }));
-    }
-    
     const lineItemIds = selections.map(s => s.lineItemId);
     const availableLineItems = allLineItems.filter(li => lineItemIds.includes(li.id) && li.isActive);
     
@@ -63,6 +54,20 @@ router.get("/audits/options", requireCompanyAuth, async (req: AuthenticatedCompa
           })),
       }))
       .filter(g => g.items.length > 0);
+    
+    let serviceContexts: { key: string; label: string }[] = [];
+    
+    if (settings?.supportDeliveryContexts && settings.supportDeliveryContexts.length > 0) {
+      serviceContexts = settings.supportDeliveryContexts.map(label => ({
+        key: mapLabelToEnumKey(label),
+        label,
+      }));
+    } else {
+      serviceContexts = lineItemsByCategory.map(cat => ({
+        key: cat.categoryKey,
+        label: cat.categoryLabel,
+      }));
+    }
     
     return res.json({
       serviceContexts,
@@ -103,16 +108,29 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
     const settings = await storage.getCompanySettings(companyId);
     const configuredContexts = settings?.supportDeliveryContexts || [];
     
-    if (configuredContexts.length > 0) {
-      const isValidContext = configuredContexts.some(
-        ctx => ctx.toLowerCase() === input.serviceContextLabel.toLowerCase()
-      );
-      if (!isValidContext) {
-        return res.status(400).json({ 
-          error: "Invalid service context", 
-          message: "The selected service context is not configured for this company" 
-        });
-      }
+    const selections = await storage.getCompanyServiceSelections(companyId);
+    const allLineItems = await storage.getSupportLineItems();
+    const categories = await storage.getSupportCategories();
+    
+    const lineItemIds = selections.map(s => s.lineItemId);
+    const availableLineItems = allLineItems.filter(li => lineItemIds.includes(li.id) && li.isActive);
+    const categoryLabels = categories
+      .filter(cat => availableLineItems.some(li => li.categoryId === cat.id))
+      .map(cat => cat.categoryLabel);
+    
+    const validContextLabels = configuredContexts.length > 0 
+      ? configuredContexts 
+      : categoryLabels;
+    
+    const isValidContext = validContextLabels.some(
+      ctx => ctx.toLowerCase() === input.serviceContextLabel.toLowerCase()
+    );
+    
+    if (!isValidContext) {
+      return res.status(400).json({ 
+        error: "Invalid service context", 
+        message: "The selected service context is not configured for this company" 
+      });
     }
     
     const serviceContextEnum = mapLabelToEnumKey(input.serviceContextLabel);
