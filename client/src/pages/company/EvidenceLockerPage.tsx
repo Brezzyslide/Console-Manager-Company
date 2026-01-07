@@ -1,13 +1,38 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye } from "lucide-react";
-import { getEvidenceRequests, getCompanyUsers, type EvidenceRequest, type EvidenceStatus } from "@/lib/company-api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Plus } from "lucide-react";
+import { 
+  getEvidenceRequests, 
+  getCompanyUsers, 
+  createStandaloneEvidenceRequest,
+  type EvidenceRequest, 
+  type EvidenceStatus,
+  type EvidenceType 
+} from "@/lib/company-api";
 import { format } from "date-fns";
+import { useCompanyAuth } from "@/hooks/use-company-auth";
+
+const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
+  { value: "POLICY", label: "Policy Document" },
+  { value: "PROCEDURE", label: "Procedure" },
+  { value: "TRAINING_RECORD", label: "Training Record" },
+  { value: "INCIDENT_REPORT", label: "Incident Report" },
+  { value: "CASE_NOTE", label: "Case Note" },
+  { value: "MEDICATION_RECORD", label: "Medication Record" },
+  { value: "BSP", label: "Behaviour Support Plan" },
+  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
+  { value: "ROSTER", label: "Roster/Schedule" },
+  { value: "OTHER", label: "Other" },
+];
 
 const statusConfig: Record<EvidenceStatus, { label: string; color: string; icon: React.ReactNode }> = {
   REQUESTED: { label: "Requested", color: "bg-blue-500", icon: <Clock className="h-4 w-4" /> },
@@ -32,7 +57,16 @@ const evidenceTypeLabels: Record<string, string> = {
 
 export default function EvidenceLockerPage() {
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+  const { user } = useCompanyAuth();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showNewRequestDialog, setShowNewRequestDialog] = useState(false);
+  
+  const [newRequestForm, setNewRequestForm] = useState({
+    evidenceType: "" as EvidenceType | "",
+    requestNote: "",
+    dueDate: "",
+  });
 
   const { data: requests, isLoading } = useQuery({
     queryKey: ["evidenceRequests", statusFilter],
@@ -46,10 +80,31 @@ export default function EvidenceLockerPage() {
     queryFn: getCompanyUsers,
   });
 
+  const createRequestMutation = useMutation({
+    mutationFn: (data: { evidenceType: EvidenceType; requestNote: string; dueDate?: string | null }) => 
+      createStandaloneEvidenceRequest(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["evidenceRequests"] });
+      setShowNewRequestDialog(false);
+      setNewRequestForm({ evidenceType: "", requestNote: "", dueDate: "" });
+    },
+  });
+
   const getUserName = (userId: string | null) => {
     if (!userId) return "Unknown";
-    const user = users?.find(u => u.id === userId);
-    return user?.fullName || "Unknown";
+    const foundUser = users?.find(u => u.id === userId);
+    return foundUser?.fullName || "Unknown";
+  };
+
+  const canCreateRequest = ["CompanyAdmin", "Auditor", "Reviewer"].includes(user?.role || "");
+
+  const handleCreateRequest = () => {
+    if (!newRequestForm.evidenceType || !newRequestForm.requestNote) return;
+    createRequestMutation.mutate({
+      evidenceType: newRequestForm.evidenceType as EvidenceType,
+      requestNote: newRequestForm.requestNote,
+      dueDate: newRequestForm.dueDate || null,
+    });
   };
 
   const pendingCount = requests?.filter(r => r.status === "REQUESTED" || r.status === "SUBMITTED").length || 0;
@@ -58,9 +113,17 @@ export default function EvidenceLockerPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidence Locker</h1>
-        <p className="text-muted-foreground">Track and manage evidence submissions for audit findings</p>
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidence Locker</h1>
+          <p className="text-muted-foreground">Track and manage evidence submissions</p>
+        </div>
+        {canCreateRequest && (
+          <Button onClick={() => setShowNewRequestDialog(true)} data-testid="button-new-request">
+            <Plus className="h-4 w-4 mr-2" />
+            New Request
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -189,6 +252,69 @@ export default function EvidenceLockerPage() {
           })}
         </div>
       )}
+
+      <Dialog open={showNewRequestDialog} onOpenChange={setShowNewRequestDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Evidence Request</DialogTitle>
+            <DialogDescription>
+              Request a document for compliance or routine collection
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Evidence Type *</Label>
+              <Select 
+                value={newRequestForm.evidenceType} 
+                onValueChange={(v) => setNewRequestForm(prev => ({ ...prev, evidenceType: v as EvidenceType }))}
+              >
+                <SelectTrigger data-testid="select-evidence-type">
+                  <SelectValue placeholder="Select evidence type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {evidenceTypeOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Request Note *</Label>
+              <Textarea
+                value={newRequestForm.requestNote}
+                onChange={(e) => setNewRequestForm(prev => ({ ...prev, requestNote: e.target.value }))}
+                placeholder="Describe what document is needed..."
+                data-testid="input-request-note"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Due Date (optional)</Label>
+              <Input
+                type="date"
+                value={newRequestForm.dueDate}
+                onChange={(e) => setNewRequestForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                data-testid="input-due-date"
+              />
+            </div>
+          </div>
+          {createRequestMutation.error && (
+            <p className="text-sm text-destructive">{(createRequestMutation.error as Error).message}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewRequestDialog(false)}>Cancel</Button>
+            <Button 
+              onClick={handleCreateRequest}
+              disabled={!newRequestForm.evidenceType || !newRequestForm.requestNote || createRequestMutation.isPending}
+              data-testid="button-create-request"
+            >
+              {createRequestMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Create Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
