@@ -841,6 +841,19 @@ export async function submitEvidence(
   return res.json();
 }
 
+export async function startEvidenceReview(evidenceRequestId: string): Promise<EvidenceRequest> {
+  const res = await fetch(`/api/company/evidence/requests/${evidenceRequestId}/start-review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to start review");
+  }
+  return res.json();
+}
+
 export async function reviewEvidence(
   evidenceRequestId: string,
   data: { decision: "ACCEPTED" | "REJECTED"; reviewNote?: string }

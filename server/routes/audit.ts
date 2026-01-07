@@ -999,6 +999,44 @@ router.post("/evidence/requests/:id/submit", requireCompanyAuth, async (req: Aut
   }
 });
 
+router.post("/evidence/requests/:id/start-review", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const requestId = req.params.id;
+    
+    const evidenceRequest = await storage.getEvidenceRequest(requestId, companyId);
+    if (!evidenceRequest) {
+      return res.status(404).json({ error: "Evidence request not found" });
+    }
+    
+    if (evidenceRequest.status !== "SUBMITTED") {
+      return res.status(400).json({ error: "Only submitted evidence can be put under review" });
+    }
+    
+    const updated = await storage.updateEvidenceRequest(requestId, companyId, {
+      status: "UNDER_REVIEW",
+      reviewedByCompanyUserId: userId,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "EVIDENCE_REVIEW_STARTED",
+      entityType: "evidence_request",
+      entityId: requestId,
+      beforeJson: { status: evidenceRequest.status },
+      afterJson: { status: "UNDER_REVIEW" },
+    });
+    
+    return res.json(updated);
+  } catch (error) {
+    console.error("Start review error:", error);
+    return res.status(500).json({ error: "Failed to start review" });
+  }
+});
+
 const reviewEvidenceSchema = z.object({
   decision: z.enum(["ACCEPTED", "REJECTED"]),
   reviewNote: z.string().optional(),
@@ -1015,8 +1053,8 @@ router.post("/evidence/requests/:id/review", requireCompanyAuth, requireRole(["C
       return res.status(404).json({ error: "Evidence request not found" });
     }
     
-    if (evidenceRequest.status !== "SUBMITTED") {
-      return res.status(400).json({ error: "Only submitted evidence can be reviewed" });
+    if (evidenceRequest.status !== "UNDER_REVIEW") {
+      return res.status(400).json({ error: "Evidence must be under review before final decision" });
     }
     
     const input = reviewEvidenceSchema.parse(req.body);

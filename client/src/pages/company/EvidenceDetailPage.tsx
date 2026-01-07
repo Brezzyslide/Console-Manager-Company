@@ -13,6 +13,7 @@ import { Loader2, ArrowLeft, FileText, Link as LinkIcon, Upload, CheckCircle, XC
 import { 
   getEvidenceRequest, 
   submitEvidence, 
+  startEvidenceReview,
   reviewEvidence, 
   getCompanyUsers,
   type EvidenceStatus 
@@ -83,6 +84,14 @@ export default function EvidenceDetailPage() {
     },
   });
 
+  const startReviewMutation = useMutation({
+    mutationFn: () => startEvidenceReview(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["evidenceRequest", id] });
+      queryClient.invalidateQueries({ queryKey: ["evidenceRequests"] });
+    },
+  });
+
   const reviewMutation = useMutation({
     mutationFn: (data: Parameters<typeof reviewEvidence>[1]) => reviewEvidence(id!, data),
     onSuccess: () => {
@@ -100,7 +109,9 @@ export default function EvidenceDetailPage() {
   };
 
   const canSubmit = evidenceRequest?.status === "REQUESTED" || evidenceRequest?.status === "REJECTED";
-  const canReview = evidenceRequest?.status === "SUBMITTED" && 
+  const canStartReview = evidenceRequest?.status === "SUBMITTED" && 
+    ["CompanyAdmin", "Auditor", "Reviewer"].includes(user?.role || "");
+  const canMakeDecision = evidenceRequest?.status === "UNDER_REVIEW" && 
     ["CompanyAdmin", "Auditor", "Reviewer"].includes(user?.role || "");
 
   const handleSubmit = () => {
@@ -260,10 +271,33 @@ export default function EvidenceDetailPage() {
         </div>
 
         <div className="space-y-6">
-          {canReview && (
+          {canStartReview && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Review Evidence</CardTitle>
+                <CardTitle className="text-lg">Start Review</CardTitle>
+                <CardDescription>Begin reviewing the submitted evidence</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  onClick={() => startReviewMutation.mutate()} 
+                  className="w-full"
+                  disabled={startReviewMutation.isPending}
+                  data-testid="button-start-review"
+                >
+                  {startReviewMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Start Review
+                </Button>
+                {startReviewMutation.error && (
+                  <p className="text-sm text-destructive mt-2">{(startReviewMutation.error as Error).message}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {canMakeDecision && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Make Decision</CardTitle>
                 <CardDescription>Accept or reject the submitted evidence</CardDescription>
               </CardHeader>
               <CardContent>
@@ -272,7 +306,7 @@ export default function EvidenceDetailPage() {
                   className="w-full"
                   data-testid="button-review-evidence"
                 >
-                  Review Evidence
+                  Accept or Reject Evidence
                 </Button>
               </CardContent>
             </Card>
