@@ -1,0 +1,194 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye } from "lucide-react";
+import { getEvidenceRequests, getCompanyUsers, type EvidenceRequest, type EvidenceStatus } from "@/lib/company-api";
+import { format } from "date-fns";
+
+const statusConfig: Record<EvidenceStatus, { label: string; color: string; icon: React.ReactNode }> = {
+  REQUESTED: { label: "Requested", color: "bg-blue-500", icon: <Clock className="h-4 w-4" /> },
+  SUBMITTED: { label: "Submitted", color: "bg-yellow-500", icon: <AlertCircle className="h-4 w-4" /> },
+  UNDER_REVIEW: { label: "Under Review", color: "bg-purple-500", icon: <Eye className="h-4 w-4" /> },
+  ACCEPTED: { label: "Accepted", color: "bg-green-500", icon: <CheckCircle className="h-4 w-4" /> },
+  REJECTED: { label: "Rejected", color: "bg-red-500", icon: <XCircle className="h-4 w-4" /> },
+};
+
+const evidenceTypeLabels: Record<string, string> = {
+  POLICY: "Policy Document",
+  PROCEDURE: "Procedure",
+  TRAINING_RECORD: "Training Record",
+  INCIDENT_REPORT: "Incident Report",
+  CASE_NOTE: "Case Note",
+  MEDICATION_RECORD: "Medication Record",
+  BSP: "Behaviour Support Plan",
+  RISK_ASSESSMENT: "Risk Assessment",
+  ROSTER: "Roster/Schedule",
+  OTHER: "Other",
+};
+
+export default function EvidenceLockerPage() {
+  const [, navigate] = useLocation();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const { data: requests, isLoading } = useQuery({
+    queryKey: ["evidenceRequests", statusFilter],
+    queryFn: () => getEvidenceRequests({
+      status: statusFilter !== "all" ? statusFilter as EvidenceStatus : undefined,
+    }),
+  });
+
+  const { data: users } = useQuery({
+    queryKey: ["companyUsers"],
+    queryFn: getCompanyUsers,
+  });
+
+  const getUserName = (userId: string | null) => {
+    if (!userId) return "Unknown";
+    const user = users?.find(u => u.id === userId);
+    return user?.fullName || "Unknown";
+  };
+
+  const pendingCount = requests?.filter(r => r.status === "REQUESTED" || r.status === "SUBMITTED").length || 0;
+  const acceptedCount = requests?.filter(r => r.status === "ACCEPTED").length || 0;
+  const rejectedCount = requests?.filter(r => r.status === "REJECTED").length || 0;
+
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidence Locker</h1>
+        <p className="text-muted-foreground">Track and manage evidence submissions for audit findings</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-yellow-100">
+                <Clock className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{pendingCount}</p>
+                <p className="text-sm text-muted-foreground">Pending</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-green-100">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{acceptedCount}</p>
+                <p className="text-sm text-muted-foreground">Accepted</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-red-100">
+                <XCircle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{rejectedCount}</p>
+                <p className="text-sm text-muted-foreground">Rejected</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex gap-4 mb-6">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-48" data-testid="select-status-filter">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="REQUESTED">Requested</SelectItem>
+            <SelectItem value="SUBMITTED">Submitted</SelectItem>
+            <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
+            <SelectItem value="ACCEPTED">Accepted</SelectItem>
+            <SelectItem value="REJECTED">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : requests?.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-1">No evidence requests</h3>
+            <p className="text-muted-foreground text-sm">
+              Evidence requests will appear here when requested for audit findings
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {requests?.map(request => {
+            const statusInfo = statusConfig[request.status];
+            return (
+              <Card 
+                key={request.id} 
+                className="hover:border-primary/50 cursor-pointer transition-colors"
+                onClick={() => navigate(`/evidence/${request.id}`)}
+                data-testid={`card-evidence-request-${request.id}`}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge className={statusInfo.color} data-testid={`badge-status-${request.id}`}>
+                          <span className="mr-1">{statusInfo.icon}</span>
+                          {statusInfo.label}
+                        </Badge>
+                        <Badge variant="outline">
+                          {evidenceTypeLabels[request.evidenceType] || request.evidenceType}
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-base mt-2">{request.requestNote}</CardTitle>
+                    </div>
+                    <Button variant="ghost" size="sm" data-testid={`button-view-${request.id}`}>
+                      <Eye className="h-4 w-4 mr-1" />
+                      View
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <span>Requested by:</span>
+                      <span className="font-medium">{getUserName(request.requestedByCompanyUserId)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span>Created:</span>
+                      <span className="font-medium">{format(new Date(request.createdAt), "dd MMM yyyy")}</span>
+                    </div>
+                    {request.dueDate && (
+                      <div className="flex items-center gap-1">
+                        <span>Due:</span>
+                        <span className="font-medium">{format(new Date(request.dueDate), "dd MMM yyyy")}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

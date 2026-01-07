@@ -12,7 +12,9 @@ import {
   Loader2,
   Shield,
   FileText,
-  Settings
+  Settings,
+  AlertTriangle,
+  FolderOpen
 } from "lucide-react";
 
 interface CompanyLayoutProps {
@@ -104,6 +106,26 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
                 >
                   <LayoutDashboard className="h-4 w-4 mr-2" />
                   Dashboard
+                </Button>
+              </Link>
+              <Link href="/findings">
+                <Button 
+                  variant={location === "/findings" ? "secondary" : "ghost"} 
+                  size="sm"
+                  data-testid="nav-findings"
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Findings
+                </Button>
+              </Link>
+              <Link href="/evidence">
+                <Button 
+                  variant={location.startsWith("/evidence") ? "secondary" : "ghost"} 
+                  size="sm"
+                  data-testid="nav-evidence"
+                >
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Evidence
                 </Button>
               </Link>
               

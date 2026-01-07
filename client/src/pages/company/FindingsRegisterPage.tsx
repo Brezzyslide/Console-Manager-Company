@@ -6,11 +6,36 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, AlertTriangle, AlertCircle, Calendar, User } from "lucide-react";
-import { getFindings, getFinding, updateFinding, getCompanyUsers, type Finding, type FindingStatus } from "@/lib/company-api";
+import { Loader2, AlertTriangle, AlertCircle, Calendar, User, FileText, FolderOpen } from "lucide-react";
+import { 
+  getFindings, 
+  getFinding, 
+  updateFinding, 
+  getCompanyUsers, 
+  requestEvidence,
+  getFindingEvidence,
+  type Finding, 
+  type FindingStatus,
+  type EvidenceType 
+} from "@/lib/company-api";
 import { format } from "date-fns";
+import { useCompanyAuth } from "@/hooks/use-company-auth";
+
+const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
+  { value: "POLICY", label: "Policy Document" },
+  { value: "PROCEDURE", label: "Procedure" },
+  { value: "TRAINING_RECORD", label: "Training Record" },
+  { value: "INCIDENT_REPORT", label: "Incident Report" },
+  { value: "CASE_NOTE", label: "Case Note" },
+  { value: "MEDICATION_RECORD", label: "Medication Record" },
+  { value: "BSP", label: "Behaviour Support Plan" },
+  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
+  { value: "ROSTER", label: "Roster/Schedule" },
+  { value: "OTHER", label: "Other" },
+];
 
 const statusColors: Record<FindingStatus, string> = {
   OPEN: "bg-red-500",
@@ -21,16 +46,24 @@ const statusColors: Record<FindingStatus, string> = {
 export default function FindingsRegisterPage() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useCompanyAuth();
   
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showEvidenceDialog, setShowEvidenceDialog] = useState(false);
   
   const [editForm, setEditForm] = useState({
     ownerCompanyUserId: "",
     dueDate: "",
     status: "" as FindingStatus | "",
+  });
+  
+  const [evidenceForm, setEvidenceForm] = useState({
+    evidenceType: "" as EvidenceType | "",
+    requestNote: "",
+    dueDate: "",
   });
 
   const { data: findings, isLoading } = useQuery({
@@ -52,6 +85,17 @@ export default function FindingsRegisterPage() {
       queryClient.invalidateQueries({ queryKey: ["findings"] });
       setShowEditDialog(false);
       setSelectedFinding(null);
+    },
+  });
+
+  const evidenceMutation = useMutation({
+    mutationFn: ({ findingId, data }: { findingId: string; data: { evidenceType: EvidenceType; requestNote: string; dueDate?: string | null } }) => 
+      requestEvidence(findingId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["evidenceRequests"] });
+      setShowEvidenceDialog(false);
+      setEvidenceForm({ evidenceType: "", requestNote: "", dueDate: "" });
+      navigate("/evidence");
     },
   });
 
@@ -229,15 +273,109 @@ export default function FindingsRegisterPage() {
           {updateMutation.error && (
             <p className="text-sm text-destructive">{(updateMutation.error as Error).message}</p>
           )}
+          <DialogFooter className="sm:justify-between">
+            <div>
+              {selectedFinding?.status !== "CLOSED" && ["CompanyAdmin", "Auditor", "Reviewer"].includes(user?.role || "") && (
+                <Button 
+                  variant="secondary"
+                  onClick={() => {
+                    setShowEditDialog(false);
+                    setShowEvidenceDialog(true);
+                  }}
+                  data-testid="button-request-evidence"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Request Evidence
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
+              <Button 
+                onClick={handleSaveEdit}
+                disabled={updateMutation.isPending}
+                data-testid="button-save-finding"
+              >
+                {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Save Changes
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEvidenceDialog} onOpenChange={setShowEvidenceDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Evidence</DialogTitle>
+            <DialogDescription>
+              Request evidence to address this finding
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm">{selectedFinding?.findingText}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Evidence Type *</Label>
+              <Select 
+                value={evidenceForm.evidenceType} 
+                onValueChange={(v) => setEvidenceForm(prev => ({ ...prev, evidenceType: v as EvidenceType }))}
+              >
+                <SelectTrigger data-testid="select-evidence-type">
+                  <SelectValue placeholder="Select evidence type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {evidenceTypeOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Request Note *</Label>
+              <Textarea
+                value={evidenceForm.requestNote}
+                onChange={(e) => setEvidenceForm(prev => ({ ...prev, requestNote: e.target.value }))}
+                placeholder="Describe what evidence is needed and why..."
+                data-testid="input-request-note"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Due Date (optional)</Label>
+              <Input
+                type="date"
+                value={evidenceForm.dueDate}
+                onChange={(e) => setEvidenceForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                data-testid="input-evidence-due-date"
+              />
+            </div>
+          </div>
+          {evidenceMutation.error && (
+            <p className="text-sm text-destructive">{(evidenceMutation.error as Error).message}</p>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowEvidenceDialog(false)}>Cancel</Button>
             <Button 
-              onClick={handleSaveEdit}
-              disabled={updateMutation.isPending}
-              data-testid="button-save-finding"
+              onClick={() => {
+                if (!selectedFinding || !evidenceForm.evidenceType || !evidenceForm.requestNote) return;
+                evidenceMutation.mutate({
+                  findingId: selectedFinding.id,
+                  data: {
+                    evidenceType: evidenceForm.evidenceType as EvidenceType,
+                    requestNote: evidenceForm.requestNote,
+                    dueDate: evidenceForm.dueDate || null,
+                  },
+                });
+              }}
+              disabled={!evidenceForm.evidenceType || !evidenceForm.requestNote || evidenceMutation.isPending}
+              data-testid="button-submit-evidence-request"
             >
-              {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Save Changes
+              {evidenceMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Request Evidence
             </Button>
           </DialogFooter>
         </DialogContent>

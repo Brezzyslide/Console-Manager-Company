@@ -745,3 +745,121 @@ export async function updateFinding(
   }
   return res.json();
 }
+
+// ===== EVIDENCE API =====
+
+export type EvidenceStatus = "REQUESTED" | "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED";
+export type EvidenceType = "POLICY" | "PROCEDURE" | "TRAINING_RECORD" | "INCIDENT_REPORT" | "CASE_NOTE" | "MEDICATION_RECORD" | "BSP" | "RISK_ASSESSMENT" | "ROSTER" | "OTHER";
+
+export interface EvidenceRequest {
+  id: string;
+  companyId: string;
+  auditId: string;
+  findingId: string;
+  evidenceType: EvidenceType;
+  requestNote: string;
+  status: EvidenceStatus;
+  dueDate: string | null;
+  requestedByCompanyUserId: string;
+  reviewedByCompanyUserId: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface EvidenceItem {
+  id: string;
+  companyId: string;
+  evidenceRequestId: string;
+  storageKind: "UPLOAD" | "LINK";
+  fileName: string;
+  filePath: string | null;
+  externalUrl: string | null;
+  mimeType: string | null;
+  fileSizeBytes: number | null;
+  note: string | null;
+  uploadedByCompanyUserId: string;
+  createdAt: string;
+}
+
+export async function requestEvidence(
+  findingId: string,
+  data: { evidenceType: EvidenceType; requestNote: string; dueDate?: string | null }
+): Promise<EvidenceRequest> {
+  const res = await fetch(`/api/company/findings/${findingId}/request-evidence`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to request evidence");
+  }
+  return res.json();
+}
+
+export async function getEvidenceRequests(filters?: { status?: EvidenceStatus; auditId?: string }): Promise<EvidenceRequest[]> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.auditId) params.set("auditId", filters.auditId);
+  
+  const res = await fetch(`/api/company/evidence/requests?${params}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch evidence requests");
+  return res.json();
+}
+
+export async function getEvidenceRequest(id: string): Promise<EvidenceRequest & { finding: Finding; items: EvidenceItem[] }> {
+  const res = await fetch(`/api/company/evidence/requests/${id}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch evidence request");
+  return res.json();
+}
+
+export async function submitEvidence(
+  evidenceRequestId: string,
+  data: {
+    storageKind: "UPLOAD" | "LINK";
+    fileName: string;
+    filePath?: string;
+    externalUrl?: string;
+    mimeType?: string;
+    fileSizeBytes?: number;
+    note?: string;
+  }
+): Promise<EvidenceItem> {
+  const res = await fetch(`/api/company/evidence/requests/${evidenceRequestId}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to submit evidence");
+  }
+  return res.json();
+}
+
+export async function reviewEvidence(
+  evidenceRequestId: string,
+  data: { decision: "ACCEPTED" | "REJECTED"; reviewNote?: string }
+): Promise<EvidenceRequest> {
+  const res = await fetch(`/api/company/evidence/requests/${evidenceRequestId}/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to review evidence");
+  }
+  return res.json();
+}
+
+export async function getFindingEvidence(findingId: string): Promise<{ evidenceRequest: EvidenceRequest | null; items: EvidenceItem[] }> {
+  const res = await fetch(`/api/company/findings/${findingId}/evidence`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch finding evidence");
+  return res.json();
+}

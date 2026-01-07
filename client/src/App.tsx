@@ -30,6 +30,8 @@ import AuditRunnerPage from "@/pages/company/AuditRunnerPage";
 import AuditReviewPage from "@/pages/company/AuditReviewPage";
 import FindingsRegisterPage from "@/pages/company/FindingsRegisterPage";
 import ServicesSettingsPage from "@/pages/company/ServicesSettingsPage";
+import EvidenceLockerPage from "@/pages/company/EvidenceLockerPage";
+import EvidenceDetailPage from "@/pages/company/EvidenceDetailPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 function ProtectedConsolePage({ component: Component }: { component: React.ComponentType }) {
@@ -139,6 +141,18 @@ function Router() {
       <Route path="/findings">
         <CompanyLayout>
           <FindingsRegisterPage />
+        </CompanyLayout>
+      </Route>
+      
+      {/* Evidence Routes */}
+      <Route path="/evidence/:id">
+        <CompanyLayout>
+          <EvidenceDetailPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/evidence">
+        <CompanyLayout>
+          <EvidenceLockerPage />
         </CompanyLayout>
       </Route>
 
