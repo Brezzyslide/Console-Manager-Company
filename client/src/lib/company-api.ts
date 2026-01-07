@@ -529,6 +529,7 @@ export async function createAudit(input: {
   externalAuditorName?: string;
   externalAuditorOrg?: string;
   externalAuditorEmail?: string;
+  selectedLineItemIds?: string[];
 }): Promise<Audit> {
   const res = await fetch("/api/company/audits", {
     method: "POST",

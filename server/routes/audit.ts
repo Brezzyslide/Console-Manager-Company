@@ -82,6 +82,7 @@ const createAuditSchema = z.object({
   externalAuditorName: z.string().optional(),
   externalAuditorOrg: z.string().optional(),
   externalAuditorEmail: z.string().email().optional(),
+  selectedLineItemIds: z.array(z.string().uuid()).min(1, "At least one line item must be selected"),
 }).refine(data => {
   if (data.auditType === "EXTERNAL") {
     return data.externalAuditorName && data.externalAuditorOrg && data.externalAuditorEmail;
@@ -110,6 +111,17 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
       });
     }
     
+    const allLineItems = await storage.getSupportLineItems();
+    const validLineItemIds = allLineItems.filter(li => li.isActive).map(li => li.id);
+    const invalidIds = input.selectedLineItemIds.filter(id => !validLineItemIds.includes(id));
+    
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        error: "Invalid line items",
+        message: "Some selected line items are not valid",
+      });
+    }
+    
     const serviceContextEnum = mapLabelToEnumKey(input.serviceContextLabel);
     
     const audit = await storage.createAudit({
@@ -128,6 +140,8 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
       scopeLocked: false,
     });
     
+    await storage.setAuditScopeLineItems(audit.id, input.selectedLineItemIds);
+    
     await storage.logChange({
       actorType: "company_user",
       actorId: userId,
@@ -135,7 +149,13 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
       action: "AUDIT_CREATED",
       entityType: "audit",
       entityId: audit.id,
-      afterJson: { auditType: input.auditType, title: input.title, serviceContext: serviceContextEnum, serviceContextLabel: input.serviceContextLabel },
+      afterJson: { 
+        auditType: input.auditType, 
+        title: input.title, 
+        serviceContext: serviceContextEnum, 
+        serviceContextLabel: input.serviceContextLabel,
+        scopeLineItemCount: input.selectedLineItemIds.length,
+      },
     });
     
     return res.status(201).json(audit);

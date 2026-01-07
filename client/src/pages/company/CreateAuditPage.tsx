@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, ArrowRight, Loader2, ClipboardCheck, UserCheck, AlertTriangle, Settings } from "lucide-react";
 import { createAudit, getAuditOptions, type AuditType } from "@/lib/company-api";
 
@@ -16,6 +17,7 @@ export default function CreateAuditPage() {
   const [, navigate] = useLocation();
   const [step, setStep] = useState(0);
   const [auditType, setAuditType] = useState<AuditType | null>(null);
+  const [selectedLineItems, setSelectedLineItems] = useState<Set<string>>(new Set());
   
   const [formData, setFormData] = useState({
     title: "",
@@ -37,7 +39,7 @@ export default function CreateAuditPage() {
   const createMutation = useMutation({
     mutationFn: createAudit,
     onSuccess: (audit) => {
-      navigate(`/audits/${audit.id}/scope`);
+      navigate(`/audits/${audit.id}/template`);
     },
   });
 
@@ -53,7 +55,7 @@ export default function CreateAuditPage() {
   };
 
   const handleSubmit = () => {
-    if (!auditType || !formData.serviceContextLabel) return;
+    if (!auditType || !formData.serviceContextLabel || selectedLineItems.size === 0) return;
     
     createMutation.mutate({
       auditType,
@@ -66,6 +68,39 @@ export default function CreateAuditPage() {
       externalAuditorName: auditType === "EXTERNAL" ? formData.externalAuditorName : undefined,
       externalAuditorOrg: auditType === "EXTERNAL" ? formData.externalAuditorOrg : undefined,
       externalAuditorEmail: auditType === "EXTERNAL" ? formData.externalAuditorEmail : undefined,
+      selectedLineItemIds: Array.from(selectedLineItems),
+    });
+  };
+
+  const handleToggleLineItem = (lineItemId: string) => {
+    setSelectedLineItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(lineItemId)) {
+        newSet.delete(lineItemId);
+      } else {
+        newSet.add(lineItemId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllInCategory = (categoryLabel: string) => {
+    const category = auditOptions?.lineItemsByCategory.find(c => c.categoryLabel === categoryLabel);
+    if (!category) return;
+    
+    const categoryItemIds = category.items.map(item => item.lineItemId);
+    const allSelected = categoryItemIds.every(id => selectedLineItems.has(id));
+    
+    setSelectedLineItems(prev => {
+      const newSet = new Set(prev);
+      categoryItemIds.forEach(id => {
+        if (allSelected) {
+          newSet.delete(id);
+        } else {
+          newSet.add(id);
+        }
+      });
+      return newSet;
     });
   };
 
@@ -79,6 +114,7 @@ export default function CreateAuditPage() {
     formData.serviceContextLabel !== "" &&
     formData.scopeTimeFrom !== "" &&
     formData.scopeTimeTo !== "" &&
+    selectedLineItems.size > 0 &&
     (auditType === "INTERNAL" || (
       formData.externalAuditorName.trim() !== "" &&
       formData.externalAuditorOrg.trim() !== "" &&
@@ -280,21 +316,43 @@ export default function CreateAuditPage() {
 
               {formData.serviceContextLabel && (
                 <div className="space-y-2">
-                  <Label>Line Items in {formData.serviceContextLabel}</Label>
-                  <div className="border rounded-lg p-4 bg-muted/30 max-h-48 overflow-y-auto">
+                  <div className="flex items-center justify-between">
+                    <Label>Select Line Items in {formData.serviceContextLabel} *</Label>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleSelectAllInCategory(formData.serviceContextLabel)}
+                      data-testid="button-select-all-category"
+                    >
+                      {auditOptions?.lineItemsByCategory
+                        .find(cat => cat.categoryLabel === formData.serviceContextLabel)
+                        ?.items.every(item => selectedLineItems.has(item.lineItemId)) 
+                        ? "Deselect All" : "Select All"}
+                    </Button>
+                  </div>
+                  <div className="border rounded-lg p-4 bg-muted/30 max-h-64 overflow-y-auto">
                     {auditOptions?.lineItemsByCategory
                       .find(cat => cat.categoryLabel === formData.serviceContextLabel)
                       ?.items.map(item => (
-                        <div key={item.lineItemId} className="flex items-center gap-3 py-1.5 text-sm border-b last:border-0">
+                        <label 
+                          key={item.lineItemId} 
+                          className="flex items-center gap-3 py-2 text-sm border-b last:border-0 cursor-pointer hover:bg-accent/50 px-2 -mx-2 rounded"
+                          data-testid={`checkbox-line-item-${item.lineItemId}`}
+                        >
+                          <Checkbox 
+                            checked={selectedLineItems.has(item.lineItemId)}
+                            onCheckedChange={() => handleToggleLineItem(item.lineItemId)}
+                          />
                           <span className="font-mono text-xs text-muted-foreground min-w-[70px]">{item.code}</span>
-                          <span>{item.label}</span>
-                        </div>
+                          <span className="flex-1">{item.label}</span>
+                        </label>
                       )) || (
                         <p className="text-sm text-muted-foreground">No line items available for this category</p>
                       )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    You will select specific line items to audit in the next step
+                    {selectedLineItems.size} line item{selectedLineItems.size !== 1 ? "s" : ""} selected for audit scope
                   </p>
                 </div>
               )}
