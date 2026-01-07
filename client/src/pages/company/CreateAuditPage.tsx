@@ -274,9 +274,30 @@ export default function CreateAuditPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  These options are configured in your organization's onboarding settings
+                  Select a category to see its available line items
                 </p>
               </div>
+
+              {formData.serviceContextLabel && (
+                <div className="space-y-2">
+                  <Label>Line Items in {formData.serviceContextLabel}</Label>
+                  <div className="border rounded-lg p-4 bg-muted/30 max-h-48 overflow-y-auto">
+                    {auditOptions?.lineItemsByCategory
+                      .find(cat => cat.categoryLabel === formData.serviceContextLabel)
+                      ?.items.map(item => (
+                        <div key={item.lineItemId} className="flex items-center gap-3 py-1.5 text-sm border-b last:border-0">
+                          <span className="font-mono text-xs text-muted-foreground min-w-[70px]">{item.code}</span>
+                          <span>{item.label}</span>
+                        </div>
+                      )) || (
+                        <p className="text-sm text-muted-foreground">No line items available for this category</p>
+                      )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    You will select specific line items to audit in the next step
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
