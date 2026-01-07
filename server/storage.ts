@@ -57,7 +57,7 @@ import {
   type InsertEvidenceItem,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, asc, desc } from "drizzle-orm";
+import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // Console Users
@@ -159,7 +159,8 @@ export interface IStorage {
   createEvidenceRequest(request: InsertEvidenceRequest): Promise<EvidenceRequest>;
   getEvidenceRequest(id: string, companyId: string): Promise<EvidenceRequest | undefined>;
   getEvidenceRequestByFindingId(findingId: string, companyId: string): Promise<EvidenceRequest | undefined>;
-  getEvidenceRequests(companyId: string, filters?: { status?: string; auditId?: string }): Promise<EvidenceRequest[]>;
+  getEvidenceRequests(companyId: string, filters?: { status?: string; auditId?: string; standalone?: boolean; findingId?: string }): Promise<EvidenceRequest[]>;
+  getEvidenceRequestsByAuditId(auditId: string, companyId: string): Promise<EvidenceRequest[]>;
   updateEvidenceRequest(id: string, companyId: string, updates: Partial<InsertEvidenceRequest>): Promise<EvidenceRequest | undefined>;
   
   // Evidence Items
@@ -739,7 +740,7 @@ export class DatabaseStorage implements IStorage {
     return request || undefined;
   }
 
-  async getEvidenceRequests(companyId: string, filters?: { status?: string; auditId?: string }): Promise<EvidenceRequest[]> {
+  async getEvidenceRequests(companyId: string, filters?: { status?: string; auditId?: string; standalone?: boolean; findingId?: string }): Promise<EvidenceRequest[]> {
     const conditions: any[] = [eq(evidenceRequests.companyId, companyId)];
     if (filters?.status) {
       conditions.push(eq(evidenceRequests.status, filters.status as any));
@@ -747,11 +748,25 @@ export class DatabaseStorage implements IStorage {
     if (filters?.auditId) {
       conditions.push(eq(evidenceRequests.auditId, filters.auditId));
     }
+    if (filters?.standalone) {
+      conditions.push(isNull(evidenceRequests.auditId));
+    }
+    if (filters?.findingId) {
+      conditions.push(eq(evidenceRequests.findingId, filters.findingId));
+    }
     
     return await db
       .select()
       .from(evidenceRequests)
       .where(and(...conditions))
+      .orderBy(desc(evidenceRequests.createdAt));
+  }
+
+  async getEvidenceRequestsByAuditId(auditId: string, companyId: string): Promise<EvidenceRequest[]> {
+    return await db
+      .select()
+      .from(evidenceRequests)
+      .where(and(eq(evidenceRequests.auditId, auditId), eq(evidenceRequests.companyId, companyId)))
       .orderBy(desc(evidenceRequests.createdAt));
   }
 

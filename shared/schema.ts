@@ -401,12 +401,16 @@ export const insertFindingSchema = createInsertSchema(findings).omit({
 export type InsertFinding = z.infer<typeof insertFindingSchema>;
 export type Finding = typeof findings.$inferSelect;
 
-// Evidence Requests (One per finding)
+// Evidence Requests - flexible linking for different contexts:
+// auditId + no findingId = audit-linked evidence request (pre-finding)
+// auditId + findingId = finding remediation
+// Neither = standalone document request
 export const evidenceRequests = pgTable("evidence_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
-  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
-  findingId: varchar("finding_id").notNull().references(() => findings.id, { onDelete: "cascade" }).unique(),
+  auditId: varchar("audit_id").references(() => audits.id, { onDelete: "cascade" }),
+  findingId: varchar("finding_id").references(() => findings.id, { onDelete: "cascade" }),
+  templateIndicatorId: varchar("template_indicator_id").references(() => auditTemplateIndicators.id),
   evidenceType: text("evidence_type", { enum: evidenceTypeEnum }).notNull(),
   requestNote: text("request_note").notNull(),
   status: text("status", { enum: evidenceStatusEnum }).notNull().default("REQUESTED"),
