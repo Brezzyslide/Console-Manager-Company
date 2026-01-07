@@ -46,6 +46,7 @@ export default function CreateAuditPage() {
   const handleServiceContextChange = (label: string) => {
     const context = auditOptions?.serviceContexts.find(c => c.label === label);
     if (context) {
+      setSelectedLineItems(new Set());
       setFormData(prev => ({ 
         ...prev, 
         serviceContextKey: context.key,
