@@ -32,7 +32,6 @@ router.get("/audits/options", requireCompanyAuth, async (req: AuthenticatedCompa
   try {
     const companyId = req.companyUser!.companyId;
     
-    const settings = await storage.getCompanySettings(companyId);
     const selections = await storage.getCompanyServiceSelections(companyId);
     const allLineItems = await storage.getSupportLineItems();
     const categories = await storage.getSupportCategories();
@@ -45,29 +44,21 @@ router.get("/audits/options", requireCompanyAuth, async (req: AuthenticatedCompa
         categoryId: cat.id,
         categoryKey: cat.categoryKey,
         categoryLabel: cat.categoryLabel,
-        items: availableLineItems
-          .filter(li => li.categoryId === cat.id)
+        items: allLineItems
+          .filter(li => li.categoryId === cat.id && li.isActive)
           .map(li => ({
             lineItemId: li.id,
             code: li.itemCode,
             label: li.itemLabel,
+            isSelected: lineItemIds.includes(li.id),
           })),
       }))
       .filter(g => g.items.length > 0);
     
-    let serviceContexts: { key: string; label: string }[] = [];
-    
-    if (settings?.supportDeliveryContexts && settings.supportDeliveryContexts.length > 0) {
-      serviceContexts = settings.supportDeliveryContexts.map(label => ({
-        key: mapLabelToEnumKey(label),
-        label,
-      }));
-    } else {
-      serviceContexts = lineItemsByCategory.map(cat => ({
-        key: cat.categoryKey,
-        label: cat.categoryLabel,
-      }));
-    }
+    const serviceContexts = categories.map(cat => ({
+      key: cat.categoryKey,
+      label: cat.categoryLabel,
+    }));
     
     return res.json({
       serviceContexts,
@@ -105,22 +96,8 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
     
     const input = createAuditSchema.parse(req.body);
     
-    const settings = await storage.getCompanySettings(companyId);
-    const configuredContexts = settings?.supportDeliveryContexts || [];
-    
-    const selections = await storage.getCompanyServiceSelections(companyId);
-    const allLineItems = await storage.getSupportLineItems();
     const categories = await storage.getSupportCategories();
-    
-    const lineItemIds = selections.map(s => s.lineItemId);
-    const availableLineItems = allLineItems.filter(li => lineItemIds.includes(li.id) && li.isActive);
-    const categoryLabels = categories
-      .filter(cat => availableLineItems.some(li => li.categoryId === cat.id))
-      .map(cat => cat.categoryLabel);
-    
-    const validContextLabels = configuredContexts.length > 0 
-      ? configuredContexts 
-      : categoryLabels;
+    const validContextLabels = categories.map(cat => cat.categoryLabel);
     
     const isValidContext = validContextLabels.some(
       ctx => ctx.toLowerCase() === input.serviceContextLabel.toLowerCase()
@@ -129,7 +106,7 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
     if (!isValidContext) {
       return res.status(400).json({ 
         error: "Invalid service context", 
-        message: "The selected service context is not configured for this company" 
+        message: "The selected service context is not valid" 
       });
     }
     
