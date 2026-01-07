@@ -4,17 +4,37 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp } from "lucide-react";
 import { 
   getAuditRunner, 
   saveIndicatorResponse, 
   submitAudit,
+  createAuditEvidenceRequest,
+  getAuditEvidenceRequests,
   type IndicatorRating,
   type AuditTemplateIndicator,
   type AuditIndicatorResponse,
+  type EvidenceType,
 } from "@/lib/company-api";
+
+const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
+  { value: "POLICY", label: "Policy Document" },
+  { value: "PROCEDURE", label: "Procedure" },
+  { value: "TRAINING_RECORD", label: "Training Record" },
+  { value: "INCIDENT_REPORT", label: "Incident Report" },
+  { value: "CASE_NOTE", label: "Case Note" },
+  { value: "MEDICATION_RECORD", label: "Medication Record" },
+  { value: "BSP", label: "Behaviour Support Plan" },
+  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
+  { value: "ROSTER", label: "Roster/Schedule" },
+  { value: "OTHER", label: "Other" },
+];
 
 const ratingOptions: { value: IndicatorRating; label: string; icon: any; color: string }[] = [
   { value: "CONFORMANCE", label: "Conformance", icon: CheckCircle2, color: "bg-green-500 hover:bg-green-600" },
@@ -31,6 +51,12 @@ export default function AuditRunnerPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [rating, setRating] = useState<IndicatorRating | null>(null);
   const [comment, setComment] = useState("");
+  const [showEvidenceDialog, setShowEvidenceDialog] = useState(false);
+  const [evidenceForm, setEvidenceForm] = useState({
+    evidenceType: "" as EvidenceType | "",
+    requestNote: "",
+    dueDate: "",
+  });
 
   const { data: runnerData, isLoading } = useQuery({
     queryKey: ["auditRunner", id],
@@ -57,6 +83,26 @@ export default function AuditRunnerPage() {
       navigate(`/audits/${id}/review`);
     },
   });
+
+  const evidenceRequestMutation = useMutation({
+    mutationFn: (data: { evidenceType: EvidenceType; requestNote: string; templateIndicatorId?: string; dueDate?: string | null }) => 
+      createAuditEvidenceRequest(id!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditEvidenceRequests", id] });
+      setShowEvidenceDialog(false);
+      setEvidenceForm({ evidenceType: "", requestNote: "", dueDate: "" });
+    },
+  });
+
+  const handleRequestEvidence = () => {
+    if (!evidenceForm.evidenceType || !evidenceForm.requestNote) return;
+    evidenceRequestMutation.mutate({
+      evidenceType: evidenceForm.evidenceType as EvidenceType,
+      requestNote: evidenceForm.requestNote,
+      templateIndicatorId: currentIndicator?.id,
+      dueDate: evidenceForm.dueDate || null,
+    });
+  };
 
   const indicators = runnerData?.indicators || [];
   const responses = runnerData?.responses || [];
@@ -165,7 +211,18 @@ export default function AuditRunnerPage() {
                   <Badge variant="destructive" className="mt-2">Critical Control</Badge>
                 )}
               </div>
-              <Badge variant="outline">{currentIndicator.riskLevel} Risk</Badge>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowEvidenceDialog(true)}
+                  data-testid="button-request-evidence"
+                >
+                  <FileUp className="h-4 w-4 mr-1" />
+                  Request Evidence
+                </Button>
+                <Badge variant="outline">{currentIndicator.riskLevel} Risk</Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -263,6 +320,75 @@ export default function AuditRunnerPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={showEvidenceDialog} onOpenChange={setShowEvidenceDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Evidence</DialogTitle>
+            <DialogDescription>
+              Request supporting evidence for this indicator
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-muted rounded-lg text-sm">
+              <span className="text-muted-foreground">For indicator: </span>
+              {currentIndicator?.indicatorText?.slice(0, 80)}
+              {(currentIndicator?.indicatorText?.length || 0) > 80 && "..."}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Evidence Type *</Label>
+              <Select 
+                value={evidenceForm.evidenceType} 
+                onValueChange={(v) => setEvidenceForm(prev => ({ ...prev, evidenceType: v as EvidenceType }))}
+              >
+                <SelectTrigger data-testid="select-evidence-type">
+                  <SelectValue placeholder="Select evidence type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {evidenceTypeOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Request Note *</Label>
+              <Textarea
+                value={evidenceForm.requestNote}
+                onChange={(e) => setEvidenceForm(prev => ({ ...prev, requestNote: e.target.value }))}
+                placeholder="Describe what document is needed..."
+                data-testid="input-evidence-request-note"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Due Date (optional)</Label>
+              <Input
+                type="date"
+                value={evidenceForm.dueDate}
+                onChange={(e) => setEvidenceForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                data-testid="input-evidence-due-date"
+              />
+            </div>
+          </div>
+          {evidenceRequestMutation.error && (
+            <p className="text-sm text-destructive">{(evidenceRequestMutation.error as Error).message}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEvidenceDialog(false)}>Cancel</Button>
+            <Button 
+              onClick={handleRequestEvidence}
+              disabled={!evidenceForm.evidenceType || !evidenceForm.requestNote || evidenceRequestMutation.isPending}
+              data-testid="button-submit-evidence-request"
+            >
+              {evidenceRequestMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Request Evidence
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
