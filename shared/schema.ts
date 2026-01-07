@@ -236,6 +236,22 @@ export const serviceContextEnum = ["SIL", "COMMUNITY_ACCESS", "IN_HOME", "CENTRE
 export const riskLevelEnum = ["LOW", "MEDIUM", "HIGH"] as const;
 export const responseStatusEnum = ["OPEN", "CLOSED"] as const;
 
+// Sprint 4: Evidence enums
+export const evidenceStatusEnum = ["REQUESTED", "SUBMITTED", "UNDER_REVIEW", "ACCEPTED", "REJECTED"] as const;
+export const evidenceTypeEnum = [
+  "POLICY",
+  "PROCEDURE", 
+  "TRAINING_RECORD",
+  "INCIDENT_REPORT",
+  "CASE_NOTE",
+  "MEDICATION_RECORD",
+  "BSP",
+  "RISK_ASSESSMENT",
+  "ROSTER",
+  "OTHER"
+] as const;
+export const storageKindEnum = ["UPLOAD", "LINK"] as const;
+
 // Audits (Tenant-scoped)
 export const audits = pgTable("audits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -370,6 +386,9 @@ export const findings = pgTable("findings", {
   status: text("status", { enum: findingStatusEnum }).notNull().default("OPEN"),
   ownerCompanyUserId: varchar("owner_company_user_id").references(() => companyUsers.id),
   dueDate: timestamp("due_date"),
+  closureNote: text("closure_note"),
+  closedAt: timestamp("closed_at"),
+  closedByCompanyUserId: varchar("closed_by_company_user_id").references(() => companyUsers.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
 });
@@ -381,3 +400,51 @@ export const insertFindingSchema = createInsertSchema(findings).omit({
 
 export type InsertFinding = z.infer<typeof insertFindingSchema>;
 export type Finding = typeof findings.$inferSelect;
+
+// Evidence Requests (One per finding)
+export const evidenceRequests = pgTable("evidence_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  findingId: varchar("finding_id").notNull().references(() => findings.id, { onDelete: "cascade" }).unique(),
+  indicatorId: varchar("indicator_id").notNull().references(() => auditTemplateIndicators.id, { onDelete: "cascade" }),
+  requestedEvidenceTypes: json("requested_evidence_types").$type<(typeof evidenceTypeEnum)[number][]>().notNull(),
+  requestNote: text("request_note"),
+  status: text("status", { enum: evidenceStatusEnum }).notNull().default("REQUESTED"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertEvidenceRequestSchema = createInsertSchema(evidenceRequests).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEvidenceRequest = z.infer<typeof insertEvidenceRequestSchema>;
+export type EvidenceRequest = typeof evidenceRequests.$inferSelect;
+
+// Evidence Items (Submitted evidence for a request)
+export const evidenceItems = pgTable("evidence_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  evidenceRequestId: varchar("evidence_request_id").notNull().references(() => evidenceRequests.id, { onDelete: "cascade" }),
+  evidenceType: text("evidence_type", { enum: evidenceTypeEnum }).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  storageKind: text("storage_kind", { enum: storageKindEnum }).notNull(),
+  filePath: text("file_path"),
+  fileName: text("file_name"),
+  fileMime: text("file_mime"),
+  fileSize: integer("file_size"),
+  externalLink: text("external_link"),
+  submittedByCompanyUserId: varchar("submitted_by_company_user_id").notNull().references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertEvidenceItemSchema = createInsertSchema(evidenceItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEvidenceItem = z.infer<typeof insertEvidenceItemSchema>;
+export type EvidenceItem = typeof evidenceItems.$inferSelect;

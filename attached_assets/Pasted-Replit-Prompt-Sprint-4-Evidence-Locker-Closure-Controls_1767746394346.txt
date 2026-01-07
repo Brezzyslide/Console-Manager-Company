@@ -1,0 +1,398 @@
+Replit Prompt — Sprint 4: Evidence Locker + Closure Controls
+Context
+
+You are working in an existing monorepo app with:
+
+Frontend: Vite + React 18 + TypeScript + Tailwind + shadcn/ui + Wouter
+
+Backend: Express (same port 5000)
+
+DB: Postgres
+
+ORM: Drizzle
+
+Strict multi-tenancy + RBAC enforced
+
+No mock or seeded data allowed
+
+Existing from Sprints 0–3:
+
+Company onboarding and service selection
+
+Audit engine (Internal + External)
+
+Line-item-first audit scoping
+
+Audit templates and indicators
+
+Indicator scoring (Conformance / Observation / Minor / Major)
+
+Findings auto-created from non-conformance
+
+change_log in place
+
+Sprint 4 Goal (plain language)
+
+Introduce a structured evidence workflow that allows providers to:
+
+Upload or link evidence in response to findings
+
+See exactly what evidence is required
+
+Submit evidence for review
+
+Have findings formally closed or remain open
+
+Convert findings to conformance only after evidence is accepted
+
+This sprint does not introduce AI yet.
+This sprint creates the proof layer that AI will later rely on.
+
+1. Database (Drizzle)
+1.1 New enums
+
+evidence_status: REQUESTED | SUBMITTED | UNDER_REVIEW | ACCEPTED | REJECTED
+
+evidence_type:
+
+POLICY
+
+PROCEDURE
+
+TRAINING_RECORD
+
+INCIDENT_REPORT
+
+CASE_NOTE
+
+MEDICATION_RECORD
+
+BSP
+
+RISK_ASSESSMENT
+
+ROSTER
+
+OTHER
+
+1.2 New tables
+evidence_requests
+
+Created automatically when a finding exists.
+
+Fields:
+
+id (uuid pk)
+
+company_id (uuid fk)
+
+audit_id (uuid fk)
+
+finding_id (uuid fk)
+
+indicator_id (uuid fk audit_template_indicators.id)
+
+requested_evidence_types (json array of evidence_type)
+
+request_note (text nullable)
+
+status (evidence_status default REQUESTED)
+
+created_at
+
+updated_at
+
+Rules:
+
+One evidence_request per finding
+
+Status moves forward only (no backward transitions)
+
+evidence_items
+
+Actual proof submitted.
+
+Fields:
+
+id (uuid pk)
+
+company_id (uuid fk)
+
+evidence_request_id (uuid fk)
+
+evidence_type (enum evidence_type)
+
+title (string required)
+
+description (text nullable)
+
+storage_kind (UPLOAD | LINK)
+
+file_path (string nullable)
+
+file_name (string nullable)
+
+file_mime (string nullable)
+
+file_size (int nullable)
+
+external_link (string nullable)
+
+submitted_by_company_user_id (uuid fk)
+
+created_at
+
+Rules:
+
+Evidence must belong to an evidence_request
+
+No orphan uploads
+
+1.3 Update findings table
+
+Add:
+
+closure_note (text nullable)
+
+closed_at (timestamp nullable)
+
+closed_by_company_user_id (uuid nullable)
+
+1.4 change_log actions (required)
+
+EVIDENCE_REQUEST_CREATED
+
+EVIDENCE_SUBMITTED
+
+EVIDENCE_REVIEWED
+
+FINDING_CLOSED
+
+FINDING_REOPENED
+
+2. Backend API (Express)
+
+All endpoints:
+
+requireCompanyAuth
+
+derive companyId from token
+
+enforce RBAC
+
+no companyId from request body
+
+2.1 Evidence request lifecycle
+POST /api/company/findings/:id/request-evidence
+
+Triggered automatically when finding is created OR manually by Reviewer.
+
+Input:
+
+requestedEvidenceTypes (array of evidence_type)
+
+requestNote (optional)
+
+Rules:
+
+One active request per finding
+
+Creates evidence_request
+
+Writes change_log EVIDENCE_REQUEST_CREATED
+
+2.2 Evidence submission
+GET /api/company/evidence/requests
+
+Returns evidence requests for company with:
+
+linked audit
+
+linked finding
+
+status
+
+GET /api/company/evidence/requests/:id
+
+Returns:
+
+request details
+
+expected evidence types
+
+submitted evidence items
+
+POST /api/company/evidence/requests/:id/submit
+
+Accepts:
+
+evidenceType
+
+title
+
+description
+
+Upload OR external link
+
+Rules:
+
+Status moves REQUESTED → SUBMITTED
+
+Multiple evidence_items allowed
+
+Write change_log EVIDENCE_SUBMITTED
+
+2.3 Evidence review
+POST /api/company/evidence/requests/:id/review
+
+RBAC: Reviewer or CompanyAdmin only
+
+Input:
+
+decision: ACCEPT | REJECT
+
+reviewNote (required)
+
+Rules:
+
+If ACCEPT:
+
+evidence_request.status → ACCEPTED
+
+finding.status → CLOSED
+
+indicator rating updated to CONFORMANCE
+
+finding.closed_at and closed_by set
+
+Write FINDING_CLOSED
+
+If REJECT:
+
+evidence_request.status → REJECTED
+
+finding remains OPEN
+
+Write EVIDENCE_REVIEWED
+
+3. File handling
+
+Store uploads under /uploads/company/{companyId}/evidence/
+
+Max size 20MB
+
+Allowed types: pdf, docx, xlsx, jpg, png
+
+Sanitize filenames
+
+No delete yet (immutable audit trail)
+
+4. Frontend (React)
+New sections
+
+Create:
+
+src/app/evidence/
+
+EvidenceRequestsPage.tsx
+
+EvidenceRequestDetailPage.tsx
+
+src/app/findings/
+
+FindingDetailPage.tsx (extend existing)
+
+Routes:
+
+/evidence
+
+/evidence/:id
+
+/findings/:id
+
+4.1 Evidence Requests Page
+
+Shows table:
+
+Finding reference
+
+Audit title
+
+Status
+
+Due (if later added)
+
+Action: View / Submit
+
+4.2 Evidence Request Detail
+
+Shows:
+
+What the finding is
+
+Why evidence is required
+
+Checklist of required evidence types
+
+Submitted evidence list
+
+Upload / Link submission UI
+
+Checklist must visually map:
+
+Required → Submitted → Accepted
+
+4.3 Finding Detail Page
+
+Extend to show:
+
+Linked evidence request
+
+Evidence status
+
+Closure history
+
+Clear message:
+
+“Awaiting evidence”
+
+“Under review”
+
+“Closed following evidence”
+
+5. Behavioural rules (important)
+
+Evidence does not automatically close findings
+
+Only ACCEPTED evidence closes a finding
+
+Closed findings remain visible (history preserved)
+
+Indicators revert to CONFORMANCE only after closure
+
+External audits:
+
+Provider can submit evidence
+
+External auditor or Reviewer must accept it
+
+6. Acceptance Criteria (Sprint 4)
+
+After Sprint 4, the system can:
+
+Automatically request evidence for non-conformance
+
+Show providers exactly what evidence is required
+
+Allow uploads or secure links
+
+Review evidence and accept/reject it
+
+Close findings only after evidence acceptance
+
+Maintain a full audit trail
+
+Prepare clean inputs for AI in later sprints
+
+No AI. No reports yet.
+Just truthful proof.
