@@ -16,6 +16,8 @@ import {
   auditRuns,
   auditIndicatorResponses,
   findings,
+  evidenceRequests,
+  evidenceItems,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -49,6 +51,10 @@ import {
   type InsertAuditIndicatorResponse,
   type Finding,
   type InsertFinding,
+  type EvidenceRequest,
+  type InsertEvidenceRequest,
+  type EvidenceItem,
+  type InsertEvidenceItem,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc } from "drizzle-orm";
@@ -148,6 +154,18 @@ export interface IStorage {
   getFindings(companyId: string, filters?: { status?: string; severity?: string; auditId?: string }): Promise<Finding[]>;
   getFindingByAuditAndIndicator(auditId: string, indicatorId: string, companyId: string): Promise<Finding | undefined>;
   updateFinding(id: string, companyId: string, updates: Partial<InsertFinding>): Promise<Finding | undefined>;
+  
+  // Evidence Requests
+  createEvidenceRequest(request: InsertEvidenceRequest): Promise<EvidenceRequest>;
+  getEvidenceRequest(id: string, companyId: string): Promise<EvidenceRequest | undefined>;
+  getEvidenceRequestByFindingId(findingId: string, companyId: string): Promise<EvidenceRequest | undefined>;
+  getEvidenceRequests(companyId: string, filters?: { status?: string; auditId?: string }): Promise<EvidenceRequest[]>;
+  updateEvidenceRequest(id: string, companyId: string, updates: Partial<InsertEvidenceRequest>): Promise<EvidenceRequest | undefined>;
+  
+  // Evidence Items
+  createEvidenceItem(item: InsertEvidenceItem): Promise<EvidenceItem>;
+  getEvidenceItems(evidenceRequestId: string, companyId: string): Promise<EvidenceItem[]>;
+  getEvidenceItem(id: string, companyId: string): Promise<EvidenceItem | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -697,6 +715,75 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(findings.id, id), eq(findings.companyId, companyId)))
       .returning();
     return updated || undefined;
+  }
+
+  // Evidence Requests
+  async createEvidenceRequest(request: InsertEvidenceRequest): Promise<EvidenceRequest> {
+    const [created] = await db.insert(evidenceRequests).values(request).returning();
+    return created;
+  }
+
+  async getEvidenceRequest(id: string, companyId: string): Promise<EvidenceRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(evidenceRequests)
+      .where(and(eq(evidenceRequests.id, id), eq(evidenceRequests.companyId, companyId)));
+    return request || undefined;
+  }
+
+  async getEvidenceRequestByFindingId(findingId: string, companyId: string): Promise<EvidenceRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(evidenceRequests)
+      .where(and(eq(evidenceRequests.findingId, findingId), eq(evidenceRequests.companyId, companyId)));
+    return request || undefined;
+  }
+
+  async getEvidenceRequests(companyId: string, filters?: { status?: string; auditId?: string }): Promise<EvidenceRequest[]> {
+    const conditions: any[] = [eq(evidenceRequests.companyId, companyId)];
+    if (filters?.status) {
+      conditions.push(eq(evidenceRequests.status, filters.status as any));
+    }
+    if (filters?.auditId) {
+      conditions.push(eq(evidenceRequests.auditId, filters.auditId));
+    }
+    
+    return await db
+      .select()
+      .from(evidenceRequests)
+      .where(and(...conditions))
+      .orderBy(desc(evidenceRequests.createdAt));
+  }
+
+  async updateEvidenceRequest(id: string, companyId: string, updates: Partial<InsertEvidenceRequest>): Promise<EvidenceRequest | undefined> {
+    const [updated] = await db
+      .update(evidenceRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(evidenceRequests.id, id), eq(evidenceRequests.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Evidence Items
+  async createEvidenceItem(item: InsertEvidenceItem): Promise<EvidenceItem> {
+    const [created] = await db.insert(evidenceItems).values(item).returning();
+    return created;
+  }
+
+  async getEvidenceItems(evidenceRequestId: string, companyId: string): Promise<EvidenceItem[]> {
+    return await db
+      .select()
+      .from(evidenceItems)
+      .where(and(eq(evidenceItems.evidenceRequestId, evidenceRequestId), eq(evidenceItems.companyId, companyId)))
+      .orderBy(desc(evidenceItems.createdAt));
+  }
+
+  async getEvidenceItem(id: string, companyId: string): Promise<EvidenceItem | undefined> {
+    const [item] = await db
+      .select()
+      .from(evidenceItems)
+      .where(and(eq(evidenceItems.id, id), eq(evidenceItems.companyId, companyId)));
+    return item || undefined;
   }
 }
 
