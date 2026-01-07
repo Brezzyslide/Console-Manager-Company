@@ -876,3 +876,52 @@ export async function getFindingEvidence(findingId: string): Promise<{ evidenceR
   if (!res.ok) throw new Error("Failed to fetch finding evidence");
   return res.json();
 }
+
+// Standalone evidence request (not linked to audit or finding)
+export async function createStandaloneEvidenceRequest(data: {
+  evidenceType: EvidenceType;
+  requestNote: string;
+  dueDate?: string | null;
+}): Promise<EvidenceRequest> {
+  const res = await fetch("/api/company/evidence/requests", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to create evidence request");
+  }
+  return res.json();
+}
+
+// Audit-linked evidence request (pre-finding)
+export async function createAuditEvidenceRequest(
+  auditId: string,
+  data: {
+    evidenceType: EvidenceType;
+    requestNote: string;
+    templateIndicatorId?: string;
+    dueDate?: string | null;
+  }
+): Promise<EvidenceRequest> {
+  const res = await fetch(`/api/company/audits/${auditId}/request-evidence`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to create evidence request");
+  }
+  return res.json();
+}
+
+// Get all evidence requests for an audit
+export async function getAuditEvidenceRequests(auditId: string): Promise<EvidenceRequest[]> {
+  const res = await fetch(`/api/company/audits/${auditId}/evidence-requests`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch audit evidence requests");
+  return res.json();
+}

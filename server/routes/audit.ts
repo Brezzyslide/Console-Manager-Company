@@ -917,13 +917,132 @@ router.get("/evidence/requests/:id", requireCompanyAuth, async (req: Authenticat
       return res.status(404).json({ error: "Evidence request not found" });
     }
     
-    const finding = await storage.getFinding(evidenceRequest.findingId, companyId);
+    const finding = evidenceRequest.findingId 
+      ? await storage.getFinding(evidenceRequest.findingId, companyId)
+      : null;
+    const audit = evidenceRequest.auditId
+      ? await storage.getAudit(evidenceRequest.auditId, companyId)
+      : null;
     const items = await storage.getEvidenceItems(requestId, companyId);
     
-    return res.json({ ...evidenceRequest, finding, items });
+    return res.json({ ...evidenceRequest, finding, audit, items });
   } catch (error) {
     console.error("Get evidence request error:", error);
     return res.status(500).json({ error: "Failed to fetch evidence request" });
+  }
+});
+
+// Standalone evidence request (not linked to audit or finding)
+const standaloneEvidenceRequestSchema = z.object({
+  evidenceType: z.enum(evidenceTypeEnum),
+  requestNote: z.string().min(1, "Request note is required"),
+  dueDate: z.string().nullable().optional().transform(s => s ? new Date(s) : null),
+});
+
+router.post("/evidence/requests", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    
+    const input = standaloneEvidenceRequestSchema.parse(req.body);
+    
+    const evidenceRequest = await storage.createEvidenceRequest({
+      companyId,
+      evidenceType: input.evidenceType,
+      requestNote: input.requestNote,
+      status: "REQUESTED",
+      requestedByCompanyUserId: userId,
+      dueDate: input.dueDate,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "EVIDENCE_REQUESTED",
+      entityType: "evidence_request",
+      entityId: evidenceRequest.id,
+      afterJson: { evidenceType: input.evidenceType, standalone: true },
+    });
+    
+    return res.status(201).json(evidenceRequest);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Create standalone evidence request error:", error);
+    return res.status(500).json({ error: "Failed to create evidence request" });
+  }
+});
+
+// Audit-linked evidence request (pre-finding)
+const auditEvidenceRequestSchema = z.object({
+  evidenceType: z.enum(evidenceTypeEnum),
+  requestNote: z.string().min(1, "Request note is required"),
+  templateIndicatorId: z.string().optional(),
+  dueDate: z.string().nullable().optional().transform(s => s ? new Date(s) : null),
+});
+
+router.post("/audits/:id/request-evidence", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const auditId = req.params.id;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const input = auditEvidenceRequestSchema.parse(req.body);
+    
+    const evidenceRequest = await storage.createEvidenceRequest({
+      companyId,
+      auditId,
+      templateIndicatorId: input.templateIndicatorId || null,
+      evidenceType: input.evidenceType,
+      requestNote: input.requestNote,
+      status: "REQUESTED",
+      requestedByCompanyUserId: userId,
+      dueDate: input.dueDate,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "EVIDENCE_REQUESTED",
+      entityType: "evidence_request",
+      entityId: evidenceRequest.id,
+      afterJson: { auditId, evidenceType: input.evidenceType, templateIndicatorId: input.templateIndicatorId },
+    });
+    
+    return res.status(201).json(evidenceRequest);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Create audit evidence request error:", error);
+    return res.status(500).json({ error: "Failed to create evidence request" });
+  }
+});
+
+// Get all evidence requests for an audit
+router.get("/audits/:id/evidence-requests", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const auditId = req.params.id;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const requests = await storage.getEvidenceRequestsByAuditId(auditId, companyId);
+    return res.json(requests);
+  } catch (error) {
+    console.error("Get audit evidence requests error:", error);
+    return res.status(500).json({ error: "Failed to fetch evidence requests" });
   }
 });
 
