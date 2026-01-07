@@ -7,6 +7,8 @@ import {
   serviceContextEnum, 
   indicatorRatingEnum,
   riskLevelEnum,
+  evidenceStatusEnum,
+  evidenceTypeEnum,
 } from "@shared/schema";
 
 const router = Router();
@@ -828,6 +830,259 @@ router.patch("/findings/:id", requireCompanyAuth, async (req: AuthenticatedCompa
     }
     console.error("Update finding error:", error);
     return res.status(500).json({ error: "Failed to update finding" });
+  }
+});
+
+// ===== EVIDENCE REQUEST ROUTES =====
+
+const createEvidenceRequestSchema = z.object({
+  evidenceType: z.enum(evidenceTypeEnum),
+  requestNote: z.string().min(1, "Request note is required"),
+  dueDate: z.string().nullable().optional().transform(s => s ? new Date(s) : null),
+});
+
+router.post("/findings/:id/request-evidence", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const findingId = req.params.id;
+    
+    const finding = await storage.getFinding(findingId, companyId);
+    if (!finding) {
+      return res.status(404).json({ error: "Finding not found" });
+    }
+    
+    const existingRequest = await storage.getEvidenceRequestByFindingId(findingId, companyId);
+    if (existingRequest) {
+      return res.status(400).json({ error: "Evidence request already exists for this finding" });
+    }
+    
+    const input = createEvidenceRequestSchema.parse(req.body);
+    
+    const evidenceRequest = await storage.createEvidenceRequest({
+      findingId,
+      auditId: finding.auditId,
+      companyId,
+      evidenceType: input.evidenceType,
+      requestNote: input.requestNote,
+      status: "REQUESTED",
+      requestedByCompanyUserId: userId,
+      dueDate: input.dueDate,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "EVIDENCE_REQUESTED",
+      entityType: "evidence_request",
+      entityId: evidenceRequest.id,
+      afterJson: { findingId, evidenceType: input.evidenceType },
+    });
+    
+    return res.status(201).json(evidenceRequest);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Create evidence request error:", error);
+    return res.status(500).json({ error: "Failed to create evidence request" });
+  }
+});
+
+router.get("/evidence/requests", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { status, auditId } = req.query;
+    
+    const filters: { status?: string; auditId?: string } = {};
+    if (status && typeof status === "string") filters.status = status;
+    if (auditId && typeof auditId === "string") filters.auditId = auditId;
+    
+    const requests = await storage.getEvidenceRequests(companyId, filters);
+    return res.json(requests);
+  } catch (error) {
+    console.error("Get evidence requests error:", error);
+    return res.status(500).json({ error: "Failed to fetch evidence requests" });
+  }
+});
+
+router.get("/evidence/requests/:id", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const requestId = req.params.id;
+    
+    const evidenceRequest = await storage.getEvidenceRequest(requestId, companyId);
+    if (!evidenceRequest) {
+      return res.status(404).json({ error: "Evidence request not found" });
+    }
+    
+    const finding = await storage.getFinding(evidenceRequest.findingId, companyId);
+    const items = await storage.getEvidenceItems(requestId, companyId);
+    
+    return res.json({ ...evidenceRequest, finding, items });
+  } catch (error) {
+    console.error("Get evidence request error:", error);
+    return res.status(500).json({ error: "Failed to fetch evidence request" });
+  }
+});
+
+const submitEvidenceSchema = z.object({
+  storageKind: z.enum(["UPLOAD", "LINK"]),
+  fileName: z.string().min(1),
+  filePath: z.string().optional(),
+  externalUrl: z.string().url().optional(),
+  mimeType: z.string().optional(),
+  fileSizeBytes: z.number().int().positive().optional(),
+  note: z.string().optional(),
+}).refine(data => {
+  if (data.storageKind === "UPLOAD") {
+    return data.filePath && data.mimeType;
+  }
+  if (data.storageKind === "LINK") {
+    return data.externalUrl;
+  }
+  return false;
+}, { message: "Upload requires filePath and mimeType; Link requires externalUrl" });
+
+router.post("/evidence/requests/:id/submit", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const requestId = req.params.id;
+    
+    const evidenceRequest = await storage.getEvidenceRequest(requestId, companyId);
+    if (!evidenceRequest) {
+      return res.status(404).json({ error: "Evidence request not found" });
+    }
+    
+    if (!["REQUESTED", "REJECTED"].includes(evidenceRequest.status)) {
+      return res.status(400).json({ error: "Evidence cannot be submitted in current status" });
+    }
+    
+    const input = submitEvidenceSchema.parse(req.body);
+    
+    const evidenceItem = await storage.createEvidenceItem({
+      evidenceRequestId: requestId,
+      companyId,
+      storageKind: input.storageKind,
+      fileName: input.fileName,
+      filePath: input.filePath || null,
+      externalUrl: input.externalUrl || null,
+      mimeType: input.mimeType || null,
+      fileSizeBytes: input.fileSizeBytes || null,
+      note: input.note || null,
+      uploadedByCompanyUserId: userId,
+    });
+    
+    await storage.updateEvidenceRequest(requestId, companyId, {
+      status: "SUBMITTED",
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "EVIDENCE_SUBMITTED",
+      entityType: "evidence_item",
+      entityId: evidenceItem.id,
+      afterJson: { evidenceRequestId: requestId, fileName: input.fileName, storageKind: input.storageKind },
+    });
+    
+    return res.status(201).json(evidenceItem);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Submit evidence error:", error);
+    return res.status(500).json({ error: "Failed to submit evidence" });
+  }
+});
+
+const reviewEvidenceSchema = z.object({
+  decision: z.enum(["ACCEPTED", "REJECTED"]),
+  reviewNote: z.string().optional(),
+});
+
+router.post("/evidence/requests/:id/review", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const requestId = req.params.id;
+    
+    const evidenceRequest = await storage.getEvidenceRequest(requestId, companyId);
+    if (!evidenceRequest) {
+      return res.status(404).json({ error: "Evidence request not found" });
+    }
+    
+    if (evidenceRequest.status !== "SUBMITTED") {
+      return res.status(400).json({ error: "Only submitted evidence can be reviewed" });
+    }
+    
+    const input = reviewEvidenceSchema.parse(req.body);
+    
+    const newStatus = input.decision === "ACCEPTED" ? "ACCEPTED" : "REJECTED";
+    
+    const updated = await storage.updateEvidenceRequest(requestId, companyId, {
+      status: newStatus,
+      reviewedByCompanyUserId: userId,
+      reviewedAt: new Date(),
+      reviewNote: input.reviewNote || null,
+    });
+    
+    if (input.decision === "ACCEPTED") {
+      const finding = await storage.getFinding(evidenceRequest.findingId, companyId);
+      if (finding) {
+        await storage.updateFinding(finding.id, companyId, {
+          status: "CLOSED",
+          closureNote: input.reviewNote || "Evidence accepted",
+          closedAt: new Date(),
+          closedByCompanyUserId: userId,
+        });
+      }
+    }
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: input.decision === "ACCEPTED" ? "EVIDENCE_ACCEPTED" : "EVIDENCE_REJECTED",
+      entityType: "evidence_request",
+      entityId: requestId,
+      beforeJson: { status: evidenceRequest.status },
+      afterJson: { status: newStatus, reviewNote: input.reviewNote },
+    });
+    
+    return res.json(updated);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Review evidence error:", error);
+    return res.status(500).json({ error: "Failed to review evidence" });
+  }
+});
+
+router.get("/findings/:id/evidence", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const findingId = req.params.id;
+    
+    const finding = await storage.getFinding(findingId, companyId);
+    if (!finding) {
+      return res.status(404).json({ error: "Finding not found" });
+    }
+    
+    const evidenceRequest = await storage.getEvidenceRequestByFindingId(findingId, companyId);
+    if (!evidenceRequest) {
+      return res.json({ evidenceRequest: null, items: [] });
+    }
+    
+    const items = await storage.getEvidenceItems(evidenceRequest.id, companyId);
+    return res.json({ evidenceRequest, items });
+  } catch (error) {
+    console.error("Get finding evidence error:", error);
+    return res.status(500).json({ error: "Failed to fetch evidence" });
   }
 });
 
