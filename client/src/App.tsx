@@ -34,6 +34,9 @@ import EvidenceLockerPage from "@/pages/company/EvidenceLockerPage";
 import EvidenceDetailPage from "@/pages/company/EvidenceDetailPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
+// Public Pages
+import PublicUploadPage from "@/pages/public/PublicUploadPage";
+
 function ProtectedConsolePage({ component: Component }: { component: React.ComponentType }) {
   return (
     <ConsoleLayout>
@@ -155,6 +158,9 @@ function Router() {
           <EvidenceLockerPage />
         </CompanyLayout>
       </Route>
+
+      {/* Public Pages - No Authentication Required */}
+      <Route path="/upload/:token" component={PublicUploadPage} />
 
       {/* Unified Login - Landing */}
       <Route path="/" component={UnifiedLoginPage} />
