@@ -1,0 +1,198 @@
+Replit Prompt — Add Rating + Scoring Model (Conformance, Observation, Minor NC, Major NC) and Surface Scores
+
+Context
+You are working in an existing monorepo app:
+- Frontend: Vite + React 18 + TypeScript + Tailwind + shadcn/ui + Wouter
+- Backend: Express (port 5000)
+- DB: Postgres
+- ORM: Drizzle
+- Strict multi-tenancy + RBAC already implemented
+- Sprint 3 audit runner exists (indicator responses + findings for Minor/Major NC)
+- No mock or seeded demo data allowed
+
+Goal
+Incorporate the full rating system:
+- Conformance
+- Observation
+- Minor NC
+- Major NC
+
+And add a numeric scoring system tied to those ratings, so:
+- Every indicator response stores both the qualitative rating and the numeric score
+- Audit summaries show counts + overall score percentage
+- Findings remain only for Minor NC and Major NC (do NOT create findings for Conformance/Observation)
+- Comments remain required for Observation/Minor/Major, optional for Conformance
+- All logic is tenant safe
+
+Scoring model (lock this in)
+Use this mapping:
+- CONFORMANCE = 2 points
+- OBSERVATION = 1 point
+- MINOR_NC = 0 points
+- MAJOR_NC = -2 points
+
+Audit score percent:
+- max_points = indicator_count * 2
+- score_points = sum(points)
+- score_percent = clamp( (score_points / max_points) * 100, 0, 100 )
+Note: clamp ensures negative totals never produce negative percent.
+
+--------------------------------------------
+1) Database changes (Drizzle)
+--------------------------------------------
+
+1.1 Ensure existing enum contains these values exactly:
+indicator_rating enum:
+- CONFORMANCE
+- OBSERVATION
+- MINOR_NC
+- MAJOR_NC
+
+If current enum names differ, migrate carefully:
+- Add new enum values if missing
+- Migrate stored data to the new names
+- Keep API backward compatibility if needed
+
+1.2 Update audit_indicator_responses table
+Add columns:
+- score_points (int, not null, default 0)
+- score_version (string, not null, default "v1")
+
+Also ensure:
+- rating is not null
+- comment nullable but enforce comment required in API for non-conformance/observation
+
+1.3 Add audit_summary table (optional but recommended for performance)
+If you already have a way to compute summary on the fly, you can skip this.
+If you add it:
+
+audit_summaries
+- id (uuid pk)
+- company_id (uuid fk)
+- audit_id (uuid fk audits.id, unique)
+- indicator_count (int)
+- conformance_count (int)
+- observation_count (int)
+- minor_nc_count (int)
+- major_nc_count (int)
+- score_points_total (int)
+- score_percent (int)  // rounded whole number
+- updated_at
+
+This is derived data; always recompute from responses.
+
+--------------------------------------------
+2) Backend changes (Express)
+--------------------------------------------
+
+2.1 Create a single source of truth for scoring mapping
+Create helper:
+scoreForRating(rating):
+- CONFORMANCE -> 2
+- OBSERVATION -> 1
+- MINOR_NC -> 0
+- MAJOR_NC -> -2
+
+2.2 Update PUT /api/company/audits/:id/responses/:indicatorId
+When saving an indicator response:
+- Validate rating is one of the 4 values
+- Enforce comment rules:
+  - CONFORMANCE: comment optional
+  - OBSERVATION/MINOR_NC/MAJOR_NC: comment required and minimum length 10 chars
+- Compute score_points using helper and store to audit_indicator_responses.score_points
+- Upsert the response as usual
+- Findings behavior:
+  - If rating in (MINOR_NC, MAJOR_NC): ensure finding exists
+  - If rating changes from (MINOR_NC, MAJOR_NC) to (CONFORMANCE, OBSERVATION):
+      - Do NOT delete finding (audit trail)
+      - Instead:
+        - mark finding status to UNDER_REVIEW or CLOSED only if reviewer closes it
+        - keep history intact
+- Write change_log AUDIT_RESPONSE_SAVED
+
+2.3 Add GET /api/company/audits/:id/summary
+Return computed summary:
+{
+  indicatorCount,
+  conformanceCount,
+  observationCount,
+  minorNcCount,
+  majorNcCount,
+  scorePointsTotal,
+  scorePercent
+}
+Compute it from audit_indicator_responses joined to template indicators for that audit.
+If not all indicators have responses yet:
+- indicatorCount = total indicators in template
+- counts computed from existing responses
+- scorePercent computed from scorePointsTotal and max_points based on total indicators (not only answered) OR based on answered only
+Choose one approach and be consistent:
+Preferred: base max_points on total indicators so incomplete audits show lower readiness.
+
+2.4 Update GET /api/company/audits list endpoint
+Include summary fields:
+- scorePercent (nullable if no template/runner)
+- openMajorFindingsCount
+- openMinorFindingsCount
+
+2.5 If audit_summaries table was added:
+- Recompute and upsert audit_summaries after every response save
+- Also recompute on audit submit and close
+
+--------------------------------------------
+3) Frontend changes
+--------------------------------------------
+
+3.1 Update AuditRunnerPage
+- Rating selector must show the 4 ratings clearly:
+  - Conformance
+  - Observation
+  - Minor NC
+  - Major NC
+- When a rating is chosen, show the score points next to it:
+  - “Score: +2” for Conformance
+  - “Score: +1” for Observation
+  - “Score: 0” for Minor NC
+  - “Score: -2” for Major NC
+- Enforce comment required UI for Observation/Minor/Major:
+  - show inline validation and block save if missing
+
+3.2 Add Audit Summary panel (top of runner and on review page)
+Fetch GET /api/company/audits/:id/summary
+Display:
+- Conformance: X
+- Observations: Y
+- Minor NC: Z
+- Major NC: W
+- Overall score: NN%
+
+Do not claim “Compliant”. Use neutral wording:
+- “Overall score”
+- “Findings count”
+- “Progress”
+
+3.3 Update AuditsHomePage list
+Show a small badge or line:
+- “Score: NN%”
+- “Open findings: Major A, Minor B”
+
+No charts yet, keep it clean.
+
+3.4 Findings register remains filtered to:
+- Minor NC
+- Major NC
+Do not add Conformance as a finding type.
+
+--------------------------------------------
+4) Acceptance criteria
+--------------------------------------------
+
+- Auditor can select Conformance/Observation/Minor/Major on each indicator
+- System stores score_points correctly per response
+- Summary endpoint returns correct counts and score percent
+- UI shows summary and score percent without mock data
+- Findings continue to be created only for Minor/Major NC
+- Comment requirement enforced for Observation/Minor/Major
+- Tenant isolation preserved and all actions logged
+
+Now implement all above with clean typing, Zod validation, defensive error handling, and consistent dark-accent shadcn styling.

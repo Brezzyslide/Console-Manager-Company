@@ -361,6 +361,8 @@ export const auditIndicatorResponses = pgTable("audit_indicator_responses", {
   templateIndicatorId: varchar("template_indicator_id").notNull().references(() => auditTemplateIndicators.id, { onDelete: "cascade" }),
   rating: text("rating", { enum: indicatorRatingEnum }).notNull(),
   comment: text("comment"),
+  scorePoints: integer("score_points").notNull().default(0),
+  scoreVersion: varchar("score_version").notNull().default("v1"),
   status: text("status", { enum: responseStatusEnum }).notNull().default("OPEN"),
   createdByCompanyUserId: varchar("created_by_company_user_id").notNull().references(() => companyUsers.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
