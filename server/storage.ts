@@ -159,12 +159,14 @@ export interface IStorage {
   createEvidenceRequest(request: InsertEvidenceRequest): Promise<EvidenceRequest>;
   getEvidenceRequest(id: string, companyId: string): Promise<EvidenceRequest | undefined>;
   getEvidenceRequestByFindingId(findingId: string, companyId: string): Promise<EvidenceRequest | undefined>;
+  getEvidenceRequestByPublicToken(token: string): Promise<EvidenceRequest | undefined>;
   getEvidenceRequests(companyId: string, filters?: { status?: string; auditId?: string; standalone?: boolean; findingId?: string }): Promise<EvidenceRequest[]>;
   getEvidenceRequestsByAuditId(auditId: string, companyId: string): Promise<EvidenceRequest[]>;
   updateEvidenceRequest(id: string, companyId: string, updates: Partial<InsertEvidenceRequest>): Promise<EvidenceRequest | undefined>;
   
   // Evidence Items
   createEvidenceItem(item: InsertEvidenceItem): Promise<EvidenceItem>;
+  createEvidenceItemPublic(evidenceRequestId: string, item: Omit<InsertEvidenceItem, 'companyId' | 'evidenceRequestId'>): Promise<EvidenceItem>;
   getEvidenceItems(evidenceRequestId: string, companyId: string): Promise<EvidenceItem[]>;
   getEvidenceItem(id: string, companyId: string): Promise<EvidenceItem | undefined>;
 }
@@ -740,6 +742,14 @@ export class DatabaseStorage implements IStorage {
     return request || undefined;
   }
 
+  async getEvidenceRequestByPublicToken(token: string): Promise<EvidenceRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(evidenceRequests)
+      .where(eq(evidenceRequests.publicToken, token));
+    return request || undefined;
+  }
+
   async getEvidenceRequests(companyId: string, filters?: { status?: string; auditId?: string; standalone?: boolean; findingId?: string }): Promise<EvidenceRequest[]> {
     const conditions: any[] = [eq(evidenceRequests.companyId, companyId)];
     if (filters?.status) {
@@ -782,6 +792,17 @@ export class DatabaseStorage implements IStorage {
   // Evidence Items
   async createEvidenceItem(item: InsertEvidenceItem): Promise<EvidenceItem> {
     const [created] = await db.insert(evidenceItems).values(item).returning();
+    return created;
+  }
+
+  async createEvidenceItemPublic(evidenceRequestId: string, item: Omit<InsertEvidenceItem, 'companyId' | 'evidenceRequestId'>): Promise<EvidenceItem> {
+    const request = await db.select().from(evidenceRequests).where(eq(evidenceRequests.id, evidenceRequestId)).then(r => r[0]);
+    if (!request) throw new Error("Evidence request not found");
+    const [created] = await db.insert(evidenceItems).values({
+      ...item,
+      companyId: request.companyId,
+      evidenceRequestId,
+    }).returning();
     return created;
   }
 
