@@ -10,7 +10,8 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp, Link, Check, Copy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { 
   getAuditRunner, 
   saveIndicatorResponse, 
@@ -22,6 +23,7 @@ import {
   type AuditTemplateIndicator,
   type AuditIndicatorResponse,
   type EvidenceType,
+  type EvidenceRequest,
 } from "@/lib/company-api";
 
 const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
@@ -48,11 +50,14 @@ export default function AuditRunnerPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [rating, setRating] = useState<IndicatorRating | null>(null);
   const [comment, setComment] = useState("");
   const [showEvidenceDialog, setShowEvidenceDialog] = useState(false);
+  const [createdRequest, setCreatedRequest] = useState<EvidenceRequest | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [evidenceForm, setEvidenceForm] = useState({
     evidenceType: "" as EvidenceType | "",
     requestNote: "",
@@ -95,10 +100,9 @@ export default function AuditRunnerPage() {
   const evidenceRequestMutation = useMutation({
     mutationFn: (data: { evidenceType: EvidenceType; requestNote: string; templateIndicatorId?: string; dueDate?: string | null }) => 
       createAuditEvidenceRequest(id!, data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["auditEvidenceRequests", id] });
-      setShowEvidenceDialog(false);
-      setEvidenceForm({ evidenceType: "", requestNote: "", dueDate: "" });
+      setCreatedRequest(data);
     },
   });
 
@@ -110,6 +114,26 @@ export default function AuditRunnerPage() {
       templateIndicatorId: currentIndicator?.id,
       dueDate: evidenceForm.dueDate || null,
     });
+  };
+
+  const handleCopyLink = () => {
+    if (!createdRequest?.publicToken) return;
+    const uploadUrl = `${window.location.origin}/upload/${createdRequest.publicToken}`;
+    navigator.clipboard.writeText(uploadUrl);
+    setLinkCopied(true);
+    toast({
+      title: "Link copied",
+      description: "The shareable upload link has been copied to your clipboard",
+    });
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const handleCloseEvidenceDialog = () => {
+    setShowEvidenceDialog(false);
+    setCreatedRequest(null);
+    setLinkCopied(false);
+    setEvidenceForm({ evidenceType: "", requestNote: "", dueDate: "" });
+    evidenceRequestMutation.reset();
   };
 
   const indicators = runnerData?.indicators || [];
@@ -376,72 +400,120 @@ export default function AuditRunnerPage() {
         </Card>
       )}
 
-      <Dialog open={showEvidenceDialog} onOpenChange={setShowEvidenceDialog}>
+      <Dialog open={showEvidenceDialog} onOpenChange={handleCloseEvidenceDialog}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Request Evidence</DialogTitle>
-            <DialogDescription>
-              Request supporting evidence for this indicator
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="p-3 bg-muted rounded-lg text-sm">
-              <span className="text-muted-foreground">For indicator: </span>
-              {currentIndicator?.indicatorText?.slice(0, 80)}
-              {(currentIndicator?.indicatorText?.length || 0) > 80 && "..."}
-            </div>
+          {createdRequest ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  Evidence Request Created
+                </DialogTitle>
+                <DialogDescription>
+                  Share this link with external parties to allow them to upload evidence
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <p className="text-sm text-green-800 dark:text-green-200 mb-2">
+                    Request created successfully! Copy the link below to share with external parties.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}/upload/${createdRequest.publicToken}`}
+                      className="text-sm"
+                      data-testid="input-shareable-link"
+                    />
+                    <Button
+                      onClick={handleCopyLink}
+                      variant={linkCopied ? "default" : "outline"}
+                      className={linkCopied ? "bg-green-600 hover:bg-green-700" : ""}
+                      data-testid="button-copy-link"
+                    >
+                      {linkCopied ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCloseEvidenceDialog} data-testid="button-done">
+                  Done
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Request Evidence</DialogTitle>
+                <DialogDescription>
+                  Request supporting evidence for this indicator
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="p-3 bg-muted rounded-lg text-sm">
+                  <span className="text-muted-foreground">For indicator: </span>
+                  {currentIndicator?.indicatorText?.slice(0, 80)}
+                  {(currentIndicator?.indicatorText?.length || 0) > 80 && "..."}
+                </div>
 
-            <div className="space-y-2">
-              <Label>Evidence Type *</Label>
-              <Select 
-                value={evidenceForm.evidenceType} 
-                onValueChange={(v) => setEvidenceForm(prev => ({ ...prev, evidenceType: v as EvidenceType }))}
-              >
-                <SelectTrigger data-testid="select-evidence-type">
-                  <SelectValue placeholder="Select evidence type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {evidenceTypeOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-2">
+                  <Label>Evidence Type *</Label>
+                  <Select 
+                    value={evidenceForm.evidenceType} 
+                    onValueChange={(v) => setEvidenceForm(prev => ({ ...prev, evidenceType: v as EvidenceType }))}
+                  >
+                    <SelectTrigger data-testid="select-evidence-type">
+                      <SelectValue placeholder="Select evidence type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {evidenceTypeOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label>Request Note *</Label>
-              <Textarea
-                value={evidenceForm.requestNote}
-                onChange={(e) => setEvidenceForm(prev => ({ ...prev, requestNote: e.target.value }))}
-                placeholder="Describe what document is needed..."
-                data-testid="input-evidence-request-note"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label>Request Note *</Label>
+                  <Textarea
+                    value={evidenceForm.requestNote}
+                    onChange={(e) => setEvidenceForm(prev => ({ ...prev, requestNote: e.target.value }))}
+                    placeholder="Describe what document is needed..."
+                    data-testid="input-evidence-request-note"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label>Due Date (optional)</Label>
-              <Input
-                type="date"
-                value={evidenceForm.dueDate}
-                onChange={(e) => setEvidenceForm(prev => ({ ...prev, dueDate: e.target.value }))}
-                data-testid="input-evidence-due-date"
-              />
-            </div>
-          </div>
-          {evidenceRequestMutation.error && (
-            <p className="text-sm text-destructive">{(evidenceRequestMutation.error as Error).message}</p>
+                <div className="space-y-2">
+                  <Label>Due Date (optional)</Label>
+                  <Input
+                    type="date"
+                    value={evidenceForm.dueDate}
+                    onChange={(e) => setEvidenceForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                    data-testid="input-evidence-due-date"
+                  />
+                </div>
+              </div>
+              {evidenceRequestMutation.error && (
+                <p className="text-sm text-destructive">{(evidenceRequestMutation.error as Error).message}</p>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCloseEvidenceDialog}>Cancel</Button>
+                <Button 
+                  onClick={handleRequestEvidence}
+                  disabled={!evidenceForm.evidenceType || !evidenceForm.requestNote || evidenceRequestMutation.isPending}
+                  data-testid="button-submit-evidence-request"
+                >
+                  {evidenceRequestMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Request Evidence
+                </Button>
+              </DialogFooter>
+            </>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEvidenceDialog(false)}>Cancel</Button>
-            <Button 
-              onClick={handleRequestEvidence}
-              disabled={!evidenceForm.evidenceType || !evidenceForm.requestNote || evidenceRequestMutation.isPending}
-              data-testid="button-submit-evidence-request"
-            >
-              {evidenceRequestMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Request Evidence
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
