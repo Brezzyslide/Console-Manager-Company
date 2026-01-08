@@ -52,6 +52,15 @@ Key tables:
 - `company_users` - Users within tenant organizations
 - `company_roles` - Role definitions per company
 - `change_log` - Immutable audit trail
+- `audits` - Audit records with status workflow
+- `audit_indicator_responses` - Stores indicator ratings with score_points and score_version
+- `evidence_requests` - Evidence requests (standalone, audit-linked, or finding-linked)
+
+### Audit Scoring Model (v1)
+- Ratings: CONFORMANCE (+2 pts), OBSERVATION (+1 pt), MINOR_NC (0 pts), MAJOR_NC (-2 pts)
+- Score calculation: `scorePercent = (scorePointsTotal / maxPoints) * 100` where `maxPoints = indicatorCount * 2`
+- Score version stored per response for future model updates
+- Comments required (min 10 chars) for non-conformance ratings
 
 ### Authentication Flow
 - Console Manager uses separate JWT auth with `console_token` cookie
