@@ -423,6 +423,9 @@ export interface Audit {
   scopeLocked: boolean;
   closeReason: string | null;
   createdAt: string;
+  scorePercent?: number | null;
+  completedCount?: number;
+  indicatorCount?: number;
 }
 
 export interface AuditTemplate {

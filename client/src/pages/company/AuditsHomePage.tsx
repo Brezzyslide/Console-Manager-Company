@@ -144,22 +144,22 @@ export default function AuditsHomePage() {
                   {audit.auditType === "EXTERNAL" && audit.externalAuditorOrg && (
                     <div>Auditor: {audit.externalAuditorOrg}</div>
                   )}
-                  {(audit as any).indicatorCount > 0 && (
+                  {audit.indicatorCount && audit.indicatorCount > 0 && (
                     <div className="flex items-center gap-1" data-testid={`text-score-${audit.id}`}>
                       <BarChart2 className="h-4 w-4" />
-                      {(audit as any).completedCount}/{(audit as any).indicatorCount} rated
-                      {(audit as any).scorePercent !== null && (
+                      {audit.completedCount}/{audit.indicatorCount} rated
+                      {audit.scorePercent != null && (
                         <Badge 
                           variant="outline" 
                           className={`ml-1 ${
-                            (audit as any).scorePercent >= 80 
+                            audit.scorePercent >= 80 
                               ? "border-green-500 text-green-600" 
-                              : (audit as any).scorePercent >= 50 
+                              : audit.scorePercent >= 50 
                                 ? "border-yellow-500 text-yellow-600" 
                                 : "border-red-500 text-red-600"
                           }`}
                         >
-                          {(audit as any).scorePercent}%
+                          {audit.scorePercent}%
                         </Badge>
                       )}
                     </div>

@@ -303,9 +303,16 @@ export default function AuditRunnerPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Comment {rating && rating !== "CONFORMANCE" && <span className="text-destructive">*</span>}
-              </label>
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">
+                  Comment {rating && rating !== "CONFORMANCE" && <span className="text-destructive">*</span>}
+                </label>
+                {rating && rating !== "CONFORMANCE" && (
+                  <span className={`text-xs ${comment.trim().length >= 10 ? "text-muted-foreground" : "text-destructive"}`}>
+                    {comment.trim().length}/10 min
+                  </span>
+                )}
+              </div>
               <Textarea
                 placeholder={rating && rating !== "CONFORMANCE" 
                   ? "Comment required (minimum 10 characters)..." 
