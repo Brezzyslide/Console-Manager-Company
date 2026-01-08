@@ -54,7 +54,8 @@ Key tables:
 - `change_log` - Immutable audit trail
 - `audits` - Audit records with status workflow
 - `audit_indicator_responses` - Stores indicator ratings with score_points and score_version
-- `evidence_requests` - Evidence requests (standalone, audit-linked, or finding-linked)
+- `evidence_requests` - Evidence requests (standalone, audit-linked, or finding-linked) with public shareable tokens
+- `evidence_items` - Uploaded evidence files supporting both internal and external uploads
 
 ### Audit Scoring Model (v1)
 - Ratings: CONFORMANCE (+2 pts), OBSERVATION (+1 pt), MINOR_NC (0 pts), MAJOR_NC (-2 pts)
@@ -82,6 +83,14 @@ Key tables:
 - Password minimum 12 characters for new passwords
 - Tenant isolation enforced at database query level with AND clauses
 - All security-sensitive actions logged to change_log table
+
+### Public Evidence Upload
+- Each evidence request gets a unique public token (64-char hex string via crypto.randomBytes)
+- External users can upload files via `/upload/:token` without authentication
+- Public uploads automatically update request status to SUBMITTED
+- External uploader name/email tracked in evidence_items table
+- Filename sanitization prevents directory traversal attacks
+- All external submissions logged to change_log with action `EVIDENCE_SUBMITTED_EXTERNAL`
 
 ## External Dependencies
 
