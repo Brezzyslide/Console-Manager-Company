@@ -13,6 +13,18 @@ import {
 
 const router = Router();
 
+type IndicatorRating = typeof indicatorRatingEnum[number];
+
+function scoreForRating(rating: IndicatorRating): number {
+  switch (rating) {
+    case "CONFORMANCE": return 2;
+    case "OBSERVATION": return 1;
+    case "MINOR_NC": return 0;
+    case "MAJOR_NC": return -2;
+    default: return 0;
+  }
+}
+
 const DEFAULT_SERVICE_CONTEXTS = [
   { key: "SIL", label: "Supported Independent Living (SIL)" },
   { key: "COMMUNITY_ACCESS", label: "Community Access" },
@@ -559,11 +571,13 @@ const saveResponseSchema = z.object({
   rating: z.enum(indicatorRatingEnum),
   comment: z.string().nullable().optional(),
 }).refine(data => {
-  if (data.rating !== "CONFORMANCE" && !data.comment) {
-    return false;
+  if (data.rating !== "CONFORMANCE") {
+    if (!data.comment || data.comment.length < 10) {
+      return false;
+    }
   }
   return true;
-}, { message: "Comment is required for non-conformance ratings" });
+}, { message: "Comment is required (minimum 10 characters) for Observation, Minor NC, and Major NC ratings" });
 
 router.put("/audits/:id/responses/:indicatorId", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
@@ -587,12 +601,15 @@ router.put("/audits/:id/responses/:indicatorId", requireCompanyAuth, requireRole
     }
     
     const input = saveResponseSchema.parse(req.body);
+    const points = scoreForRating(input.rating);
     
     const response = await storage.upsertAuditIndicatorResponse({
       auditId,
       templateIndicatorId: indicatorId,
       rating: input.rating,
       comment: input.comment || null,
+      scorePoints: points,
+      scoreVersion: "v1",
       createdByCompanyUserId: userId,
     });
     
