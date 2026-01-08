@@ -192,7 +192,32 @@ router.get("/audits", requireCompanyAuth, async (req: AuthenticatedCompanyReques
       auditType: auditType as string | undefined,
     });
     
-    return res.json(audits);
+    const auditsWithScores = await Promise.all(
+      audits.map(async (audit) => {
+        const auditRun = await storage.getAuditRun(audit.id);
+        if (!auditRun) {
+          return { ...audit, scorePercent: null, completedCount: 0, indicatorCount: 0 };
+        }
+        
+        const indicators = await storage.getAuditTemplateIndicators(auditRun.templateId);
+        const responses = await storage.getAuditIndicatorResponses(audit.id);
+        
+        const scorePointsTotal = responses.reduce((sum, r) => sum + r.scorePoints, 0);
+        const maxPoints = indicators.length * 2;
+        const scorePercent = maxPoints > 0 
+          ? Math.round(Math.max(0, Math.min(100, (scorePointsTotal / maxPoints) * 100)))
+          : null;
+        
+        return { 
+          ...audit, 
+          scorePercent, 
+          completedCount: responses.length, 
+          indicatorCount: indicators.length 
+        };
+      })
+    );
+    
+    return res.json(auditsWithScores);
   } catch (error) {
     console.error("Get audits error:", error);
     return res.status(500).json({ error: "Failed to fetch audits" });
