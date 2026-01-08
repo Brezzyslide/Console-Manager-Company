@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import crypto from "crypto";
 import { requireCompanyAuth, requireRole, type AuthenticatedCompanyRequest } from "../lib/companyAuth";
 import { storage } from "../storage";
 import { 
@@ -10,6 +11,10 @@ import {
   evidenceStatusEnum,
   evidenceTypeEnum,
 } from "@shared/schema";
+
+function generatePublicToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 const router = Router();
 
@@ -972,6 +977,7 @@ router.post("/findings/:id/request-evidence", requireCompanyAuth, requireRole(["
       status: "REQUESTED",
       requestedByCompanyUserId: userId,
       dueDate: input.dueDate,
+      publicToken: generatePublicToken(),
     });
     
     await storage.logChange({
@@ -1057,6 +1063,7 @@ router.post("/evidence/requests", requireCompanyAuth, requireRole(["CompanyAdmin
       status: "REQUESTED",
       requestedByCompanyUserId: userId,
       dueDate: input.dueDate,
+      publicToken: generatePublicToken(),
     });
     
     await storage.logChange({
@@ -1109,6 +1116,7 @@ router.post("/audits/:id/request-evidence", requireCompanyAuth, requireRole(["Co
       status: "REQUESTED",
       requestedByCompanyUserId: userId,
       dueDate: input.dueDate,
+      publicToken: generatePublicToken(),
     });
     
     await storage.logChange({

@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Plus } from "lucide-react";
+import { Loader2, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Plus, Link, Copy, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { 
   getEvidenceRequests, 
   getCompanyUsers, 
@@ -59,14 +60,36 @@ export default function EvidenceLockerPage() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { user } = useCompanyAuth();
+  const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showNewRequestDialog, setShowNewRequestDialog] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   
   const [newRequestForm, setNewRequestForm] = useState({
     evidenceType: "" as EvidenceType | "",
     requestNote: "",
     dueDate: "",
   });
+
+  const handleCopyLink = (e: React.MouseEvent, request: EvidenceRequest) => {
+    e.stopPropagation();
+    if (!request.publicToken) {
+      toast({
+        title: "Link not available",
+        description: "This evidence request does not have a shareable link",
+        variant: "destructive",
+      });
+      return;
+    }
+    const uploadUrl = `${window.location.origin}/upload/${request.publicToken}`;
+    navigator.clipboard.writeText(uploadUrl);
+    setCopiedId(request.id);
+    toast({
+      title: "Link copied",
+      description: "The shareable upload link has been copied to your clipboard",
+    });
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const { data: requests, isLoading } = useQuery({
     queryKey: ["evidenceRequests", statusFilter],
@@ -223,10 +246,25 @@ export default function EvidenceLockerPage() {
                       </div>
                       <CardTitle className="text-base mt-2">{request.requestNote}</CardTitle>
                     </div>
-                    <Button variant="ghost" size="sm" data-testid={`button-view-${request.id}`}>
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={(e) => handleCopyLink(e, request)}
+                        title="Copy shareable upload link"
+                        data-testid={`button-copy-link-${request.id}`}
+                      >
+                        {copiedId === request.id ? (
+                          <Check className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <Link className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button variant="ghost" size="sm" data-testid={`button-view-${request.id}`}>
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">

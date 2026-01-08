@@ -780,6 +780,7 @@ export interface EvidenceRequest {
   requestNote: string;
   status: EvidenceStatus;
   dueDate: string | null;
+  publicToken: string | null;
   requestedByCompanyUserId: string;
   reviewedByCompanyUserId: string | null;
   reviewedAt: string | null;
