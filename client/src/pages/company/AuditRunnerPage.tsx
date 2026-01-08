@@ -17,6 +17,7 @@ import {
   submitAudit,
   createAuditEvidenceRequest,
   getAuditEvidenceRequests,
+  getAuditSummary,
   type IndicatorRating,
   type AuditTemplateIndicator,
   type AuditIndicatorResponse,
@@ -36,11 +37,11 @@ const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
   { value: "OTHER", label: "Other" },
 ];
 
-const ratingOptions: { value: IndicatorRating; label: string; icon: any; color: string }[] = [
-  { value: "CONFORMANCE", label: "Conformance", icon: CheckCircle2, color: "bg-green-500 hover:bg-green-600" },
-  { value: "OBSERVATION", label: "Observation", icon: Eye, color: "bg-blue-500 hover:bg-blue-600" },
-  { value: "MINOR_NC", label: "Minor NC", icon: AlertTriangle, color: "bg-yellow-500 hover:bg-yellow-600" },
-  { value: "MAJOR_NC", label: "Major NC", icon: AlertCircle, color: "bg-red-500 hover:bg-red-600" },
+const ratingOptions: { value: IndicatorRating; label: string; icon: any; color: string; points: number }[] = [
+  { value: "CONFORMANCE", label: "Conformance", icon: CheckCircle2, color: "bg-green-500 hover:bg-green-600", points: 2 },
+  { value: "OBSERVATION", label: "Observation", icon: Eye, color: "bg-blue-500 hover:bg-blue-600", points: 1 },
+  { value: "MINOR_NC", label: "Minor NC", icon: AlertTriangle, color: "bg-yellow-500 hover:bg-yellow-600", points: 0 },
+  { value: "MAJOR_NC", label: "Major NC", icon: AlertCircle, color: "bg-red-500 hover:bg-red-600", points: -2 },
 ];
 
 export default function AuditRunnerPage() {
@@ -64,11 +65,18 @@ export default function AuditRunnerPage() {
     enabled: !!id,
   });
 
+  const { data: summaryData } = useQuery({
+    queryKey: ["auditSummary", id],
+    queryFn: () => getAuditSummary(id!),
+    enabled: !!id,
+  });
+
   const saveMutation = useMutation({
     mutationFn: (data: { rating: IndicatorRating; comment?: string }) => 
       saveIndicatorResponse(id!, runnerData!.indicators[currentIndex].id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["auditRunner", id] });
+      queryClient.invalidateQueries({ queryKey: ["auditSummary", id] });
       setRating(null);
       setComment("");
       if (currentIndex < (runnerData?.indicators.length || 0) - 1) {
@@ -180,6 +188,41 @@ export default function AuditRunnerPage() {
             <span className="text-sm font-medium">{Math.round(progressPercent)}%</span>
           </div>
           <Progress value={progressPercent} className="h-2" />
+          
+          {summaryData && summaryData.completedCount > 0 && (
+            <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-green-600" data-testid="text-conformance-count">
+                  {summaryData.conformanceCount}
+                </div>
+                <div className="text-xs text-muted-foreground">Conformance</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600" data-testid="text-observation-count">
+                  {summaryData.observationCount}
+                </div>
+                <div className="text-xs text-muted-foreground">Observation</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-yellow-600" data-testid="text-minor-nc-count">
+                  {summaryData.minorNcCount}
+                </div>
+                <div className="text-xs text-muted-foreground">Minor NC</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-red-600" data-testid="text-major-nc-count">
+                  {summaryData.majorNcCount}
+                </div>
+                <div className="text-xs text-muted-foreground">Major NC</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold" data-testid="text-score-percent">
+                  {summaryData.scorePercent}%
+                </div>
+                <div className="text-xs text-muted-foreground">Score</div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -242,12 +285,17 @@ export default function AuditRunnerPage() {
                     <Button
                       key={opt.value}
                       variant={rating === opt.value ? "default" : "outline"}
-                      className={rating === opt.value ? opt.color : ""}
+                      className={`${rating === opt.value ? opt.color : ""} flex-col h-auto py-3`}
                       onClick={() => setRating(opt.value)}
                       data-testid={`button-rating-${opt.value}`}
                     >
-                      <Icon className="h-4 w-4 mr-2" />
-                      {opt.label}
+                      <div className="flex items-center">
+                        <Icon className="h-4 w-4 mr-2" />
+                        {opt.label}
+                      </div>
+                      <span className="text-xs opacity-75 mt-1">
+                        {opt.points >= 0 ? `+${opt.points}` : opt.points} pts
+                      </span>
                     </Button>
                   );
                 })}

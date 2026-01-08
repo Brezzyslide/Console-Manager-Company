@@ -668,6 +668,23 @@ export async function getAuditRunner(auditId: string): Promise<AuditRunnerData> 
   return res.json();
 }
 
+export interface AuditSummary {
+  indicatorCount: number;
+  conformanceCount: number;
+  observationCount: number;
+  minorNcCount: number;
+  majorNcCount: number;
+  scorePointsTotal: number;
+  scorePercent: number;
+  completedCount: number;
+}
+
+export async function getAuditSummary(auditId: string): Promise<AuditSummary> {
+  const res = await fetch(`/api/company/audits/${auditId}/summary`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch audit summary");
+  return res.json();
+}
+
 export async function saveIndicatorResponse(
   auditId: string,
   indicatorId: string,
