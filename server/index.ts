@@ -9,6 +9,7 @@ import consoleRoutes from "./routes/console";
 import companyRoutes from "./routes/company";
 import onboardingRoutes from "./routes/onboarding";
 import auditRoutes from "./routes/audit";
+import publicRoutes from "./routes/public";
 
 const app = express();
 const httpServer = createServer(app);
@@ -85,6 +86,9 @@ app.use((req, res, next) => {
   
   // Mount audit routes (under /api/company)
   app.use("/api/company", auditRoutes);
+  
+  // Mount public routes (unauthenticated)
+  app.use("/api/public", publicRoutes);
   
   await registerRoutes(httpServer, app);
 
