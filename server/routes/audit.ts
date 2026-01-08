@@ -1230,6 +1230,38 @@ router.post("/evidence/requests/:id/submit", requireCompanyAuth, async (req: Aut
   }
 });
 
+router.get("/evidence/items/:itemId/download", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const itemId = req.params.itemId;
+    
+    const item = await storage.getEvidenceItem(itemId, companyId);
+    if (!item) {
+      return res.status(404).json({ error: "Evidence item not found" });
+    }
+    
+    if (item.storageKind !== "UPLOAD" || !item.filePath) {
+      return res.status(400).json({ error: "This item is not a downloadable file" });
+    }
+    
+    const fs = await import("fs");
+    const path = await import("path");
+    
+    if (!fs.existsSync(item.filePath)) {
+      return res.status(404).json({ error: "File not found on server" });
+    }
+    
+    res.setHeader("Content-Disposition", `attachment; filename="${item.fileName}"`);
+    res.setHeader("Content-Type", item.mimeType || "application/octet-stream");
+    
+    const fileStream = fs.createReadStream(item.filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error("Download evidence error:", error);
+    return res.status(500).json({ error: "Failed to download file" });
+  }
+});
+
 router.post("/evidence/requests/:id/start-review", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;

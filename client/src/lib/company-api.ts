@@ -800,7 +800,9 @@ export interface EvidenceItem {
   mimeType: string | null;
   fileSizeBytes: number | null;
   note: string | null;
-  uploadedByCompanyUserId: string;
+  uploadedByCompanyUserId: string | null;
+  externalUploaderName: string | null;
+  externalUploaderEmail: string | null;
   createdAt: string;
 }
 

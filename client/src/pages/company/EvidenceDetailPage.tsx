@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, ArrowLeft, FileText, Link as LinkIcon, Upload, CheckCircle, XCircle, Clock, Eye, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, FileText, Link as LinkIcon, Upload, CheckCircle, XCircle, Clock, Eye, AlertCircle, Download } from "lucide-react";
 import { 
   getEvidenceRequest, 
   submitEvidence, 
@@ -243,22 +243,41 @@ export default function EvidenceDetailPage() {
                         {item.storageKind === "LINK" ? (
                           <LinkIcon className="h-5 w-5 text-blue-500" />
                         ) : (
-                          <FileText className="h-5 w-5 text-gray-500" />
+                          <Upload className="h-5 w-5 text-green-500" />
                         )}
                         <div>
                           <p className="font-medium">{item.fileName}</p>
                           <p className="text-sm text-muted-foreground">
-                            Uploaded by {getUserName(item.uploadedByCompanyUserId)} on {format(new Date(item.createdAt), "dd MMM yyyy")}
+                            {item.uploadedByCompanyUserId 
+                              ? `Uploaded by ${getUserName(item.uploadedByCompanyUserId)}`
+                              : item.externalUploaderName 
+                                ? `Submitted by ${item.externalUploaderName} (${item.externalUploaderEmail})`
+                                : "External upload"
+                            } on {format(new Date(item.createdAt), "dd MMM yyyy")}
                           </p>
                           {item.note && (
                             <p className="text-sm text-muted-foreground mt-1">Note: {item.note}</p>
                           )}
                         </div>
                       </div>
-                      {item.externalUrl && (
+                      {item.storageKind === "LINK" && item.externalUrl && (
                         <Button variant="outline" size="sm" asChild>
                           <a href={item.externalUrl} target="_blank" rel="noopener noreferrer">
+                            <LinkIcon className="h-4 w-4 mr-1" />
                             Open Link
+                          </a>
+                        </Button>
+                      )}
+                      {item.storageKind === "UPLOAD" && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          asChild
+                          data-testid={`button-download-${item.id}`}
+                        >
+                          <a href={`/api/company/evidence/items/${item.id}/download`}>
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
                           </a>
                         </Button>
                       )}
