@@ -143,7 +143,7 @@ export default function AuditRunnerPage() {
     if (!rating) return;
     
     const requiresComment = rating !== "CONFORMANCE";
-    if (requiresComment && !comment.trim()) {
+    if (requiresComment && comment.trim().length < 10) {
       return;
     }
     
@@ -308,7 +308,7 @@ export default function AuditRunnerPage() {
               </label>
               <Textarea
                 placeholder={rating && rating !== "CONFORMANCE" 
-                  ? "Comment required for this rating..." 
+                  ? "Comment required (minimum 10 characters)..." 
                   : "Optional comment..."}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
@@ -332,7 +332,7 @@ export default function AuditRunnerPage() {
               </Button>
               <Button 
                 onClick={handleSave}
-                disabled={!rating || (rating !== "CONFORMANCE" && !comment.trim()) || saveMutation.isPending}
+                disabled={!rating || (rating !== "CONFORMANCE" && comment.trim().length < 10) || saveMutation.isPending}
                 data-testid="button-save-response"
               >
                 {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
