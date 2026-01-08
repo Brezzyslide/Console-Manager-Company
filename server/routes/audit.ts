@@ -567,6 +567,68 @@ router.get("/audits/:id/runner", requireCompanyAuth, async (req: AuthenticatedCo
   }
 });
 
+router.get("/audits/:id/summary", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const auditId = req.params.id;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const auditRun = await storage.getAuditRun(auditId);
+    if (!auditRun) {
+      return res.json({
+        indicatorCount: 0,
+        conformanceCount: 0,
+        observationCount: 0,
+        minorNcCount: 0,
+        majorNcCount: 0,
+        scorePointsTotal: 0,
+        scorePercent: 0,
+        completedCount: 0,
+      });
+    }
+    
+    const indicators = await storage.getAuditTemplateIndicators(auditRun.templateId);
+    const responses = await storage.getAuditIndicatorResponses(auditId);
+    
+    const counts = {
+      CONFORMANCE: 0,
+      OBSERVATION: 0,
+      MINOR_NC: 0,
+      MAJOR_NC: 0,
+    };
+    
+    let scorePointsTotal = 0;
+    responses.forEach(r => {
+      counts[r.rating as keyof typeof counts]++;
+      scorePointsTotal += r.scorePoints;
+    });
+    
+    const indicatorCount = indicators.length;
+    const maxPoints = indicatorCount * 2;
+    const scorePercent = maxPoints > 0 
+      ? Math.round(Math.max(0, Math.min(100, (scorePointsTotal / maxPoints) * 100)))
+      : 0;
+    
+    return res.json({
+      indicatorCount,
+      conformanceCount: counts.CONFORMANCE,
+      observationCount: counts.OBSERVATION,
+      minorNcCount: counts.MINOR_NC,
+      majorNcCount: counts.MAJOR_NC,
+      scorePointsTotal,
+      scorePercent,
+      completedCount: responses.length,
+    });
+  } catch (error) {
+    console.error("Get summary error:", error);
+    return res.status(500).json({ error: "Failed to fetch summary" });
+  }
+});
+
 const saveResponseSchema = z.object({
   rating: z.enum(indicatorRatingEnum),
   comment: z.string().nullable().optional(),
@@ -1204,7 +1266,7 @@ router.post("/evidence/requests/:id/review", requireCompanyAuth, requireRole(["C
       reviewNote: input.reviewNote || null,
     });
     
-    if (input.decision === "ACCEPTED") {
+    if (input.decision === "ACCEPTED" && evidenceRequest.findingId) {
       const finding = await storage.getFinding(evidenceRequest.findingId, companyId);
       if (finding) {
         await storage.updateFinding(finding.id, companyId, {
