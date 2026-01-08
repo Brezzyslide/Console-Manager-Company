@@ -12,13 +12,18 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+function sanitizeFilename(filename: string): string {
+  return path.basename(filename).replace(/[^\w.-]/g, '_');
+}
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
       cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-      const uniqueName = `${crypto.randomUUID()}-${file.originalname}`;
+      const sanitized = sanitizeFilename(file.originalname);
+      const uniqueName = `${crypto.randomUUID()}-${sanitized}`;
       cb(null, uniqueName);
     },
   }),
@@ -77,9 +82,11 @@ router.post("/evidence/:token/upload", upload.single("file"), async (req, res) =
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    const sanitizedFileName = sanitizeFilename(req.file.originalname);
+
     const evidenceItem = await storage.createEvidenceItemPublic(evidenceRequest.id, {
       storageKind: "UPLOAD",
-      fileName: req.file.originalname,
+      fileName: sanitizedFileName,
       mimeType: req.file.mimetype,
       filePath: req.file.path,
       fileSizeBytes: req.file.size,
@@ -87,6 +94,25 @@ router.post("/evidence/:token/upload", upload.single("file"), async (req, res) =
       externalUploaderName: uploaderName,
       externalUploaderEmail: uploaderEmail,
       uploadedByCompanyUserId: null,
+    });
+
+    if (evidenceRequest.status === "REQUESTED") {
+      await storage.updateEvidenceRequestByToken(token, { status: "SUBMITTED" });
+    }
+
+    await storage.logChange({
+      actorType: "system",
+      actorId: `external:${uploaderEmail}`,
+      companyId: evidenceRequest.companyId,
+      action: "EVIDENCE_SUBMITTED_EXTERNAL",
+      entityType: "evidence_request",
+      entityId: evidenceRequest.id,
+      afterJson: { 
+        evidenceItemId: evidenceItem.id,
+        fileName: sanitizedFileName,
+        externalUploaderName: uploaderName,
+        externalUploaderEmail: uploaderEmail,
+      },
     });
 
     return res.status(201).json({

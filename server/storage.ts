@@ -163,6 +163,7 @@ export interface IStorage {
   getEvidenceRequests(companyId: string, filters?: { status?: string; auditId?: string; standalone?: boolean; findingId?: string }): Promise<EvidenceRequest[]>;
   getEvidenceRequestsByAuditId(auditId: string, companyId: string): Promise<EvidenceRequest[]>;
   updateEvidenceRequest(id: string, companyId: string, updates: Partial<InsertEvidenceRequest>): Promise<EvidenceRequest | undefined>;
+  updateEvidenceRequestByToken(token: string, updates: Partial<InsertEvidenceRequest>): Promise<EvidenceRequest | undefined>;
   
   // Evidence Items
   createEvidenceItem(item: InsertEvidenceItem): Promise<EvidenceItem>;
@@ -785,6 +786,15 @@ export class DatabaseStorage implements IStorage {
       .update(evidenceRequests)
       .set({ ...updates, updatedAt: new Date() })
       .where(and(eq(evidenceRequests.id, id), eq(evidenceRequests.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  async updateEvidenceRequestByToken(token: string, updates: Partial<InsertEvidenceRequest>): Promise<EvidenceRequest | undefined> {
+    const [updated] = await db
+      .update(evidenceRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(evidenceRequests.publicToken, token))
       .returning();
     return updated || undefined;
   }
