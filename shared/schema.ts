@@ -417,6 +417,7 @@ export const evidenceRequests = pgTable("evidence_requests", {
   requestNote: text("request_note").notNull(),
   status: text("status", { enum: evidenceStatusEnum }).notNull().default("REQUESTED"),
   dueDate: timestamp("due_date"),
+  publicToken: varchar("public_token").unique(),
   requestedByCompanyUserId: varchar("requested_by_company_user_id").notNull().references(() => companyUsers.id),
   reviewedByCompanyUserId: varchar("reviewed_by_company_user_id").references(() => companyUsers.id),
   reviewedAt: timestamp("reviewed_at"),
@@ -445,7 +446,9 @@ export const evidenceItems = pgTable("evidence_items", {
   mimeType: text("mime_type"),
   fileSizeBytes: integer("file_size_bytes"),
   note: text("note"),
-  uploadedByCompanyUserId: varchar("uploaded_by_company_user_id").notNull().references(() => companyUsers.id),
+  uploadedByCompanyUserId: varchar("uploaded_by_company_user_id").references(() => companyUsers.id),
+  externalUploaderName: text("external_uploader_name"),
+  externalUploaderEmail: text("external_uploader_email"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
