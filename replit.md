@@ -63,6 +63,15 @@ Key tables:
 - Score version stored per response for future model updates
 - Comments required (min 10 chars) for non-conformance ratings
 
+### Audit Results Page (formerly Findings Register)
+- Shows all indicator responses grouped by rating category
+- Overall score summary with percentage and points breakdown
+- Rating summary cards (Conformance, Observation, Minor NC, Major NC) with click-to-filter
+- Filter by rating type, audit, and status (status filter only for NC ratings)
+- Conformance/Observation entries displayed as informational cards
+- Non-conformance entries linked to findings with remediation controls (owner, due date, status)
+- API endpoint: `GET /api/company/audit-outcomes` with explicit audit ownership validation
+
 ### Authentication Flow
 - Console Manager uses separate JWT auth with `console_token` cookie
 - Company users use separate JWT auth with `company_token` cookie
