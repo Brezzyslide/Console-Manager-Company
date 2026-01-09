@@ -732,6 +732,33 @@ export async function closeAudit(auditId: string, closeReason?: string): Promise
   return res.json();
 }
 
+export interface AuditOutcome {
+  id: string;
+  auditId: string;
+  templateIndicatorId: string;
+  rating: "CONFORMANCE" | "OBSERVATION" | "MINOR_NC" | "MAJOR_NC";
+  comment: string | null;
+  scorePoints: number;
+  scoreVersion: string;
+  status: string;
+  createdByCompanyUserId: string;
+  createdAt: string;
+  auditTitle: string;
+  auditStatus: string;
+  indicatorText: string;
+  sortOrder: number;
+}
+
+export async function getAuditOutcomes(filters?: { rating?: string; auditId?: string }): Promise<AuditOutcome[]> {
+  const params = new URLSearchParams();
+  if (filters?.rating) params.set("rating", filters.rating);
+  if (filters?.auditId) params.set("auditId", filters.auditId);
+  
+  const res = await fetch(`/api/company/audit-outcomes?${params}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch audit outcomes");
+  return res.json();
+}
+
 export async function getFindings(filters?: { status?: FindingStatus; severity?: string; auditId?: string }): Promise<Finding[]> {
   const params = new URLSearchParams();
   if (filters?.status) params.set("status", filters.status);

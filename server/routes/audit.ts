@@ -852,6 +852,30 @@ router.post("/audits/:id/close", requireCompanyAuth, requireRole(["CompanyAdmin"
   }
 });
 
+router.get("/audit-outcomes", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { rating, auditId } = req.query;
+    
+    if (auditId) {
+      const audit = await storage.getAudit(auditId as string, companyId);
+      if (!audit) {
+        return res.status(404).json({ error: "Audit not found" });
+      }
+    }
+    
+    const outcomes = await storage.getAuditOutcomes(companyId, {
+      rating: rating as string | undefined,
+      auditId: auditId as string | undefined,
+    });
+    
+    return res.json(outcomes);
+  } catch (error) {
+    console.error("Get audit outcomes error:", error);
+    return res.status(500).json({ error: "Failed to fetch audit outcomes" });
+  }
+});
+
 router.get("/findings", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;

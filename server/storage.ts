@@ -147,6 +147,7 @@ export interface IStorage {
   getAuditIndicatorResponses(auditId: string): Promise<AuditIndicatorResponse[]>;
   getAuditIndicatorResponse(auditId: string, indicatorId: string): Promise<AuditIndicatorResponse | undefined>;
   upsertAuditIndicatorResponse(response: InsertAuditIndicatorResponse): Promise<AuditIndicatorResponse>;
+  getAuditOutcomes(companyId: string, filters?: { rating?: string; auditId?: string }): Promise<any[]>;
   
   // Findings
   createFinding(finding: InsertFinding): Promise<Finding>;
@@ -665,6 +666,42 @@ export class DatabaseStorage implements IStorage {
       const [created] = await db.insert(auditIndicatorResponses).values(response).returning();
       return created;
     }
+  }
+
+  async getAuditOutcomes(companyId: string, filters?: { rating?: string; auditId?: string }): Promise<any[]> {
+    const conditions: any[] = [eq(audits.companyId, companyId)];
+    
+    if (filters?.rating) {
+      conditions.push(eq(auditIndicatorResponses.rating, filters.rating as any));
+    }
+    if (filters?.auditId) {
+      conditions.push(eq(auditIndicatorResponses.auditId, filters.auditId));
+    }
+    
+    const results = await db
+      .select({
+        id: auditIndicatorResponses.id,
+        auditId: auditIndicatorResponses.auditId,
+        templateIndicatorId: auditIndicatorResponses.templateIndicatorId,
+        rating: auditIndicatorResponses.rating,
+        comment: auditIndicatorResponses.comment,
+        scorePoints: auditIndicatorResponses.scorePoints,
+        scoreVersion: auditIndicatorResponses.scoreVersion,
+        status: auditIndicatorResponses.status,
+        createdByCompanyUserId: auditIndicatorResponses.createdByCompanyUserId,
+        createdAt: auditIndicatorResponses.createdAt,
+        auditTitle: audits.title,
+        auditStatus: audits.status,
+        indicatorText: auditTemplateIndicators.indicatorText,
+        sortOrder: auditTemplateIndicators.sortOrder,
+      })
+      .from(auditIndicatorResponses)
+      .innerJoin(audits, eq(auditIndicatorResponses.auditId, audits.id))
+      .innerJoin(auditTemplateIndicators, eq(auditIndicatorResponses.templateIndicatorId, auditTemplateIndicators.id))
+      .where(and(...conditions))
+      .orderBy(desc(auditIndicatorResponses.createdAt));
+    
+    return results;
   }
 
   // Findings
