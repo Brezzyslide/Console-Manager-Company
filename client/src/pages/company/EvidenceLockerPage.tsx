@@ -268,6 +268,26 @@ export default function EvidenceLockerPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
+                  {request.indicator && (
+                    <div className="mb-3 p-2 bg-muted/50 rounded-md">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">Indicator:</span>
+                        <span className="font-medium">{request.indicator.indicatorText}</span>
+                      </div>
+                      {request.audit && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                          <span>Audit:</span>
+                          <span>{request.audit.title}</span>
+                          {request.audit.serviceContextLabel && (
+                            <>
+                              <span>|</span>
+                              <span>{request.audit.serviceContextLabel}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <span>Requested by:</span>

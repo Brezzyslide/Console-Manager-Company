@@ -801,8 +801,9 @@ export type EvidenceType = "POLICY" | "PROCEDURE" | "TRAINING_RECORD" | "INCIDEN
 export interface EvidenceRequest {
   id: string;
   companyId: string;
-  auditId: string;
-  findingId: string;
+  auditId: string | null;
+  findingId: string | null;
+  templateIndicatorId: string | null;
   evidenceType: EvidenceType;
   requestNote: string;
   status: EvidenceStatus;
@@ -814,6 +815,8 @@ export interface EvidenceRequest {
   reviewNote: string | null;
   createdAt: string;
   updatedAt: string | null;
+  indicator?: { id: string; indicatorText: string } | null;
+  audit?: { id: string; title: string; serviceContextLabel: string | null } | null;
 }
 
 export interface EvidenceItem {

@@ -1034,7 +1034,33 @@ router.get("/evidence/requests", requireCompanyAuth, async (req: AuthenticatedCo
     if (auditId && typeof auditId === "string") filters.auditId = auditId;
     
     const requests = await storage.getEvidenceRequests(companyId, filters);
-    return res.json(requests);
+    
+    const requestsWithDetails = await Promise.all(requests.map(async (request) => {
+      let indicator = null;
+      let audit = null;
+      
+      if (request.auditId) {
+        audit = await storage.getAudit(request.auditId, companyId);
+      }
+      
+      if (request.templateIndicatorId && audit) {
+        const indicatorData = await storage.getAuditTemplateIndicator(request.templateIndicatorId);
+        if (indicatorData) {
+          const template = await storage.getAuditTemplate(indicatorData.templateId, companyId);
+          if (template) {
+            indicator = indicatorData;
+          }
+        }
+      }
+      
+      return {
+        ...request,
+        indicator: indicator ? { id: indicator.id, indicatorText: indicator.indicatorText } : null,
+        audit: audit ? { id: audit.id, title: audit.title, serviceContextLabel: audit.serviceContextLabel } : null,
+      };
+    }));
+    
+    return res.json(requestsWithDetails);
   } catch (error) {
     console.error("Get evidence requests error:", error);
     return res.status(500).json({ error: "Failed to fetch evidence requests" });

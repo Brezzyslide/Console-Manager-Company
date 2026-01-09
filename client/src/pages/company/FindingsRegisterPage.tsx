@@ -147,7 +147,7 @@ export default function FindingsRegisterPage() {
     updateMutation.mutate({
       id: selectedFinding.id,
       updates: {
-        ownerCompanyUserId: editForm.ownerCompanyUserId || null,
+        ownerCompanyUserId: editForm.ownerCompanyUserId === "unassigned" ? null : editForm.ownerCompanyUserId || null,
         dueDate: editForm.dueDate || null,
         status: editForm.status || undefined,
       },
@@ -413,7 +413,7 @@ export default function FindingsRegisterPage() {
                   <SelectValue placeholder="Assign owner" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {users?.map(user => (
                     <SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>
                   ))}
