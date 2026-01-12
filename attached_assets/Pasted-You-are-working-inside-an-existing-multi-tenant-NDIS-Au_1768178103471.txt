@@ -1,0 +1,126 @@
+You are working inside an existing multi-tenant NDIS Audit System.
+
+Goal
+Introduce two new audit domains now:
+1. Staff & Personnel Compliance
+2. Governance & Policy
+
+Key constraint
+Do NOT change the wheel.
+Meaning: keep existing Audit Runner flow, conformance states, scoring logic, evidence request logic, and UI patterns.
+We are ONLY extending the audit scope model (service type / audit scope) so audits can include these domains explicitly.
+
+Definitions
+- Domain: a high-level grouping inside an Audit Scope, similar to how we already group standards/modules/indicators.
+- We already have service types / registration groups driving what standards/indicators appear in scope.
+- We now add two additional domains that can be toggled on/off per audit scope based on service type.
+
+Multi tenancy rules (mandatory)
+Every query, insert, update must be scoped by tenant/companyId.
+All reads must confirm the current user has access to this tenant.
+Do not leak data across tenants.
+
+What to build
+A. Data model extension (minimal)
+Add an AuditDomain entity/table (or equivalent structure) that connects to AuditScope (or service type scope).
+Fields:
+- id
+- tenantId/companyId
+- code (string, unique per tenant, e.g. "STAFF_PERSONNEL", "GOV_POLICY")
+- name (string)
+- description (text, optional)
+- isEnabledByDefault (boolean)
+- createdAt, updatedAt
+
+Add a join table between AuditScope and AuditDomain:
+- id
+- tenantId/companyId
+- auditScopeId
+- auditDomainId
+- isIncluded (boolean)
+- createdAt, updatedAt
+
+Important: If your current schema already has a concept similar to “scope sections” then reuse it and only add what is missing.
+Do not refactor existing scope tables unless unavoidable.
+
+B. Seed defaults
+For every tenant, ensure these two domains exist:
+1) STAFF_PERSONNEL: "Staff & Personnel Compliance"
+2) GOV_POLICY: "Governance & Policy"
+
+Default inclusion rules:
+- Always include GOV_POLICY for all service types (enabled by default).
+- Include STAFF_PERSONNEL for all service types where direct support delivery occurs (most will qualify). If your system can’t confidently detect this, include it by default for all service types, but allow it to be toggled off.
+
+C. UI updates (small and consistent)
+1) Create Audit page (or wherever audit scope is set)
+Add a section called "Audit Domains" under service type / scope selection.
+Show two checkboxes (or toggles) for:
+- Governance & Policy
+- Staff & Personnel Compliance
+Preselected based on defaults.
+
+2) Audit Scope Summary (where you review what’s included)
+Display chosen domains as tags/chips.
+
+3) Audit Runner (do not rewrite)
+Do NOT change existing runner structure.
+Only add a lightweight "Domain filter" at the top (dropdown):
+- All
+- Governance & Policy
+- Staff & Personnel Compliance
+- Existing operational/service domains (whatever is already there)
+
+If adding a filter is too intrusive, then only show domains in the sidebar navigation as headings without changing indicator rendering.
+
+D. Mapping logic (how domains actually affect what appears)
+We are NOT changing standard/module/indicator content.
+Instead, we are adding a grouping layer so indicators can be “classified” into a domain.
+
+Implement classification in the least disruptive way:
+Option 1 (preferred if you have indicator metadata):
+- Add a nullable field on Indicator: auditDomainCode or auditDomainId.
+- Populate for governance and staff-related indicators only.
+- Everything else remains null (falls under existing operational/service grouping).
+
+Option 2 (if indicator table should not change):
+- Create an IndicatorDomainMap table:
+  - id, tenantId/companyId, indicatorId, auditDomainId
+- Only map the subset of indicators that are staff/governance.
+- Others remain unmapped and behave as they do now.
+
+Behavior:
+- If a domain is excluded from the audit scope, hide indicators mapped to that domain from scope generation and runner views.
+- If included, show them normally.
+- Unmapped indicators are always included as per the existing service type scope rules.
+
+E. Permissions (keep it simple)
+No new roles.
+Use existing permission model for audit creation and running.
+But ensure:
+- Only permitted roles can change the domain toggles during audit creation.
+- Read only users can view domain tags but not edit.
+
+F. API endpoints (minimal)
+Add endpoints or extend existing ones:
+- GET /api/audit-domains (tenant scoped)
+- GET /api/audit-scopes/:id/domains
+- PUT /api/audit-scopes/:id/domains (update included/excluded)
+Or embed domains into the existing scope payload if that’s how the app is structured.
+
+G. Testing / sanity checks
+- Create audit for a tenant: domains appear, defaults applied.
+- Excluding GOV_POLICY hides governance indicators only (does not break scoring).
+- Excluding STAFF_PERSONNEL hides staff indicators only.
+- Existing audits created before this change should still load:
+  - If no domain selections exist, auto-assume defaults and backfill join rows on first load.
+- Verify tenancy boundaries on all new reads and writes.
+
+Output required
+1) List of files created/updated with exact paths.
+2) Code changes for backend (db + routes) and frontend (UI controls).
+3) Brief notes on how the classification/mapping was implemented (Option 1 or 2).
+4) Confirm no scoring or evidence logic was altered.
+
+Do not invent example provider names or fake data.
+Use existing code style, components, and patterns in the repo.

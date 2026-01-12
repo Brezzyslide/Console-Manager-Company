@@ -297,6 +297,46 @@ export const insertAuditScopeLineItemSchema = createInsertSchema(auditScopeLineI
 export type InsertAuditScopeLineItem = z.infer<typeof insertAuditScopeLineItemSchema>;
 export type AuditScopeLineItem = typeof auditScopeLineItems.$inferSelect;
 
+// Audit Domains (Tenant-scoped domain definitions)
+export const auditDomainCodeEnum = ["STAFF_PERSONNEL", "GOV_POLICY", "OPERATIONAL"] as const;
+
+export const auditDomains = pgTable("audit_domains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  code: text("code", { enum: auditDomainCodeEnum }).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isEnabledByDefault: boolean("is_enabled_by_default").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertAuditDomainSchema = createInsertSchema(auditDomains).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditDomain = z.infer<typeof insertAuditDomainSchema>;
+export type AuditDomain = typeof auditDomains.$inferSelect;
+
+// Audit Scope Domains (Links audits to included domains)
+export const auditScopeDomains = pgTable("audit_scope_domains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  domainId: varchar("domain_id").notNull().references(() => auditDomains.id, { onDelete: "cascade" }),
+  isIncluded: boolean("is_included").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertAuditScopeDomainSchema = createInsertSchema(auditScopeDomains).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditScopeDomain = z.infer<typeof insertAuditScopeDomainSchema>;
+export type AuditScopeDomain = typeof auditScopeDomains.$inferSelect;
+
 // Audit Templates (Tenant-scoped)
 export const auditTemplates = pgTable("audit_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -324,6 +364,7 @@ export const auditTemplateIndicators = pgTable("audit_template_indicators", {
   evidenceRequirements: text("evidence_requirements"),
   riskLevel: text("risk_level", { enum: riskLevelEnum }).notNull().default("MEDIUM"),
   isCriticalControl: boolean("is_critical_control").notNull().default(false),
+  auditDomainCode: text("audit_domain_code", { enum: auditDomainCodeEnum }),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
