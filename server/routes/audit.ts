@@ -102,6 +102,7 @@ const createAuditSchema = z.object({
   externalAuditorOrg: z.string().optional(),
   externalAuditorEmail: z.string().email().optional(),
   selectedLineItemIds: z.array(z.string().uuid()).min(1, "At least one line item must be selected"),
+  selectedDomainIds: z.array(z.string()).optional(),
 }).refine(data => {
   if (data.auditType === "EXTERNAL") {
     return data.externalAuditorName && data.externalAuditorOrg && data.externalAuditorEmail;
@@ -161,6 +162,20 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
     
     await storage.setAuditScopeLineItems(audit.id, input.selectedLineItemIds);
     
+    // Set audit domains - use provided IDs or default to all enabled domains
+    const allDomains = await storage.ensureDefaultDomainsExist(companyId);
+    let domainIdsToSet: string[];
+    
+    if (input.selectedDomainIds && input.selectedDomainIds.length > 0) {
+      // User explicitly selected domains
+      domainIdsToSet = input.selectedDomainIds;
+    } else {
+      // Use all domains that are enabled by default
+      domainIdsToSet = allDomains.filter(d => d.isEnabledByDefault).map(d => d.id);
+    }
+    
+    await storage.setAuditScopeDomains(audit.id, companyId, domainIdsToSet);
+    
     await storage.logChange({
       actorType: "company_user",
       actorId: userId,
@@ -174,6 +189,7 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
         serviceContext: serviceContextEnum, 
         serviceContextLabel: input.serviceContextLabel,
         scopeLineItemCount: input.selectedLineItemIds.length,
+        scopeDomainCount: domainIdsToSet.length,
       },
     });
     
@@ -1434,6 +1450,80 @@ router.get("/findings/:id/evidence", requireCompanyAuth, async (req: Authenticat
   } catch (error) {
     console.error("Get finding evidence error:", error);
     return res.status(500).json({ error: "Failed to fetch evidence" });
+  }
+});
+
+// ============ AUDIT DOMAINS ============
+
+router.get("/audit-domains", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const domains = await storage.ensureDefaultDomainsExist(companyId);
+    return res.json(domains);
+  } catch (error) {
+    console.error("Get audit domains error:", error);
+    return res.status(500).json({ error: "Failed to fetch audit domains" });
+  }
+});
+
+router.get("/audits/:auditId/domains", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const scopeDomains = await storage.getAuditScopeDomains(auditId, companyId);
+    return res.json(scopeDomains);
+  } catch (error) {
+    console.error("Get audit scope domains error:", error);
+    return res.status(500).json({ error: "Failed to fetch audit domains" });
+  }
+});
+
+const updateAuditDomainsSchema = z.object({
+  domainIds: z.array(z.string()),
+});
+
+router.put("/audits/:auditId/domains", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    if (audit.scopeLocked) {
+      return res.status(400).json({ error: "Audit scope is locked" });
+    }
+    
+    const parsed = updateAuditDomainsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    await storage.setAuditScopeDomains(auditId, companyId, parsed.data.domainIds);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: req.companyUser!.id,
+      companyId,
+      action: "AUDIT_DOMAINS_UPDATED",
+      entityType: "audit",
+      entityId: auditId,
+      afterJson: { domainIds: parsed.data.domainIds },
+    });
+    
+    const updated = await storage.getAuditScopeDomains(auditId, companyId);
+    return res.json(updated);
+  } catch (error) {
+    console.error("Update audit domains error:", error);
+    return res.status(500).json({ error: "Failed to update audit domains" });
   }
 });
 
