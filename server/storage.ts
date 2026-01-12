@@ -11,6 +11,8 @@ import {
   companyDocuments,
   audits,
   auditScopeLineItems,
+  auditDomains,
+  auditScopeDomains,
   auditTemplates,
   auditTemplateIndicators,
   auditRuns,
@@ -41,6 +43,10 @@ import {
   type InsertAudit,
   type AuditScopeLineItem,
   type InsertAuditScopeLineItem,
+  type AuditDomain,
+  type InsertAuditDomain,
+  type AuditScopeDomain,
+  type InsertAuditScopeDomain,
   type AuditTemplate,
   type InsertAuditTemplate,
   type AuditTemplateIndicator,
@@ -171,6 +177,16 @@ export interface IStorage {
   createEvidenceItemPublic(evidenceRequestId: string, item: Omit<InsertEvidenceItem, 'companyId' | 'evidenceRequestId'>): Promise<EvidenceItem>;
   getEvidenceItems(evidenceRequestId: string, companyId: string): Promise<EvidenceItem[]>;
   getEvidenceItem(id: string, companyId: string): Promise<EvidenceItem | undefined>;
+  
+  // Audit Domains
+  getAuditDomains(companyId: string): Promise<AuditDomain[]>;
+  getAuditDomain(id: string, companyId: string): Promise<AuditDomain | undefined>;
+  createAuditDomain(domain: InsertAuditDomain): Promise<AuditDomain>;
+  ensureDefaultDomainsExist(companyId: string): Promise<AuditDomain[]>;
+  
+  // Audit Scope Domains
+  getAuditScopeDomains(auditId: string, companyId: string): Promise<(AuditScopeDomain & { domain: AuditDomain })[]>;
+  setAuditScopeDomains(auditId: string, companyId: string, domainIds: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -867,6 +883,92 @@ export class DatabaseStorage implements IStorage {
       .from(evidenceItems)
       .where(and(eq(evidenceItems.id, id), eq(evidenceItems.companyId, companyId)));
     return item || undefined;
+  }
+
+  // Audit Domains
+  async getAuditDomains(companyId: string): Promise<AuditDomain[]> {
+    return await db
+      .select()
+      .from(auditDomains)
+      .where(eq(auditDomains.companyId, companyId))
+      .orderBy(asc(auditDomains.code));
+  }
+
+  async getAuditDomain(id: string, companyId: string): Promise<AuditDomain | undefined> {
+    const [domain] = await db
+      .select()
+      .from(auditDomains)
+      .where(and(eq(auditDomains.id, id), eq(auditDomains.companyId, companyId)));
+    return domain || undefined;
+  }
+
+  async createAuditDomain(domain: InsertAuditDomain): Promise<AuditDomain> {
+    const [created] = await db.insert(auditDomains).values(domain).returning();
+    return created;
+  }
+
+  async ensureDefaultDomainsExist(companyId: string): Promise<AuditDomain[]> {
+    const existing = await this.getAuditDomains(companyId);
+    const existingCodes = new Set(existing.map(d => d.code));
+    
+    const defaults = [
+      { code: "GOV_POLICY" as const, name: "Governance & Policy", description: "Organizational governance, policies, and procedures", isEnabledByDefault: true },
+      { code: "STAFF_PERSONNEL" as const, name: "Staff & Personnel Compliance", description: "Staff training, competency, and personnel management", isEnabledByDefault: true },
+      { code: "OPERATIONAL" as const, name: "Operational", description: "Service delivery and operational compliance", isEnabledByDefault: true },
+    ];
+    
+    const toCreate = defaults.filter(d => !existingCodes.has(d.code));
+    
+    for (const def of toCreate) {
+      await this.createAuditDomain({
+        companyId,
+        ...def,
+      });
+    }
+    
+    return await this.getAuditDomains(companyId);
+  }
+
+  // Audit Scope Domains
+  async getAuditScopeDomains(auditId: string, companyId: string): Promise<(AuditScopeDomain & { domain: AuditDomain })[]> {
+    const audit = await this.getAudit(auditId, companyId);
+    if (!audit) return [];
+    
+    const results = await db
+      .select({
+        scopeDomain: auditScopeDomains,
+        domain: auditDomains,
+      })
+      .from(auditScopeDomains)
+      .innerJoin(auditDomains, eq(auditScopeDomains.domainId, auditDomains.id))
+      .where(and(
+        eq(auditScopeDomains.auditId, auditId),
+        eq(auditDomains.companyId, companyId)
+      ));
+    
+    return results.map(r => ({ ...r.scopeDomain, domain: r.domain }));
+  }
+
+  async setAuditScopeDomains(auditId: string, companyId: string, domainIds: string[]): Promise<void> {
+    const audit = await this.getAudit(auditId, companyId);
+    if (!audit) throw new Error("Audit not found");
+    
+    await db.delete(auditScopeDomains).where(eq(auditScopeDomains.auditId, auditId));
+    
+    if (domainIds.length > 0) {
+      const domains = await this.getAuditDomains(companyId);
+      const validDomainIds = domains.filter(d => domainIds.includes(d.id)).map(d => d.id);
+      
+      if (validDomainIds.length > 0) {
+        await db.insert(auditScopeDomains).values(
+          validDomainIds.map(domainId => ({
+            auditId,
+            domainId,
+            isIncluded: true,
+          }))
+        );
+      }
+    }
   }
 }
 
