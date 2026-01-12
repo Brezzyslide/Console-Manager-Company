@@ -446,6 +446,7 @@ export interface AuditTemplateIndicator {
   evidenceRequirements: string | null;
   riskLevel: RiskLevel;
   isCriticalControl: boolean;
+  auditDomainCode: "STAFF_PERSONNEL" | "GOV_POLICY" | "OPERATIONAL" | null;
   sortOrder: number;
 }
 
@@ -524,12 +525,20 @@ export interface ScopeOptionsResponse {
   selectedLineItemCount: number;
 }
 
+export interface AuditRunnerScopeDomain {
+  id: string;
+  code: "STAFF_PERSONNEL" | "GOV_POLICY" | "OPERATIONAL";
+  name: string;
+  isIncluded: boolean;
+}
+
 export interface AuditRunnerData {
   audit: Audit;
   template: AuditTemplate | null;
   indicators: AuditTemplateIndicator[];
   responses: AuditIndicatorResponse[];
   scopeItems: { id: string; auditId: string; lineItemId: string }[];
+  scopeDomains?: AuditRunnerScopeDomain[];
   progress: { total: number; completed: number };
 }
 

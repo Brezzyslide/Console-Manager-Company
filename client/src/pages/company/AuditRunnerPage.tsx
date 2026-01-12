@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp, Link, Check, Copy } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp, Link, Check, Copy, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   getAuditRunner, 
@@ -24,6 +24,7 @@ import {
   type AuditIndicatorResponse,
   type EvidenceType,
   type EvidenceRequest,
+  type AuditRunnerScopeDomain,
 } from "@/lib/company-api";
 
 const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
@@ -55,6 +56,7 @@ export default function AuditRunnerPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [rating, setRating] = useState<IndicatorRating | null>(null);
   const [comment, setComment] = useState("");
+  const [domainFilter, setDomainFilter] = useState<string>("all");
   const [showEvidenceDialog, setShowEvidenceDialog] = useState(false);
   const [createdRequest, setCreatedRequest] = useState<EvidenceRequest | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -136,8 +138,21 @@ export default function AuditRunnerPage() {
     evidenceRequestMutation.reset();
   };
 
-  const indicators = runnerData?.indicators || [];
+  const allIndicators = runnerData?.indicators || [];
   const responses = runnerData?.responses || [];
+  const scopeDomains = runnerData?.scopeDomains || [];
+  
+  const filteredIndicators = useMemo(() => {
+    if (domainFilter === "all") {
+      return allIndicators;
+    }
+    return allIndicators.filter(ind => {
+      if (!ind.auditDomainCode) return true;
+      return ind.auditDomainCode === domainFilter;
+    });
+  }, [allIndicators, domainFilter]);
+  
+  const indicators = filteredIndicators;
   const currentIndicator = indicators[currentIndex];
   const existingResponse = responses.find(r => r.templateIndicatorId === currentIndicator?.id);
 
@@ -201,6 +216,47 @@ export default function AuditRunnerPage() {
         <p className="text-muted-foreground">
           Template: {runnerData?.template?.name}
         </p>
+        
+        {scopeDomains.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Layers className="h-4 w-4" />
+              <span>Domains:</span>
+            </div>
+            {scopeDomains.map(domain => (
+              <Badge 
+                key={domain.id} 
+                variant="secondary"
+                className="text-xs"
+                data-testid={`badge-domain-${domain.code}`}
+              >
+                {domain.name}
+              </Badge>
+            ))}
+          </div>
+        )}
+        
+        {scopeDomains.length > 0 && (
+          <div className="mt-3 flex items-center gap-2">
+            <Label className="text-sm">Filter by domain:</Label>
+            <Select value={domainFilter} onValueChange={(value) => {
+              setDomainFilter(value);
+              setCurrentIndex(0);
+            }}>
+              <SelectTrigger className="w-[200px]" data-testid="select-domain-filter">
+                <SelectValue placeholder="All domains" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All domains</SelectItem>
+                {scopeDomains.map(domain => (
+                  <SelectItem key={domain.id} value={domain.code}>
+                    {domain.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <Card className="mb-6">

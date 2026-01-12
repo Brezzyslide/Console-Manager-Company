@@ -595,6 +595,7 @@ router.get("/audits/:id/runner", requireCompanyAuth, async (req: AuthenticatedCo
     const indicators = await storage.getAuditTemplateIndicators(auditRun.templateId);
     const responses = await storage.getAuditIndicatorResponses(auditId);
     const scopeItems = await storage.getAuditScopeLineItems(auditId);
+    const scopeDomains = await storage.getAuditScopeDomains(auditId, companyId);
     
     return res.json({
       audit,
@@ -602,6 +603,12 @@ router.get("/audits/:id/runner", requireCompanyAuth, async (req: AuthenticatedCo
       indicators,
       responses,
       scopeItems,
+      scopeDomains: scopeDomains.map(sd => ({
+        id: sd.domain.id,
+        code: sd.domain.code,
+        name: sd.domain.name,
+        isIncluded: sd.isIncluded,
+      })),
       progress: {
         total: indicators.length,
         completed: responses.length,
