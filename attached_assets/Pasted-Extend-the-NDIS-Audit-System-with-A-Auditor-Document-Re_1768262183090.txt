@@ -1,0 +1,55 @@
+Extend the NDIS Audit System with:
+A) Auditor Document Review Checklist (appears only during review)
+B) Provider Upload Link page with tips on what auditors look for
+
+Constraints:
+- Do NOT change Audit Runner flow
+- Do NOT replace conformance scoring
+- Keep evidence request lifecycle intact (REQUESTED, SUBMITTED, REVIEWED/ACCEPTED/REJECTED)
+- Multi tenancy enforced on every read/write (tenant/companyId)
+
+A) Auditor checklist (review-time only)
+1. Add DocumentType selection on each submitted evidence document (POLICY, PROCEDURE, CARE_PLAN, QUALIFICATION, CLEARANCE, TRAINING_RECORD, SUPERVISION, ROSTER_TIMESHEET, INVOICE_CLAIM, INCIDENT_RECORD, COMPLAINT_RECORD, RISK_ASSESSMENT)
+2. Add checklist templates per DocumentType:
+   - universal hygiene items
+   - implementation evidence items
+   - critical content checks (flagged isCritical)
+3. Add DocumentReview record linked to evidence document:
+   - tenantId, auditId, evidenceRequestId, evidenceDocumentId
+   - reviewerUserId
+   - responses: { key, value YES/NO/PARTLY/NA }
+   - dqsPercent, criticalFailuresCount
+   - decision: ACCEPT / REJECT
+   - comments (required if REJECT)
+   - createdAt
+4. UI: In Evidence Request review screen, when status is SUBMITTED/RESUBMITTED:
+   - show checklist
+   - compute DQS live
+   - show suggested outcome banner (informational only)
+   - if auditor marks ACCEPT but criticalFailuresCount > 0, require a short justification text
+   - store review record and set evidence status to ACCEPTED or REJECTED
+
+B) Provider upload link + tips
+1. Create secure upload link endpoint:
+   - tokenized, expires
+   - scoped to tenantId + auditId + evidenceRequestId (and optional findingId)
+2. Provider page shows:
+   - request title, description, due date, domain tag
+   - document type dropdown
+   - “What we look for” tips panel that updates based on document type
+   - upload control (multiple files allowed if required)
+3. On upload:
+   - store evidence document(s) under the evidence request
+   - set status to SUBMITTED or RESUBMITTED
+   - notify auditor (in-app notification if exists)
+
+C) Domain integration
+- EvidenceRequest already has auditId and optional findingId; add domainId/domainCode field if not present.
+- Provider page displays the domain name.
+- Auditor review queue can filter by domain.
+
+Deliverables:
+- DB migration
+- API routes
+- Frontend pages/components
+- Backwards compatible: existing evidence requests still work with null reviews

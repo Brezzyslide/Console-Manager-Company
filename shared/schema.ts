@@ -252,6 +252,27 @@ export const evidenceTypeEnum = [
 ] as const;
 export const storageKindEnum = ["UPLOAD", "LINK"] as const;
 
+// Document Review System enums
+export const documentTypeEnum = [
+  "POLICY",
+  "PROCEDURE",
+  "CARE_PLAN",
+  "QUALIFICATION",
+  "CLEARANCE",
+  "TRAINING_RECORD",
+  "SUPERVISION",
+  "ROSTER_TIMESHEET",
+  "INVOICE_CLAIM",
+  "INCIDENT_RECORD",
+  "COMPLAINT_RECORD",
+  "RISK_ASSESSMENT",
+  "OTHER"
+] as const;
+
+export const checklistSectionEnum = ["HYGIENE", "IMPLEMENTATION", "CRITICAL"] as const;
+export const checklistResponseEnum = ["YES", "NO", "PARTLY", "NA"] as const;
+export const reviewDecisionEnum = ["ACCEPT", "REJECT"] as const;
+
 // Audits (Tenant-scoped)
 export const audits = pgTable("audits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -486,6 +507,7 @@ export const evidenceItems = pgTable("evidence_items", {
   externalUrl: text("external_url"),
   mimeType: text("mime_type"),
   fileSizeBytes: integer("file_size_bytes"),
+  documentType: text("document_type", { enum: documentTypeEnum }),
   note: text("note"),
   uploadedByCompanyUserId: varchar("uploaded_by_company_user_id").references(() => companyUsers.id),
   externalUploaderName: text("external_uploader_name"),
@@ -500,3 +522,64 @@ export const insertEvidenceItemSchema = createInsertSchema(evidenceItems).omit({
 
 export type InsertEvidenceItem = z.infer<typeof insertEvidenceItemSchema>;
 export type EvidenceItem = typeof evidenceItems.$inferSelect;
+
+// Document Checklist Templates (global templates per document type)
+export const documentChecklistTemplates = pgTable("document_checklist_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentType: text("document_type", { enum: documentTypeEnum }).notNull(),
+  version: integer("version").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertDocumentChecklistTemplateSchema = createInsertSchema(documentChecklistTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDocumentChecklistTemplate = z.infer<typeof insertDocumentChecklistTemplateSchema>;
+export type DocumentChecklistTemplate = typeof documentChecklistTemplates.$inferSelect;
+
+// Document Checklist Items (items within a checklist template)
+export const documentChecklistItems = pgTable("document_checklist_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => documentChecklistTemplates.id, { onDelete: "cascade" }),
+  section: text("section", { enum: checklistSectionEnum }).notNull(),
+  itemKey: text("item_key").notNull(),
+  itemText: text("item_text").notNull(),
+  isCritical: boolean("is_critical").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertDocumentChecklistItemSchema = createInsertSchema(documentChecklistItems).omit({
+  id: true,
+});
+
+export type InsertDocumentChecklistItem = z.infer<typeof insertDocumentChecklistItemSchema>;
+export type DocumentChecklistItem = typeof documentChecklistItems.$inferSelect;
+
+// Document Reviews (auditor review of submitted evidence)
+export const documentReviews = pgTable("document_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  auditId: varchar("audit_id").references(() => audits.id, { onDelete: "cascade" }),
+  evidenceRequestId: varchar("evidence_request_id").notNull().references(() => evidenceRequests.id, { onDelete: "cascade" }),
+  evidenceItemId: varchar("evidence_item_id").notNull().references(() => evidenceItems.id, { onDelete: "cascade" }),
+  checklistTemplateId: varchar("checklist_template_id").notNull().references(() => documentChecklistTemplates.id),
+  reviewerCompanyUserId: varchar("reviewer_company_user_id").notNull().references(() => companyUsers.id),
+  responses: json("responses").$type<{ itemId: string; response: "YES" | "NO" | "PARTLY" | "NA" }[]>().notNull(),
+  dqsPercent: integer("dqs_percent").notNull(),
+  criticalFailuresCount: integer("critical_failures_count").notNull().default(0),
+  decision: text("decision", { enum: reviewDecisionEnum }).notNull(),
+  justification: text("justification"),
+  comments: text("comments"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertDocumentReviewSchema = createInsertSchema(documentReviews).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDocumentReview = z.infer<typeof insertDocumentReviewSchema>;
+export type DocumentReview = typeof documentReviews.$inferSelect;
