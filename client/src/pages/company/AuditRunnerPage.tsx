@@ -79,16 +79,19 @@ export default function AuditRunnerPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (data: { rating: IndicatorRating; comment?: string }) => 
-      saveIndicatorResponse(id!, runnerData!.indicators[currentIndex].id, data),
-    onSuccess: () => {
+    mutationFn: (data: { indicatorId: string; rating: IndicatorRating; comment?: string; shouldAdvance?: boolean }) => 
+      saveIndicatorResponse(id!, data.indicatorId, { rating: data.rating, comment: data.comment }),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["auditRunner", id] });
       queryClient.invalidateQueries({ queryKey: ["auditSummary", id] });
+      if (variables.shouldAdvance) {
+        setCurrentIndex(prev => {
+          const maxIndex = filteredIndicators.length - 1;
+          return prev < maxIndex ? prev + 1 : prev;
+        });
+      }
       setRating(null);
       setComment("");
-      if (currentIndex < (runnerData?.indicators.length || 0) - 1) {
-        setCurrentIndex(prev => prev + 1);
-      }
     },
   });
 
@@ -172,11 +175,11 @@ export default function AuditRunnerPage() {
     );
   }
   
-  const progressPercent = indicators.length > 0 
-    ? (responses.length / indicators.length) * 100 
+  const progressPercent = allIndicators.length > 0 
+    ? (responses.length / allIndicators.length) * 100 
     : 0;
 
-  const canSubmit = responses.length === indicators.length && indicators.length > 0;
+  const canSubmit = responses.length === allIndicators.length && allIndicators.length > 0;
 
   const handleSave = () => {
     if (!rating) return;
@@ -186,9 +189,26 @@ export default function AuditRunnerPage() {
       return;
     }
     
+    if (!currentIndicator) return;
     saveMutation.mutate({ 
+      indicatorId: currentIndicator.id,
       rating, 
       comment: comment.trim() || undefined,
+      shouldAdvance: false,
+    });
+  };
+  
+  const handleSaveAndNext = () => {
+    if (!rating) return;
+    const requiresComment = rating !== "CONFORMANCE";
+    if (requiresComment && comment.trim().length < 10) return;
+    if (!currentIndicator) return;
+    
+    saveMutation.mutate({ 
+      indicatorId: currentIndicator.id,
+      rating, 
+      comment: comment.trim() || undefined,
+      shouldAdvance: true,
     });
   };
 
@@ -263,11 +283,16 @@ export default function AuditRunnerPage() {
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-muted-foreground">
-              Progress: {responses.length} of {indicators.length} indicators completed
+              Progress: {responses.length} of {allIndicators.length} indicators completed
             </span>
             <span className="text-sm font-medium">{Math.round(progressPercent)}%</span>
           </div>
           <Progress value={progressPercent} className="h-2" />
+          {domainFilter !== "all" && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Showing {indicators.length} of {allIndicators.length} indicators (filtered by domain)
+            </p>
+          )}
           
           {summaryData && summaryData.completedCount > 0 && (
             <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
@@ -418,7 +443,7 @@ export default function AuditRunnerPage() {
                 Previous
               </Button>
               <Button 
-                onClick={handleSave}
+                onClick={handleSaveAndNext}
                 disabled={!rating || (rating !== "CONFORMANCE" && comment.trim().length < 10) || saveMutation.isPending}
                 data-testid="button-save-response"
               >
