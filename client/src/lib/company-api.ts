@@ -501,6 +501,24 @@ export interface AuditOptions {
   selectedLineItemCount: number;
 }
 
+export interface AuditDomain {
+  id: string;
+  companyId: string;
+  code: "STAFF_PERSONNEL" | "GOV_POLICY" | "OPERATIONAL";
+  name: string;
+  description: string | null;
+  isEnabledByDefault: boolean;
+  createdAt: string;
+}
+
+export interface AuditScopeDomain {
+  id: string;
+  auditId: string;
+  domainId: string;
+  isIncluded: boolean;
+  domain: AuditDomain;
+}
+
 export interface ScopeOptionsResponse {
   lineItemsByCategory: LineItemsByCategory[];
   selectedLineItemCount: number;
@@ -521,6 +539,29 @@ export async function getAuditOptions(): Promise<AuditOptions> {
   return res.json();
 }
 
+export async function getAuditDomains(): Promise<AuditDomain[]> {
+  const res = await fetch("/api/company/audit-domains", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch audit domains");
+  return res.json();
+}
+
+export async function getAuditScopeDomains(auditId: string): Promise<AuditScopeDomain[]> {
+  const res = await fetch(`/api/company/audits/${auditId}/domains`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch audit scope domains");
+  return res.json();
+}
+
+export async function updateAuditScopeDomains(auditId: string, domainIds: string[]): Promise<AuditScopeDomain[]> {
+  const res = await fetch(`/api/company/audits/${auditId}/domains`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ domainIds }),
+  });
+  if (!res.ok) throw new Error("Failed to update audit scope domains");
+  return res.json();
+}
+
 export async function createAudit(input: {
   auditType: AuditType;
   title: string;
@@ -533,6 +574,7 @@ export async function createAudit(input: {
   externalAuditorOrg?: string;
   externalAuditorEmail?: string;
   selectedLineItemIds?: string[];
+  selectedDomainIds?: string[];
 }): Promise<Audit> {
   const res = await fetch("/api/company/audits", {
     method: "POST",

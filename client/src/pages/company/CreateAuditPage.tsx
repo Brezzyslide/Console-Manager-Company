@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ArrowRight, Loader2, ClipboardCheck, UserCheck, AlertTriangle, Settings } from "lucide-react";
-import { createAudit, getAuditOptions, type AuditType } from "@/lib/company-api";
+import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, ArrowRight, Loader2, ClipboardCheck, UserCheck, AlertTriangle, Settings, Layers } from "lucide-react";
+import { createAudit, getAuditOptions, getAuditDomains, type AuditType, type AuditDomain } from "@/lib/company-api";
 
 export default function CreateAuditPage() {
   const [, navigate] = useLocation();
   const [step, setStep] = useState(0);
   const [auditType, setAuditType] = useState<AuditType | null>(null);
   const [selectedLineItems, setSelectedLineItems] = useState<Set<string>>(new Set());
+  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set());
   
   const [formData, setFormData] = useState({
     title: "",
@@ -35,6 +37,18 @@ export default function CreateAuditPage() {
     queryKey: ["auditOptions"],
     queryFn: getAuditOptions,
   });
+
+  const { data: auditDomains } = useQuery({
+    queryKey: ["auditDomains"],
+    queryFn: getAuditDomains,
+  });
+
+  useEffect(() => {
+    if (auditDomains && selectedDomains.size === 0) {
+      const defaultDomains = auditDomains.filter(d => d.isEnabledByDefault).map(d => d.id);
+      setSelectedDomains(new Set(defaultDomains));
+    }
+  }, [auditDomains]);
 
   const createMutation = useMutation({
     mutationFn: createAudit,
@@ -70,6 +84,19 @@ export default function CreateAuditPage() {
       externalAuditorOrg: auditType === "EXTERNAL" ? formData.externalAuditorOrg : undefined,
       externalAuditorEmail: auditType === "EXTERNAL" ? formData.externalAuditorEmail : undefined,
       selectedLineItemIds: Array.from(selectedLineItems),
+      selectedDomainIds: Array.from(selectedDomains),
+    });
+  };
+
+  const handleToggleDomain = (domainId: string) => {
+    setSelectedDomains(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(domainId)) {
+        newSet.delete(domainId);
+      } else {
+        newSet.add(domainId);
+      }
+      return newSet;
     });
   };
 
@@ -354,6 +381,41 @@ export default function CreateAuditPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {selectedLineItems.size} line item{selectedLineItems.size !== 1 ? "s" : ""} selected for audit scope
+                  </p>
+                </div>
+              )}
+
+              {auditDomains && auditDomains.length > 0 && (
+                <div className="space-y-3 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-muted-foreground" />
+                    <Label>Audit Domains</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Select which compliance domains to include in this audit scope
+                  </p>
+                  <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+                    {auditDomains.map(domain => (
+                      <div 
+                        key={domain.id} 
+                        className="flex items-center justify-between py-2"
+                        data-testid={`domain-toggle-${domain.code}`}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="text-sm font-medium">{domain.name}</div>
+                          {domain.description && (
+                            <div className="text-xs text-muted-foreground">{domain.description}</div>
+                          )}
+                        </div>
+                        <Switch
+                          checked={selectedDomains.has(domain.id)}
+                          onCheckedChange={() => handleToggleDomain(domain.id)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedDomains.size} of {auditDomains.length} domains selected
                   </p>
                 </div>
               )}
