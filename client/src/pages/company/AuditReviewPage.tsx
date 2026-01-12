@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText } from "lucide-react";
-import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, type EvidenceStatus } from "@/lib/company-api";
+import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus } from "lucide-react";
+import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 
 const evidenceStatusConfig: Record<EvidenceStatus, { label: string; color: string; icon: any }> = {
@@ -46,6 +48,10 @@ export default function AuditReviewPage() {
   
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [closeReason, setCloseReason] = useState("");
+  const [showAddIndicatorDialog, setShowAddIndicatorDialog] = useState(false);
+  const [selectedIndicatorId, setSelectedIndicatorId] = useState<string | null>(null);
+  const [newRating, setNewRating] = useState<IndicatorRating | null>(null);
+  const [newComment, setNewComment] = useState("");
 
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
@@ -79,6 +85,19 @@ export default function AuditReviewPage() {
     },
   });
 
+  const addResponseMutation = useMutation({
+    mutationFn: (data: { indicatorId: string; rating: IndicatorRating; comment?: string }) => 
+      addIndicatorResponseInReview(id!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditRunner", id] });
+      queryClient.invalidateQueries({ queryKey: ["findings", id] });
+      setShowAddIndicatorDialog(false);
+      setSelectedIndicatorId(null);
+      setNewRating(null);
+      setNewComment("");
+    },
+  });
+
   const isLoading = auditLoading || runnerLoading;
 
   if (isLoading) {
@@ -104,6 +123,16 @@ export default function AuditReviewPage() {
   };
 
   const ratingCounts = getRatingCounts();
+  
+  const unratedIndicators = indicators.filter(
+    indicator => !responses.find(r => r.templateIndicatorId === indicator.id)
+  );
+  
+  const selectedIndicator = selectedIndicatorId 
+    ? indicators.find(i => i.id === selectedIndicatorId) 
+    : null;
+
+  const canAddResponse = newRating && (newRating === "CONFORMANCE" || newComment.length >= 10);
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -232,8 +261,23 @@ export default function AuditReviewPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Audit Responses</CardTitle>
-          <CardDescription>All indicator assessments for this audit</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Audit Responses</CardTitle>
+              <CardDescription>All indicator assessments for this audit</CardDescription>
+            </div>
+            {audit?.status === "IN_REVIEW" && unratedIndicators.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddIndicatorDialog(true)}
+                data-testid="button-add-indicator-response"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Response ({unratedIndicators.length} unrated)
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -300,6 +344,121 @@ export default function AuditReviewPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={showAddIndicatorDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowAddIndicatorDialog(false);
+          setSelectedIndicatorId(null);
+          setNewRating(null);
+          setNewComment("");
+        }
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Indicator Response</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Indicator</Label>
+              <Select value={selectedIndicatorId || ""} onValueChange={setSelectedIndicatorId}>
+                <SelectTrigger data-testid="select-indicator">
+                  <SelectValue placeholder="Choose an unrated indicator..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {unratedIndicators.map((indicator, i) => (
+                    <SelectItem key={indicator.id} value={indicator.id} data-testid={`select-indicator-${indicator.id}`}>
+                      <span className="line-clamp-1">{indicator.indicatorText}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {selectedIndicator && (
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-sm font-medium">{selectedIndicator.indicatorText}</p>
+                {selectedIndicator.guidanceNotes && (
+                  <p className="text-xs text-muted-foreground mt-1">{selectedIndicator.guidanceNotes}</p>
+                )}
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label>Rating</Label>
+              <Select value={newRating || ""} onValueChange={(v) => setNewRating(v as IndicatorRating)}>
+                <SelectTrigger data-testid="select-rating">
+                  <SelectValue placeholder="Select a rating..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CONFORMANCE">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      Conformance (+2 pts)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="OBSERVATION">
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-blue-500" />
+                      Observation (+1 pt)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="MINOR_NC">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                      Minor Non-Conformance (0 pts)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="MAJOR_NC">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                      Major Non-Conformance (-2 pts)
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>
+                Comment
+                {newRating && newRating !== "CONFORMANCE" && (
+                  <span className="text-destructive ml-1">* (required, min 10 chars)</span>
+                )}
+              </Label>
+              <Textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add your assessment comments..."
+                data-testid="input-indicator-comment"
+              />
+            </div>
+          </div>
+          
+          {addResponseMutation.error && (
+            <p className="text-sm text-destructive">{(addResponseMutation.error as Error).message}</p>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddIndicatorDialog(false)}>Cancel</Button>
+            <Button
+              disabled={!selectedIndicatorId || !canAddResponse || addResponseMutation.isPending}
+              onClick={() => {
+                if (selectedIndicatorId && newRating) {
+                  addResponseMutation.mutate({
+                    indicatorId: selectedIndicatorId,
+                    rating: newRating,
+                    comment: newComment || undefined,
+                  });
+                }
+              }}
+              data-testid="button-save-indicator-response"
+            >
+              {addResponseMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save Response
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
         <DialogContent>

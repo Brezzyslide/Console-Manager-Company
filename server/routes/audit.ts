@@ -804,14 +804,20 @@ router.post("/audits/:id/in-review/responses", requireCompanyAuth, requireRole([
     
     const input = addResponseSchema.parse(req.body);
     
+    const auditRun = await storage.getAuditRun(auditId);
+    if (!auditRun) {
+      return res.status(400).json({ error: "No template associated with this audit" });
+    }
+    
+    const templateIndicators = await storage.getAuditTemplateIndicators(auditRun.templateId);
+    const indicator = templateIndicators.find(i => i.id === input.indicatorId);
+    if (!indicator) {
+      return res.status(400).json({ error: "Indicator does not belong to this audit's template" });
+    }
+    
     const existingResponse = await storage.getAuditIndicatorResponse(auditId, input.indicatorId);
     if (existingResponse) {
       return res.status(400).json({ error: "This indicator already has a response. Cannot modify responses in review." });
-    }
-    
-    const indicator = await storage.getAuditTemplateIndicator(input.indicatorId);
-    if (!indicator) {
-      return res.status(404).json({ error: "Indicator not found" });
     }
     
     const points = scoreForRating(input.rating);
