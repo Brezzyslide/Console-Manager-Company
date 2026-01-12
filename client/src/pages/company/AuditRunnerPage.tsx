@@ -688,6 +688,12 @@ export default function AuditRunnerPage() {
             </DialogDescription>
           </DialogHeader>
           
+          {(!scopeOptionsData || !allDomains) ? (
+            <div className="py-8 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Loading scope options...</span>
+            </div>
+          ) : (
           <div className="space-y-6 py-4">
             <div>
               <h4 className="font-medium mb-3">Audit Domains</h4>
@@ -734,6 +740,7 @@ export default function AuditRunnerPage() {
               </ScrollArea>
             </div>
           </div>
+          )}
 
           {updateScopeMutation.error && (
             <p className="text-sm text-destructive">{(updateScopeMutation.error as Error).message}</p>
