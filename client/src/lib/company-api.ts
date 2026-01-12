@@ -769,6 +769,20 @@ export async function submitAudit(auditId: string): Promise<{ success: boolean; 
   return res.json();
 }
 
+export async function addIndicatorResponseInReview(auditId: string, data: { indicatorId: string; rating: IndicatorRating; comment?: string }): Promise<AuditIndicatorResponse> {
+  const res = await fetch(`/api/company/audits/${auditId}/in-review/responses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to add response");
+  }
+  return res.json();
+}
+
 export async function closeAudit(auditId: string, closeReason?: string): Promise<{ success: boolean; status: string }> {
   const res = await fetch(`/api/company/audits/${auditId}/close`, {
     method: "POST",

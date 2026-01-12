@@ -774,6 +774,104 @@ router.put("/audits/:id/responses/:indicatorId", requireCompanyAuth, requireRole
   }
 });
 
+router.post("/audits/:id/in-review/responses", requireCompanyAuth, requireRole(["CompanyAdmin", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const auditId = req.params.id;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    if (audit.status !== "IN_REVIEW") {
+      return res.status(400).json({ error: "Audit must be in review to add responses" });
+    }
+    
+    const addResponseSchema = z.object({
+      indicatorId: z.string().uuid(),
+      rating: z.enum(indicatorRatingEnum),
+      comment: z.string().nullable().optional(),
+    }).refine(data => {
+      if (data.rating !== "CONFORMANCE") {
+        if (!data.comment || data.comment.length < 10) {
+          return false;
+        }
+      }
+      return true;
+    }, { message: "Comment is required (minimum 10 characters) for non-conformance ratings" });
+    
+    const input = addResponseSchema.parse(req.body);
+    
+    const existingResponse = await storage.getAuditIndicatorResponse(auditId, input.indicatorId);
+    if (existingResponse) {
+      return res.status(400).json({ error: "This indicator already has a response. Cannot modify responses in review." });
+    }
+    
+    const indicator = await storage.getAuditTemplateIndicator(input.indicatorId);
+    if (!indicator) {
+      return res.status(404).json({ error: "Indicator not found" });
+    }
+    
+    const points = scoreForRating(input.rating);
+    
+    const response = await storage.upsertAuditIndicatorResponse({
+      auditId,
+      templateIndicatorId: input.indicatorId,
+      rating: input.rating,
+      comment: input.comment || null,
+      scorePoints: points,
+      scoreVersion: "v1",
+      createdByCompanyUserId: userId,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "AUDIT_RESPONSE_ADDED_IN_REVIEW",
+      entityType: "audit_response",
+      entityId: response.id,
+      afterJson: { rating: input.rating, indicatorId: input.indicatorId, auditId },
+    });
+    
+    if (input.rating === "MINOR_NC" || input.rating === "MAJOR_NC") {
+      const existingFinding = await storage.getFindingByAuditAndIndicator(auditId, input.indicatorId, companyId);
+      
+      if (!existingFinding) {
+        const findingText = `Indicator: ${indicator.indicatorText}. Auditor comment: ${input.comment}.`;
+        
+        const finding = await storage.createFinding({
+          companyId,
+          auditId,
+          templateIndicatorId: input.indicatorId,
+          severity: input.rating as "MINOR_NC" | "MAJOR_NC",
+          findingText,
+        });
+        
+        await storage.logChange({
+          actorType: "company_user",
+          actorId: userId,
+          companyId,
+          action: "FINDING_CREATED",
+          entityType: "finding",
+          entityId: finding.id,
+          afterJson: { severity: input.rating, auditId, addedInReview: true },
+        });
+      }
+    }
+    
+    return res.json(response);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Add in-review response error:", error);
+    return res.status(500).json({ error: "Failed to add response" });
+  }
+});
+
 router.post("/audits/:id/submit", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
