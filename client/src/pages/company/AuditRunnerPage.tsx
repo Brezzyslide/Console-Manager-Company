@@ -10,7 +10,9 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp, Link, Check, Copy, Layers } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp, Link, Check, Copy, Layers, Settings2, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   getAuditRunner, 
@@ -19,12 +21,17 @@ import {
   createAuditEvidenceRequest,
   getAuditEvidenceRequests,
   getAuditSummary,
+  getAuditScopeOptions,
+  updateAuditScope,
+  getAuditDomains,
+  updateAuditScopeDomains,
   type IndicatorRating,
   type AuditTemplateIndicator,
   type AuditIndicatorResponse,
   type EvidenceType,
   type EvidenceRequest,
   type AuditRunnerScopeDomain,
+  type AuditDomain,
 } from "@/lib/company-api";
 
 const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
@@ -58,8 +65,11 @@ export default function AuditRunnerPage() {
   const [comment, setComment] = useState("");
   const [domainFilter, setDomainFilter] = useState<string>("all");
   const [showEvidenceDialog, setShowEvidenceDialog] = useState(false);
+  const [showEditScopeDialog, setShowEditScopeDialog] = useState(false);
   const [createdRequest, setCreatedRequest] = useState<EvidenceRequest | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [selectedLineItemIds, setSelectedLineItemIds] = useState<string[]>([]);
+  const [selectedDomainIds, setSelectedDomainIds] = useState<string[]>([]);
   const [evidenceForm, setEvidenceForm] = useState({
     evidenceType: "" as EvidenceType | "",
     requestNote: "",
@@ -76,6 +86,18 @@ export default function AuditRunnerPage() {
     queryKey: ["auditSummary", id],
     queryFn: () => getAuditSummary(id!),
     enabled: !!id,
+  });
+
+  const { data: scopeOptionsData } = useQuery({
+    queryKey: ["auditScopeOptions", id],
+    queryFn: () => getAuditScopeOptions(id!),
+    enabled: !!id && showEditScopeDialog,
+  });
+
+  const { data: allDomains } = useQuery({
+    queryKey: ["auditDomains"],
+    queryFn: () => getAuditDomains(),
+    enabled: showEditScopeDialog,
   });
 
   const saveMutation = useMutation({
@@ -111,6 +133,22 @@ export default function AuditRunnerPage() {
     },
   });
 
+  const updateScopeMutation = useMutation({
+    mutationFn: async () => {
+      await updateAuditScope(id!, selectedLineItemIds);
+      await updateAuditScopeDomains(id!, selectedDomainIds);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditRunner", id] });
+      queryClient.invalidateQueries({ queryKey: ["auditScopeOptions", id] });
+      setShowEditScopeDialog(false);
+      toast({
+        title: "Scope updated",
+        description: "The audit scope has been updated successfully",
+      });
+    },
+  });
+
   const handleRequestEvidence = () => {
     if (!evidenceForm.evidenceType || !evidenceForm.requestNote) return;
     evidenceRequestMutation.mutate({
@@ -139,6 +177,30 @@ export default function AuditRunnerPage() {
     setLinkCopied(false);
     setEvidenceForm({ evidenceType: "", requestNote: "", dueDate: "" });
     evidenceRequestMutation.reset();
+  };
+
+  const handleOpenEditScope = () => {
+    const currentLineItemIds = runnerData?.scopeItems?.map(si => si.lineItemId) || [];
+    const currentDomainIds = scopeDomains.filter(d => d.isIncluded).map(d => d.id);
+    setSelectedLineItemIds(currentLineItemIds);
+    setSelectedDomainIds(currentDomainIds);
+    setShowEditScopeDialog(true);
+  };
+
+  const toggleLineItem = (lineItemId: string) => {
+    setSelectedLineItemIds(prev => 
+      prev.includes(lineItemId) 
+        ? prev.filter(id => id !== lineItemId)
+        : [...prev, lineItemId]
+    );
+  };
+
+  const toggleDomain = (domainId: string) => {
+    setSelectedDomainIds(prev => 
+      prev.includes(domainId)
+        ? prev.filter(id => id !== domainId)
+        : [...prev, domainId]
+    );
   };
 
   const allIndicators = runnerData?.indicators || [];
@@ -277,6 +339,25 @@ export default function AuditRunnerPage() {
             </Select>
           </div>
         )}
+        
+        <div className="mt-4">
+          {runnerData?.audit.scopeLocked ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Lock className="h-4 w-4" />
+              <span>Scope is locked (external audit)</span>
+            </div>
+          ) : (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleOpenEditScope}
+              data-testid="button-edit-scope"
+            >
+              <Settings2 className="h-4 w-4 mr-2" />
+              Edit Scope
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card className="mb-6">
@@ -595,6 +676,82 @@ export default function AuditRunnerPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditScopeDialog} onOpenChange={setShowEditScopeDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Edit Audit Scope</DialogTitle>
+            <DialogDescription>
+              Modify the service types and domains included in this audit
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            <div>
+              <h4 className="font-medium mb-3">Audit Domains</h4>
+              <div className="space-y-2">
+                {allDomains?.map(domain => (
+                  <div key={domain.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <span className="font-medium">{domain.name}</span>
+                      <p className="text-sm text-muted-foreground">{domain.code}</p>
+                    </div>
+                    <Switch
+                      checked={selectedDomainIds.includes(domain.id)}
+                      onCheckedChange={() => toggleDomain(domain.id)}
+                      data-testid={`switch-domain-${domain.code}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-3">Service Types ({selectedLineItemIds.length} selected)</h4>
+              <ScrollArea className="h-[300px] border rounded-lg p-3">
+                {scopeOptionsData?.lineItemsByCategory.map(category => (
+                  <div key={category.categoryId} className="mb-4">
+                    <h5 className="text-sm font-medium text-muted-foreground mb-2">{category.categoryLabel}</h5>
+                    <div className="space-y-1">
+                      {category.items.map(item => (
+                        <div 
+                          key={item.lineItemId} 
+                          className="flex items-center justify-between p-2 hover:bg-muted/50 rounded"
+                        >
+                          <span className="text-sm">{item.label}</span>
+                          <Switch
+                            checked={selectedLineItemIds.includes(item.lineItemId)}
+                            onCheckedChange={() => toggleLineItem(item.lineItemId)}
+                            data-testid={`switch-lineitem-${item.lineItemId}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </ScrollArea>
+            </div>
+          </div>
+
+          {updateScopeMutation.error && (
+            <p className="text-sm text-destructive">{(updateScopeMutation.error as Error).message}</p>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditScopeDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => updateScopeMutation.mutate()}
+              disabled={updateScopeMutation.isPending || selectedLineItemIds.length === 0}
+              data-testid="button-save-scope"
+            >
+              {updateScopeMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
