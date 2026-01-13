@@ -583,3 +583,34 @@ export const insertDocumentReviewSchema = createInsertSchema(documentReviews).om
 
 export type InsertDocumentReview = z.infer<typeof insertDocumentReviewSchema>;
 export type DocumentReview = typeof documentReviews.$inferSelect;
+
+// Suggested Findings (non-binding suggestions based on document review)
+const suggestedFindingTypeEnum = ["OBSERVATION", "MINOR_NC", "MAJOR_NC", "NONE"] as const;
+const severityFlagEnum = ["LOW", "MEDIUM", "HIGH"] as const;
+const suggestionStatusEnum = ["PENDING", "CONFIRMED", "DISMISSED"] as const;
+
+export const suggestedFindings = pgTable("suggested_findings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  indicatorResponseId: varchar("indicator_response_id").references(() => auditIndicatorResponses.id, { onDelete: "cascade" }),
+  evidenceRequestId: varchar("evidence_request_id").notNull().references(() => evidenceRequests.id, { onDelete: "cascade" }),
+  documentReviewId: varchar("document_review_id").notNull().references(() => documentReviews.id, { onDelete: "cascade" }),
+  suggestedType: text("suggested_type", { enum: suggestedFindingTypeEnum }).notNull(),
+  severityFlag: text("severity_flag", { enum: severityFlagEnum }),
+  rationaleText: text("rationale_text").notNull(),
+  status: text("status", { enum: suggestionStatusEnum }).notNull().default("PENDING"),
+  confirmedFindingId: varchar("confirmed_finding_id").references(() => findings.id, { onDelete: "set null" }),
+  dismissedByUserId: varchar("dismissed_by_user_id").references(() => companyUsers.id),
+  dismissedReason: text("dismissed_reason"),
+  dismissedAt: timestamp("dismissed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertSuggestedFindingSchema = createInsertSchema(suggestedFindings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSuggestedFinding = z.infer<typeof insertSuggestedFindingSchema>;
+export type SuggestedFinding = typeof suggestedFindings.$inferSelect;

@@ -1,0 +1,129 @@
+You are working inside an existing multi-tenant NDIS Audit System.
+
+Objective
+After a document is reviewed and scored (Document Quality Score – DQS),
+the system must intelligently SUGGEST an appropriate finding to the auditor,
+without automatically determining or creating a finding.
+
+Critical constraint
+- The system must NEVER auto-create a finding.
+- The auditor must always explicitly confirm or override.
+- Existing conformance states, scoring logic, and audit runner flow must remain unchanged.
+
+Context
+Document reviews occur within Evidence Requests, which are linked to:
+- auditId (always)
+- indicatorAssessmentId (required for this feature)
+- optional findingId (if remediation evidence)
+
+Each DocumentReview produces:
+- dqsPercent (0–100)
+- criticalFailuresCount (integer)
+- decision (ACCEPT / REJECT)
+- reviewerComments
+
+Implementation requirements
+
+A) Trigger point
+Run the suggestion logic immediately after a DocumentReview is saved
+(only when decision = ACCEPT or REJECT).
+
+B) Determine suggestion band
+Using DocumentReview data, compute a SuggestedFindingType:
+
+Rules:
+1. If decision = REJECT
+   → SuggestedFindingType = MINOR_NC
+   → Flag severity = HIGH
+
+2. If criticalFailuresCount > 0
+   → If indicatorAssessment.isCritical = true
+        SuggestedFindingType = MAJOR_NC
+     Else
+        SuggestedFindingType = MINOR_NC
+
+3. Else if dqsPercent < 50
+   → SuggestedFindingType = MINOR_NC
+   → Flag severity = HIGH
+
+4. Else if dqsPercent >= 50 AND dqsPercent < 70
+   → SuggestedFindingType = MINOR_NC
+   → Flag severity = MEDIUM
+
+5. Else if dqsPercent >= 70 AND dqsPercent < 85
+   → SuggestedFindingType = OBSERVATION
+   → Flag severity = LOW
+
+6. Else if dqsPercent >= 85
+   → SuggestedFindingType = NONE
+   → No finding suggested
+
+C) Suggested finding record (non-binding)
+Create a SuggestedFinding object (do NOT create a real Finding):
+
+Fields:
+- tenantId/companyId
+- auditId
+- indicatorAssessmentId
+- evidenceRequestId
+- documentReviewId
+- suggestedType (OBSERVATION / MINOR_NC / MAJOR_NC)
+- rationaleText (auto-generated, see below)
+- createdAt
+
+D) Auto-generate rationaleText
+Generate a short, neutral explanation using this template:
+
+"Based on document review scoring:
+- Document Quality Score: {dqsPercent}%
+- Critical checklist failures: {criticalFailuresCount}
+- Review decision: {decision}
+
+The evidence may not sufficiently demonstrate conformance for this indicator."
+
+Do NOT use accusatory or definitive language.
+
+E) UI behaviour (Indicator Assessment screen)
+When a SuggestedFinding exists and is unresolved:
+
+- Display a non-blocking banner:
+  “Evidence review suggests a {SuggestedFindingType}. Please confirm.”
+
+- Show action buttons:
+  - Create Observation
+  - Create Minor NC
+  - Create Major NC (only if indicatorAssessment.isCritical = true)
+  - Dismiss suggestion (requires optional justification text)
+
+F) Auditor interaction rules
+- Clicking a button explicitly creates a real Finding and links:
+  - finding.indicatorAssessmentId
+  - finding.evidenceRequestId
+  - finding.documentReviewId
+- Dismissing a suggestion must store:
+  - dismissedByUserId
+  - dismissedReason (optional but recommended)
+  - dismissedAt
+
+G) Safeguards (consistency, not control)
+1. If SuggestedFindingType exists AND
+   indicatorAssessment.conformanceOutcome = CONFORMANCE
+   THEN:
+   - Require auditor to either accept or dismiss the suggestion
+   - OR provide a short justification before finalising the indicator
+
+2. No scoring values are changed automatically by this feature.
+
+H) Tenancy and permissions
+- All records must be tenant/company scoped.
+- Only users with audit review permissions can act on suggestions.
+- Read-only users can view suggestion banners but cannot act.
+
+Deliverables
+1. Backend logic for SuggestedFinding generation
+2. Storage model for SuggestedFinding
+3. UI banner + actions on Indicator Assessment view
+4. Confirmation that:
+   - No findings are auto-created
+   - Scoring engine is untouched
+   - Auditor judgement remains authoritative
