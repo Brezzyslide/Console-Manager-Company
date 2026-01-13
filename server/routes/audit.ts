@@ -1622,7 +1622,7 @@ router.put("/audits/:auditId/domains", requireCompanyAuth, requireRole(["Company
     
     await storage.logChange({
       actorType: "company_user",
-      actorId: req.companyUser!.id,
+      actorId: req.companyUser!.companyUserId,
       companyId,
       action: "AUDIT_DOMAINS_UPDATED",
       entityType: "audit",
@@ -1679,7 +1679,7 @@ const documentReviewSchema = z.object({
 router.post("/document-reviews", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
-    const reviewerId = req.companyUser!.id;
+    const reviewerId = req.companyUser!.companyUserId;
     
     const parsed = documentReviewSchema.safeParse(req.body);
     if (!parsed.success) {
