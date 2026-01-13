@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, ArrowLeft, FileText, Link as LinkIcon, Upload, CheckCircle, XCircle, Clock, Eye, AlertCircle, Download } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, ArrowLeft, FileText, Link as LinkIcon, Upload, CheckCircle, XCircle, Clock, Eye, AlertCircle, Download, ClipboardList } from "lucide-react";
 import { 
   getEvidenceRequest, 
   submitEvidence, 
@@ -20,6 +21,7 @@ import {
 } from "@/lib/company-api";
 import { format } from "date-fns";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
+import DocumentReviewChecklist from "@/components/DocumentReviewChecklist";
 
 const statusConfig: Record<EvidenceStatus, { label: string; color: string; icon: React.ReactNode }> = {
   REQUESTED: { label: "Requested", color: "bg-blue-500", icon: <Clock className="h-4 w-4" /> },
@@ -42,6 +44,21 @@ const evidenceTypeLabels: Record<string, string> = {
   OTHER: "Other",
 };
 
+const documentTypeLabels: Record<string, string> = {
+  POLICY: "Policy",
+  PROCEDURE: "Procedure",
+  TRAINING_RECORD: "Training Record",
+  RISK_ASSESSMENT: "Risk Assessment",
+  CARE_PLAN: "Care Plan",
+  QUALIFICATION: "Qualification",
+  WWCC: "WWCC/Police Check",
+  SERVICE_AGREEMENT: "Service Agreement",
+  INCIDENT_REPORT: "Incident Report",
+  COMPLAINT_RECORD: "Complaint Record",
+  CONSENT_FORM: "Consent Form",
+  OTHER: "Other",
+};
+
 export default function EvidenceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -50,6 +67,7 @@ export default function EvidenceDetailPage() {
   
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [selectedReviewItemId, setSelectedReviewItemId] = useState<string | null>(null);
   
   const [submitForm, setSubmitForm] = useState({
     storageKind: "LINK" as "UPLOAD" | "LINK",
@@ -232,54 +250,89 @@ export default function EvidenceDetailPage() {
                   <p>No evidence submitted yet</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {evidenceRequest.items?.map(item => (
                     <div 
                       key={item.id} 
-                      className="flex items-center justify-between p-3 border rounded-md"
+                      className="border rounded-md overflow-hidden"
                       data-testid={`evidence-item-${item.id}`}
                     >
-                      <div className="flex items-center gap-3">
-                        {item.storageKind === "LINK" ? (
-                          <LinkIcon className="h-5 w-5 text-blue-500" />
-                        ) : (
-                          <Upload className="h-5 w-5 text-green-500" />
-                        )}
-                        <div>
-                          <p className="font-medium">{item.fileName}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {item.uploadedByCompanyUserId 
-                              ? `Uploaded by ${getUserName(item.uploadedByCompanyUserId)}`
-                              : item.externalUploaderName 
-                                ? `Submitted by ${item.externalUploaderName} (${item.externalUploaderEmail})`
-                                : "External upload"
-                            } on {format(new Date(item.createdAt), "dd MMM yyyy")}
-                          </p>
-                          {item.note && (
-                            <p className="text-sm text-muted-foreground mt-1">Note: {item.note}</p>
+                      <div className="flex items-center justify-between p-3 bg-muted/30">
+                        <div className="flex items-center gap-3">
+                          {item.storageKind === "LINK" ? (
+                            <LinkIcon className="h-5 w-5 text-blue-500" />
+                          ) : (
+                            <Upload className="h-5 w-5 text-green-500" />
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{item.fileName}</p>
+                              {item.documentType && (
+                                <Badge variant="outline" className="text-xs">
+                                  {documentTypeLabels[item.documentType] || item.documentType}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {item.uploadedByCompanyUserId 
+                                ? `Uploaded by ${getUserName(item.uploadedByCompanyUserId)}`
+                                : item.externalUploaderName 
+                                  ? `Submitted by ${item.externalUploaderName} (${item.externalUploaderEmail})`
+                                  : "External upload"
+                              } on {format(new Date(item.createdAt), "dd MMM yyyy")}
+                            </p>
+                            {item.note && (
+                              <p className="text-sm text-muted-foreground mt-1">Note: {item.note}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {canMakeDecision && item.documentType && (
+                            <Button 
+                              variant={selectedReviewItemId === item.id ? "secondary" : "outline"} 
+                              size="sm"
+                              onClick={() => setSelectedReviewItemId(selectedReviewItemId === item.id ? null : item.id)}
+                              data-testid={`button-review-checklist-${item.id}`}
+                            >
+                              <ClipboardList className="h-4 w-4 mr-1" />
+                              {selectedReviewItemId === item.id ? "Hide Checklist" : "Review Checklist"}
+                            </Button>
+                          )}
+                          {item.storageKind === "LINK" && item.externalUrl && (
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={item.externalUrl} target="_blank" rel="noopener noreferrer">
+                                <LinkIcon className="h-4 w-4 mr-1" />
+                                Open Link
+                              </a>
+                            </Button>
+                          )}
+                          {item.storageKind === "UPLOAD" && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              asChild
+                              data-testid={`button-download-${item.id}`}
+                            >
+                              <a href={`/api/company/evidence/items/${item.id}/download`}>
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </a>
+                            </Button>
                           )}
                         </div>
                       </div>
-                      {item.storageKind === "LINK" && item.externalUrl && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={item.externalUrl} target="_blank" rel="noopener noreferrer">
-                            <LinkIcon className="h-4 w-4 mr-1" />
-                            Open Link
-                          </a>
-                        </Button>
-                      )}
-                      {item.storageKind === "UPLOAD" && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          asChild
-                          data-testid={`button-download-${item.id}`}
-                        >
-                          <a href={`/api/company/evidence/items/${item.id}/download`}>
-                            <Download className="h-4 w-4 mr-1" />
-                            Download
-                          </a>
-                        </Button>
+                      {selectedReviewItemId === item.id && item.documentType && (
+                        <div className="p-4 border-t">
+                          <DocumentReviewChecklist
+                            evidenceItemId={item.id}
+                            evidenceRequestId={evidenceRequest.id}
+                            documentType={item.documentType}
+                            auditId={evidenceRequest.auditId || undefined}
+                            onReviewComplete={() => {
+                              queryClient.invalidateQueries({ queryKey: ["evidenceRequest", id] });
+                            }}
+                          />
+                        </div>
                       )}
                     </div>
                   ))}

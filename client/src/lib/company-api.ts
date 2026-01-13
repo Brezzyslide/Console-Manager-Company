@@ -898,6 +898,7 @@ export interface EvidenceItem {
   uploadedByCompanyUserId: string | null;
   externalUploaderName: string | null;
   externalUploaderEmail: string | null;
+  documentType: string | null;
   createdAt: string;
 }
 
@@ -1087,8 +1088,8 @@ export interface DocumentReview {
   reviewerCompanyUserId: string;
   responses: Array<{ itemId: string; response: ChecklistResponse }>;
   decision: ReviewDecision;
-  dqsScore: number;
-  criticalFailures: number;
+  dqsPercent: number;
+  criticalFailuresCount: number;
   auditId: string | null;
   comments: string | null;
   createdAt: string;

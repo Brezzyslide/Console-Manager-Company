@@ -98,8 +98,33 @@ Key tables:
 - External users can upload files via `/upload/:token` without authentication
 - Public uploads automatically update request status to SUBMITTED
 - External uploader name/email tracked in evidence_items table
+- Document type can be selected during upload (POLICY, PROCEDURE, TRAINING_RECORD, etc.)
+- Contextual tips shown based on selected document type
 - Filename sanitization prevents directory traversal attacks
 - All external submissions logged to change_log with action `EVIDENCE_SUBMITTED_EXTERNAL`
+
+### Document Review Checklist System
+- 12 document types: POLICY, PROCEDURE, TRAINING_RECORD, RISK_ASSESSMENT, CARE_PLAN, QUALIFICATION, WWCC, SERVICE_AGREEMENT, INCIDENT_REPORT, COMPLAINT_RECORD, CONSENT_FORM, OTHER
+- Checklist templates stored in `document_checklist_templates` with version control
+- Checklist items grouped by section: HYGIENE, IMPLEMENTATION, CRITICAL
+- Critical items flagged for special attention during review
+- Response options: YES, NO, PARTLY, NA
+- Document Quality Score (DQS) calculated as percentage: (YES + 0.5*PARTLY) / applicable items
+- Critical failures tracked separately
+- Reviews stored in `document_reviews` with JSONB responses
+- Review decisions: ACCEPT or REJECT
+- Seed data provides 6-10 checklist items per document type
+
+Key tables:
+- `document_checklist_templates` - Template definitions with document type and version
+- `document_checklist_items` - Individual checklist items with section and isCritical flag
+- `document_reviews` - Completed reviews with DQS score and decision
+
+API endpoints:
+- `GET /api/company/document-checklists/templates` - List all active templates
+- `GET /api/company/document-checklists/templates/:documentType` - Get template with items
+- `POST /api/company/document-reviews` - Submit a document review
+- `GET /api/company/document-reviews/:evidenceItemId` - Get review for evidence item
 
 ## External Dependencies
 

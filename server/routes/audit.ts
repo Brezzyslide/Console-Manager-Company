@@ -1742,8 +1742,8 @@ router.post("/document-reviews", requireCompanyAuth, requireRole(["CompanyAdmin"
       reviewerCompanyUserId: reviewerId,
       responses: responses as any,
       decision,
-      dqsScore,
-      criticalFailures,
+      dqsPercent: dqsScore,
+      criticalFailuresCount: criticalFailures,
       auditId: auditId || null,
       comments: comments || null,
     });
