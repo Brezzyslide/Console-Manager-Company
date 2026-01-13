@@ -298,6 +298,11 @@ export default function EvidenceDetailPage() {
                               {selectedReviewItemId === item.id ? "Hide Checklist" : "Review Checklist"}
                             </Button>
                           )}
+                          {canMakeDecision && !item.documentType && (
+                            <Badge variant="secondary" className="text-xs">
+                              No document type
+                            </Badge>
+                          )}
                           {item.storageKind === "LINK" && item.externalUrl && (
                             <Button variant="outline" size="sm" asChild>
                               <a href={item.externalUrl} target="_blank" rel="noopener noreferrer">
@@ -372,7 +377,22 @@ export default function EvidenceDetailPage() {
                 <CardTitle className="text-lg">Make Decision</CardTitle>
                 <CardDescription>Accept or reject the submitted evidence</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {evidenceRequest.items?.some(item => item.documentType) ? (
+                  <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md text-sm">
+                    <ClipboardList className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-blue-700 dark:text-blue-300">
+                      Use the "Review Checklist" button on items with a document type for detailed quality assessment before making your decision.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2 p-3 bg-muted rounded-md text-sm">
+                    <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <p className="text-muted-foreground">
+                      No document types were assigned to these files. The quality checklist is available when uploaders select a document type (Policy, Procedure, etc.) during upload.
+                    </p>
+                  </div>
+                )}
                 <Button 
                   onClick={() => setShowReviewDialog(true)} 
                   className="w-full"
