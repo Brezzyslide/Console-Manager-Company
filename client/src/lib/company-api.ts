@@ -1112,7 +1112,12 @@ export async function getDocumentChecklistTemplate(documentType: string): Promis
 }
 
 // Document Review API
-export async function createDocumentReview(data: DocumentReviewInput): Promise<DocumentReview> {
+export interface DocumentReviewResult {
+  review: DocumentReview;
+  suggestedFinding: SuggestedFinding | null;
+}
+
+export async function createDocumentReview(data: DocumentReviewInput): Promise<DocumentReviewResult> {
   const res = await fetch("/api/company/document-reviews", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1130,5 +1135,86 @@ export async function getDocumentReviewByEvidenceItem(evidenceItemId: string): P
   const res = await fetch(`/api/company/document-reviews/${evidenceItemId}`, { credentials: "include" });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("Failed to fetch document review");
+  return res.json();
+}
+
+// Suggested Findings API
+export type SuggestedFindingType = "OBSERVATION" | "MINOR_NC" | "MAJOR_NC" | "NONE";
+export type SeverityFlag = "LOW" | "MEDIUM" | "HIGH";
+export type SuggestionStatus = "PENDING" | "CONFIRMED" | "DISMISSED";
+
+export interface SuggestedFinding {
+  id: string;
+  companyId: string;
+  auditId: string;
+  indicatorResponseId: string | null;
+  evidenceRequestId: string;
+  documentReviewId: string;
+  suggestedType: SuggestedFindingType;
+  severityFlag: SeverityFlag | null;
+  rationaleText: string;
+  status: SuggestionStatus;
+  confirmedFindingId: string | null;
+  dismissedByUserId: string | null;
+  dismissedReason: string | null;
+  dismissedAt: string | null;
+  createdAt: string;
+}
+
+export async function getPendingSuggestedFindings(auditId?: string): Promise<SuggestedFinding[]> {
+  const params = auditId ? `?auditId=${auditId}` : "";
+  const res = await fetch(`/api/company/suggested-findings${params}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch suggested findings");
+  return res.json();
+}
+
+export async function getSuggestedFindingsForIndicator(indicatorResponseId: string): Promise<SuggestedFinding[]> {
+  const res = await fetch(`/api/company/suggested-findings/indicator/${indicatorResponseId}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch suggested findings for indicator");
+  return res.json();
+}
+
+export async function getSuggestedFinding(id: string): Promise<SuggestedFinding | null> {
+  const res = await fetch(`/api/company/suggested-findings/${id}`, { credentials: "include" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Failed to fetch suggested finding");
+  return res.json();
+}
+
+export interface ConfirmSuggestionInput {
+  findingType: "OBSERVATION" | "MINOR_NC" | "MAJOR_NC";
+  description: string;
+}
+
+export interface ConfirmSuggestionResult {
+  suggestion: SuggestedFinding;
+  finding: Finding | null;
+}
+
+export async function confirmSuggestedFinding(id: string, data: ConfirmSuggestionInput): Promise<ConfirmSuggestionResult> {
+  const res = await fetch(`/api/company/suggested-findings/${id}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to confirm suggested finding");
+  }
+  return res.json();
+}
+
+export async function dismissSuggestedFinding(id: string, reason?: string): Promise<SuggestedFinding> {
+  const res = await fetch(`/api/company/suggested-findings/${id}/dismiss`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to dismiss suggested finding");
+  }
   return res.json();
 }

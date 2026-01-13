@@ -1785,10 +1785,18 @@ router.post("/document-reviews", requireCompanyAuth, requireRole(["CompanyAdmin"
     let suggestedFinding = null;
     if (suggestedType !== "NONE" && auditId) {
       // Only create suggestion if linked to an audit
+      // Look up indicator response by template indicator if available
+      let indicatorResponseId: string | null = null;
+      if (evidenceRequest.templateIndicatorId) {
+        const responses = await storage.getAuditIndicatorResponses(auditId);
+        const matchingResponse = responses.find((r: { templateIndicatorId: string; id: string }) => r.templateIndicatorId === evidenceRequest.templateIndicatorId);
+        indicatorResponseId = matchingResponse?.id || null;
+      }
+      
       suggestedFinding = await storage.createSuggestedFinding({
         companyId,
         auditId,
-        indicatorResponseId: evidenceRequest.indicatorResponseId || null,
+        indicatorResponseId,
         evidenceRequestId,
         documentReviewId: review.id,
         suggestedType,
@@ -1913,25 +1921,35 @@ router.post("/suggested-findings/:id/confirm", requireCompanyAuth, requireRole([
       return res.status(404).json({ error: "Associated audit not found" });
     }
     
-    // Create the actual finding based on the confirmed type
-    const ratingMap: Record<string, "CONFORMANCE" | "OBSERVATION" | "MINOR_NC" | "MAJOR_NC"> = {
-      "OBSERVATION": "OBSERVATION",
-      "MINOR_NC": "MINOR_NC", 
-      "MAJOR_NC": "MAJOR_NC"
-    };
+    // Get the evidence request to find the template indicator
+    const evidenceRequest = await storage.getEvidenceRequest(suggestion.evidenceRequestId, companyId);
+    if (!evidenceRequest) {
+      return res.status(404).json({ error: "Associated evidence request not found" });
+    }
     
-    const finding = await storage.createFinding({
-      companyId,
-      auditId: suggestion.auditId,
-      indicatorResponseId: suggestion.indicatorResponseId || undefined,
-      evidenceRequestId: suggestion.evidenceRequestId,
-      rating: ratingMap[findingType],
-      description,
-      status: "OPEN",
-    });
+    let finding = null;
+    
+    // Only create finding for non-conformances (not observations)
+    // Findings table only supports MINOR_NC and MAJOR_NC severities
+    if (findingType === "MINOR_NC" || findingType === "MAJOR_NC") {
+      if (!evidenceRequest.templateIndicatorId) {
+        return res.status(400).json({ error: "Cannot create finding: evidence request has no template indicator" });
+      }
+      
+      finding = await storage.createFinding({
+        companyId,
+        auditId: suggestion.auditId,
+        templateIndicatorId: evidenceRequest.templateIndicatorId,
+        severity: findingType,
+        findingText: description,
+        status: "OPEN",
+      });
+    }
+    // For OBSERVATION type, we just confirm the suggestion without creating a finding
+    // Observations are tracked as indicator ratings, not as findings
     
     // Update suggestion to confirmed status
-    const updatedSuggestion = await storage.confirmSuggestedFinding(id, companyId, finding.id);
+    const updatedSuggestion = await storage.confirmSuggestedFinding(id, companyId, finding?.id || "observation-noted");
     
     await storage.logChange({
       actorType: "company_user",
@@ -1940,7 +1958,7 @@ router.post("/suggested-findings/:id/confirm", requireCompanyAuth, requireRole([
       action: "SUGGESTED_FINDING_CONFIRMED",
       entityType: "suggested_finding",
       entityId: id,
-      afterJson: { findingId: finding.id, confirmedType: findingType },
+      afterJson: { findingId: finding?.id || null, confirmedType: findingType },
     });
     
     return res.json({ suggestion: updatedSuggestion, finding });
