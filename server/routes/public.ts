@@ -62,7 +62,7 @@ router.get("/evidence/:token", async (req, res) => {
 router.post("/evidence/:token/upload", upload.single("file"), async (req, res) => {
   try {
     const { token } = req.params;
-    const { uploaderName, uploaderEmail, note } = req.body;
+    const { uploaderName, uploaderEmail, note, documentType } = req.body;
 
     if (!uploaderName || !uploaderEmail) {
       return res.status(400).json({ error: "Name and email are required" });
@@ -94,6 +94,7 @@ router.post("/evidence/:token/upload", upload.single("file"), async (req, res) =
       externalUploaderName: uploaderName,
       externalUploaderEmail: uploaderEmail,
       uploadedByCompanyUserId: null,
+      documentType: documentType || null,
     });
 
     if (evidenceRequest.status === "REQUESTED") {

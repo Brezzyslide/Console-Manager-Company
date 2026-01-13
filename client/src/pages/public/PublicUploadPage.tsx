@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, CheckCircle, AlertCircle, Loader2, FileText, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Upload, CheckCircle, AlertCircle, Loader2, FileText, Calendar, Info, Lightbulb } from "lucide-react";
 
 interface EvidenceRequestInfo {
   id: string;
@@ -16,6 +17,96 @@ interface EvidenceRequestInfo {
   status: string;
   companyName: string;
 }
+
+const DOCUMENT_TYPES = [
+  { value: "POLICY", label: "Policy Document" },
+  { value: "PROCEDURE", label: "Procedure Document" },
+  { value: "TRAINING_RECORD", label: "Training Record / Certificate" },
+  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
+  { value: "CARE_PLAN", label: "Care / Support Plan" },
+  { value: "QUALIFICATION", label: "Qualification / Credential" },
+  { value: "WWCC", label: "WWCC / Police Check" },
+  { value: "SERVICE_AGREEMENT", label: "Service Agreement" },
+  { value: "INCIDENT_REPORT", label: "Incident Report" },
+  { value: "COMPLAINT_RECORD", label: "Complaint Record" },
+  { value: "CONSENT_FORM", label: "Consent Form" },
+  { value: "OTHER", label: "Other Document" },
+] as const;
+
+const DOCUMENT_TIPS: Record<string, string[]> = {
+  POLICY: [
+    "Include clear title and version number",
+    "Document should be dated within review period (typically 2 years)",
+    "Include approval signature or authorisation",
+    "Reference relevant legislation or standards",
+  ],
+  PROCEDURE: [
+    "Include step-by-step instructions",
+    "Identify responsible parties for each step",
+    "Link to parent policy if applicable",
+    "Include escalation pathway where relevant",
+  ],
+  TRAINING_RECORD: [
+    "Include staff member name",
+    "Show training date and completion evidence",
+    "Name the training provider or organisation",
+    "Include expiry date if applicable",
+  ],
+  RISK_ASSESSMENT: [
+    "Include assessment date and assessor name",
+    "Clearly identify and describe risks",
+    "Include risk ratings (likelihood x impact)",
+    "Document control measures for each risk",
+  ],
+  CARE_PLAN: [
+    "Include participant name and identifiers",
+    "Document goals and outcomes",
+    "Detail support strategies",
+    "Obtain participant consent/signature",
+  ],
+  QUALIFICATION: [
+    "Ensure staff member name matches records",
+    "Include issuing institution details",
+    "Show issue date and expiry date if applicable",
+    "Include registration/certification number",
+  ],
+  WWCC: [
+    "Ensure person name matches employee records",
+    "Check date is current and visible",
+    "Card/reference number must be legible",
+    "Status must show cleared/valid",
+  ],
+  SERVICE_AGREEMENT: [
+    "Include participant name and details",
+    "Clearly describe services to be provided",
+    "Document pricing and fees",
+    "Include cancellation policy and complaints process",
+  ],
+  INCIDENT_REPORT: [
+    "Include incident date, time, and location",
+    "Describe what occurred and who was involved",
+    "Document immediate actions taken",
+    "Submit within required timeframes",
+  ],
+  COMPLAINT_RECORD: [
+    "Include date complaint was received",
+    "Describe nature of complaint",
+    "Document investigation steps",
+    "Record outcome and resolution",
+  ],
+  CONSENT_FORM: [
+    "Include participant name and date of consent",
+    "Clearly state purpose of consent",
+    "Define scope of consent",
+    "Obtain participant signature",
+  ],
+  OTHER: [
+    "Ensure document title and purpose are clear",
+    "Include relevant dates",
+    "Make sure document is legible",
+    "Verify document is relevant to the request",
+  ],
+};
 
 export default function PublicUploadPage() {
   const { token } = useParams();
@@ -28,6 +119,7 @@ export default function PublicUploadPage() {
   const [uploaderEmail, setUploaderEmail] = useState("");
   const [note, setNote] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentType, setDocumentType] = useState<string>("");
 
   useEffect(() => {
     fetchRequestInfo();
@@ -71,6 +163,7 @@ export default function PublicUploadPage() {
       formData.append("uploaderName", uploaderName);
       formData.append("uploaderEmail", uploaderEmail);
       if (note) formData.append("note", note);
+      if (documentType) formData.append("documentType", documentType);
 
       const response = await fetch(`/api/public/evidence/${token}/upload`, {
         method: "POST",
@@ -98,6 +191,8 @@ export default function PublicUploadPage() {
       day: "numeric",
     });
   };
+
+  const currentTips = documentType ? DOCUMENT_TIPS[documentType] || DOCUMENT_TIPS.OTHER : null;
 
   if (loading) {
     return (
@@ -144,6 +239,7 @@ export default function PublicUploadPage() {
                   setUploadSuccess(false);
                   setSelectedFile(null);
                   setNote("");
+                  setDocumentType("");
                 }}
                 data-testid="button-upload-another"
               >
@@ -158,7 +254,7 @@ export default function PublicUploadPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-2xl mx-auto space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -225,6 +321,40 @@ export default function PublicUploadPage() {
                   data-testid="input-uploader-email"
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="documentType">Document Type</Label>
+                <Select value={documentType} onValueChange={setDocumentType}>
+                  <SelectTrigger data-testid="select-document-type">
+                    <SelectValue placeholder="Select document type (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOCUMENT_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value} data-testid={`option-doc-type-${type.value}`}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">Selecting a document type helps the reviewer assess your evidence faster</p>
+              </div>
+
+              {currentTips && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-amber-800 font-medium mb-2">
+                    <Lightbulb className="h-4 w-4" />
+                    Tips for this document type
+                  </div>
+                  <ul className="space-y-1.5">
+                    {currentTips.map((tip, index) => (
+                      <li key={index} className="flex items-start gap-2 text-sm text-amber-700">
+                        <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                        <span>{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="file">File *</Label>
