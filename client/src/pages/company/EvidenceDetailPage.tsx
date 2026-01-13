@@ -17,11 +17,13 @@ import {
   startEvidenceReview,
   reviewEvidence, 
   getCompanyUsers,
+  getPendingSuggestedFindings,
   type EvidenceStatus 
 } from "@/lib/company-api";
 import { format } from "date-fns";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
 import DocumentReviewChecklist from "@/components/DocumentReviewChecklist";
+import SuggestedFindingBanner from "@/components/SuggestedFindingBanner";
 
 const statusConfig: Record<EvidenceStatus, { label: string; color: string; icon: React.ReactNode }> = {
   REQUESTED: { label: "Requested", color: "bg-blue-500", icon: <Clock className="h-4 w-4" /> },
@@ -91,6 +93,16 @@ export default function EvidenceDetailPage() {
     queryKey: ["companyUsers"],
     queryFn: getCompanyUsers,
   });
+
+  const { data: suggestedFindings } = useQuery({
+    queryKey: ["suggestedFindings", evidenceRequest?.auditId],
+    queryFn: () => getPendingSuggestedFindings(evidenceRequest?.auditId || undefined),
+    enabled: !!evidenceRequest?.auditId,
+  });
+
+  const pendingSuggestionForRequest = suggestedFindings?.find(
+    (s) => s.evidenceRequestId === id && s.status === "PENDING"
+  );
 
   const submitMutation = useMutation({
     mutationFn: (data: Parameters<typeof submitEvidence>[1]) => submitEvidence(id!, data),
@@ -369,6 +381,16 @@ export default function EvidenceDetailPage() {
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {pendingSuggestionForRequest && (
+            <SuggestedFindingBanner 
+              suggestion={pendingSuggestionForRequest}
+              onActionComplete={() => {
+                queryClient.invalidateQueries({ queryKey: ["suggestedFindings"] });
+                queryClient.invalidateQueries({ queryKey: ["findings"] });
+              }}
+            />
           )}
 
           {canMakeDecision && (
