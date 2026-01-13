@@ -1043,3 +1043,91 @@ export async function getAuditEvidenceRequests(auditId: string): Promise<Evidenc
   if (!res.ok) throw new Error("Failed to fetch audit evidence requests");
   return res.json();
 }
+
+// Document Checklist Types
+export type ChecklistSection = "HYGIENE" | "IMPLEMENTATION" | "CRITICAL";
+export type ChecklistResponse = "YES" | "NO" | "PARTLY" | "NA";
+export type ReviewDecision = "ACCEPT" | "REJECT";
+
+export interface DocumentChecklistItem {
+  id: string;
+  templateId: string;
+  section: ChecklistSection;
+  itemKey: string;
+  itemText: string;
+  isCritical: boolean;
+  sortOrder: number;
+}
+
+export interface DocumentChecklistTemplate {
+  id: string;
+  documentType: string;
+  templateName: string;
+  description: string | null;
+  version: number;
+  isActive: boolean;
+  items?: DocumentChecklistItem[];
+}
+
+export interface DocumentReviewInput {
+  evidenceRequestId: string;
+  evidenceItemId: string;
+  auditId?: string;
+  responses: Array<{ itemId: string; response: ChecklistResponse }>;
+  decision: ReviewDecision;
+  comments?: string;
+}
+
+export interface DocumentReview {
+  id: string;
+  companyId: string;
+  evidenceRequestId: string;
+  evidenceItemId: string;
+  checklistTemplateId: string;
+  reviewerCompanyUserId: string;
+  responses: Array<{ itemId: string; response: ChecklistResponse }>;
+  decision: ReviewDecision;
+  dqsScore: number;
+  criticalFailures: number;
+  auditId: string | null;
+  comments: string | null;
+  createdAt: string;
+}
+
+// Document Checklist API
+export async function getDocumentChecklistTemplates(): Promise<DocumentChecklistTemplate[]> {
+  const res = await fetch("/api/company/document-checklists/templates", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch checklist templates");
+  return res.json();
+}
+
+export async function getDocumentChecklistTemplate(documentType: string): Promise<DocumentChecklistTemplate & { items: DocumentChecklistItem[] }> {
+  const res = await fetch(`/api/company/document-checklists/templates/${documentType}`, { credentials: "include" });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to fetch checklist template");
+  }
+  return res.json();
+}
+
+// Document Review API
+export async function createDocumentReview(data: DocumentReviewInput): Promise<DocumentReview> {
+  const res = await fetch("/api/company/document-reviews", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to create document review");
+  }
+  return res.json();
+}
+
+export async function getDocumentReviewByEvidenceItem(evidenceItemId: string): Promise<DocumentReview | null> {
+  const res = await fetch(`/api/company/document-reviews/${evidenceItemId}`, { credentials: "include" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Failed to fetch document review");
+  return res.json();
+}

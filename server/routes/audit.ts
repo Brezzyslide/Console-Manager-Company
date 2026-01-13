@@ -1638,4 +1638,148 @@ router.put("/audits/:auditId/domains", requireCompanyAuth, requireRole(["Company
   }
 });
 
+router.get("/document-checklists/templates", requireCompanyAuth, async (_req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const templates = await storage.getDocumentChecklistTemplates();
+    return res.json(templates);
+  } catch (error) {
+    console.error("Get document checklist templates error:", error);
+    return res.status(500).json({ error: "Failed to fetch templates" });
+  }
+});
+
+router.get("/document-checklists/templates/:documentType", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const { documentType } = req.params;
+    const template = await storage.getDocumentChecklistTemplate(documentType);
+    
+    if (!template) {
+      return res.status(404).json({ error: "Template not found for document type" });
+    }
+    
+    return res.json(template);
+  } catch (error) {
+    console.error("Get document checklist template error:", error);
+    return res.status(500).json({ error: "Failed to fetch template" });
+  }
+});
+
+const documentReviewSchema = z.object({
+  evidenceRequestId: z.string(),
+  evidenceItemId: z.string(),
+  auditId: z.string().optional(),
+  responses: z.array(z.object({
+    itemId: z.string(),
+    response: z.enum(["YES", "NO", "PARTLY", "NA"]),
+  })),
+  decision: z.enum(["ACCEPT", "REJECT"]),
+  comments: z.string().optional(),
+});
+
+router.post("/document-reviews", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const reviewerId = req.companyUser!.id;
+    
+    const parsed = documentReviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const { evidenceRequestId, evidenceItemId, auditId, responses, decision, comments } = parsed.data;
+    
+    const evidenceRequest = await storage.getEvidenceRequest(evidenceRequestId, companyId);
+    if (!evidenceRequest) {
+      return res.status(404).json({ error: "Evidence request not found" });
+    }
+    
+    const evidenceItem = await storage.getEvidenceItem(evidenceItemId, companyId);
+    if (!evidenceItem) {
+      return res.status(404).json({ error: "Evidence item not found" });
+    }
+    
+    if (!evidenceItem.documentType) {
+      return res.status(400).json({ error: "Evidence item has no document type assigned" });
+    }
+    
+    const template = await storage.getDocumentChecklistTemplate(evidenceItem.documentType);
+    if (!template) {
+      return res.status(400).json({ error: "No checklist template found for document type" });
+    }
+    
+    const templateItems = template.items;
+    const criticalItems = templateItems.filter(item => item.isCritical);
+    
+    let yesCount = 0;
+    let partlyCount = 0;
+    let criticalFailures = 0;
+    
+    for (const response of responses) {
+      const templateItem = templateItems.find(ti => ti.id === response.itemId);
+      if (!templateItem) continue;
+      
+      if (response.response === "YES") {
+        yesCount++;
+      } else if (response.response === "PARTLY") {
+        partlyCount++;
+      }
+      
+      if (templateItem.isCritical && (response.response === "NO")) {
+        criticalFailures++;
+      }
+    }
+    
+    const applicableItemCount = responses.filter(r => r.response !== "NA").length;
+    const dqsScore = applicableItemCount > 0 
+      ? Math.round(((yesCount + (partlyCount * 0.5)) / applicableItemCount) * 100)
+      : 0;
+    
+    const review = await storage.createDocumentReview({
+      companyId,
+      evidenceRequestId,
+      evidenceItemId,
+      checklistTemplateId: template.id,
+      reviewerCompanyUserId: reviewerId,
+      responses: responses as any,
+      decision,
+      dqsScore,
+      criticalFailures,
+      auditId: auditId || null,
+      comments: comments || null,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: reviewerId,
+      companyId,
+      action: "DOCUMENT_REVIEWED",
+      entityType: "evidence_item",
+      entityId: evidenceItemId,
+      afterJson: { reviewId: review.id, decision, dqsScore, criticalFailures },
+    });
+    
+    return res.status(201).json(review);
+  } catch (error) {
+    console.error("Create document review error:", error);
+    return res.status(500).json({ error: "Failed to create document review" });
+  }
+});
+
+router.get("/document-reviews/:evidenceItemId", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { evidenceItemId } = req.params;
+    
+    const review = await storage.getDocumentReviewByEvidenceItem(evidenceItemId, companyId);
+    if (!review) {
+      return res.status(404).json({ error: "No review found for this evidence item" });
+    }
+    
+    return res.json(review);
+  } catch (error) {
+    console.error("Get document review error:", error);
+    return res.status(500).json({ error: "Failed to fetch document review" });
+  }
+});
+
 export default router;
