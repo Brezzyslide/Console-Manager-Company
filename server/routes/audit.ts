@@ -1758,7 +1758,57 @@ router.post("/document-reviews", requireCompanyAuth, requireRole(["CompanyAdmin"
       afterJson: { reviewId: review.id, decision, dqsScore, criticalFailures },
     });
     
-    return res.status(201).json(review);
+    // Generate suggested finding based on DQS score and critical failures
+    // This is a non-binding suggestion - auditor must take action to create actual finding
+    let suggestedType: "OBSERVATION" | "MINOR_NC" | "MAJOR_NC" | "NONE" = "NONE";
+    let severityFlag: "LOW" | "MEDIUM" | "HIGH" | null = null;
+    let rationaleText = "";
+    
+    if (criticalFailures > 0) {
+      // Any critical failure suggests Major NC
+      suggestedType = "MAJOR_NC";
+      severityFlag = "HIGH";
+      rationaleText = `Document review identified ${criticalFailures} critical checklist failure(s). Critical items indicate fundamental compliance issues that typically warrant a Major Non-Conformance.`;
+    } else if (dqsScore < 50) {
+      // Very low DQS suggests Minor NC
+      suggestedType = "MINOR_NC";
+      severityFlag = "MEDIUM";
+      rationaleText = `Document Quality Score of ${dqsScore}% is below the 50% threshold. This indicates multiple checklist items were not satisfied and may warrant a Minor Non-Conformance.`;
+    } else if (dqsScore < 75) {
+      // Moderate DQS suggests Observation
+      suggestedType = "OBSERVATION";
+      severityFlag = "LOW";
+      rationaleText = `Document Quality Score of ${dqsScore}% indicates room for improvement. While not a non-conformance, an Observation may help track improvement opportunities.`;
+    }
+    // DQS >= 75 with no critical failures = no suggestion needed
+    
+    let suggestedFinding = null;
+    if (suggestedType !== "NONE" && auditId) {
+      // Only create suggestion if linked to an audit
+      suggestedFinding = await storage.createSuggestedFinding({
+        companyId,
+        auditId,
+        indicatorResponseId: evidenceRequest.indicatorResponseId || null,
+        evidenceRequestId,
+        documentReviewId: review.id,
+        suggestedType,
+        severityFlag,
+        rationaleText,
+        status: "PENDING",
+      });
+      
+      await storage.logChange({
+        actorType: "system",
+        actorId: "system",
+        companyId,
+        action: "SUGGESTED_FINDING_GENERATED",
+        entityType: "suggested_finding",
+        entityId: suggestedFinding.id,
+        afterJson: { suggestedType, severityFlag, dqsScore, criticalFailures },
+      });
+    }
+    
+    return res.status(201).json({ review, suggestedFinding });
   } catch (error) {
     console.error("Create document review error:", error);
     return res.status(500).json({ error: "Failed to create document review" });
@@ -1779,6 +1829,169 @@ router.get("/document-reviews/:evidenceItemId", requireCompanyAuth, async (req: 
   } catch (error) {
     console.error("Get document review error:", error);
     return res.status(500).json({ error: "Failed to fetch document review" });
+  }
+});
+
+// Suggested Findings endpoints
+router.get("/suggested-findings", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.query;
+    
+    const suggestions = await storage.getPendingSuggestedFindings(companyId, { 
+      auditId: auditId as string | undefined 
+    });
+    
+    return res.json(suggestions);
+  } catch (error) {
+    console.error("Get suggested findings error:", error);
+    return res.status(500).json({ error: "Failed to fetch suggested findings" });
+  }
+});
+
+router.get("/suggested-findings/indicator/:indicatorResponseId", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { indicatorResponseId } = req.params;
+    
+    const suggestions = await storage.getSuggestedFindingsForIndicator(indicatorResponseId, companyId);
+    
+    return res.json(suggestions);
+  } catch (error) {
+    console.error("Get suggested findings for indicator error:", error);
+    return res.status(500).json({ error: "Failed to fetch suggested findings" });
+  }
+});
+
+router.get("/suggested-findings/:id", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { id } = req.params;
+    
+    const suggestion = await storage.getSuggestedFinding(id, companyId);
+    if (!suggestion) {
+      return res.status(404).json({ error: "Suggested finding not found" });
+    }
+    
+    return res.json(suggestion);
+  } catch (error) {
+    console.error("Get suggested finding error:", error);
+    return res.status(500).json({ error: "Failed to fetch suggested finding" });
+  }
+});
+
+const confirmSuggestionSchema = z.object({
+  findingType: z.enum(["OBSERVATION", "MINOR_NC", "MAJOR_NC"]),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+});
+
+router.post("/suggested-findings/:id/confirm", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { id } = req.params;
+    
+    const parsed = confirmSuggestionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const { findingType, description } = parsed.data;
+    
+    const suggestion = await storage.getSuggestedFinding(id, companyId);
+    if (!suggestion) {
+      return res.status(404).json({ error: "Suggested finding not found" });
+    }
+    
+    if (suggestion.status !== "PENDING") {
+      return res.status(400).json({ error: "Suggestion has already been processed" });
+    }
+    
+    // Get audit to ensure it's valid and in correct state
+    const audit = await storage.getAudit(suggestion.auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Associated audit not found" });
+    }
+    
+    // Create the actual finding based on the confirmed type
+    const ratingMap: Record<string, "CONFORMANCE" | "OBSERVATION" | "MINOR_NC" | "MAJOR_NC"> = {
+      "OBSERVATION": "OBSERVATION",
+      "MINOR_NC": "MINOR_NC", 
+      "MAJOR_NC": "MAJOR_NC"
+    };
+    
+    const finding = await storage.createFinding({
+      companyId,
+      auditId: suggestion.auditId,
+      indicatorResponseId: suggestion.indicatorResponseId || undefined,
+      evidenceRequestId: suggestion.evidenceRequestId,
+      rating: ratingMap[findingType],
+      description,
+      status: "OPEN",
+    });
+    
+    // Update suggestion to confirmed status
+    const updatedSuggestion = await storage.confirmSuggestedFinding(id, companyId, finding.id);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "SUGGESTED_FINDING_CONFIRMED",
+      entityType: "suggested_finding",
+      entityId: id,
+      afterJson: { findingId: finding.id, confirmedType: findingType },
+    });
+    
+    return res.json({ suggestion: updatedSuggestion, finding });
+  } catch (error) {
+    console.error("Confirm suggested finding error:", error);
+    return res.status(500).json({ error: "Failed to confirm suggested finding" });
+  }
+});
+
+const dismissSuggestionSchema = z.object({
+  reason: z.string().optional(),
+});
+
+router.post("/suggested-findings/:id/dismiss", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { id } = req.params;
+    
+    const parsed = dismissSuggestionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const { reason } = parsed.data;
+    
+    const suggestion = await storage.getSuggestedFinding(id, companyId);
+    if (!suggestion) {
+      return res.status(404).json({ error: "Suggested finding not found" });
+    }
+    
+    if (suggestion.status !== "PENDING") {
+      return res.status(400).json({ error: "Suggestion has already been processed" });
+    }
+    
+    const updatedSuggestion = await storage.dismissSuggestedFinding(id, companyId, userId, reason);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "SUGGESTED_FINDING_DISMISSED",
+      entityType: "suggested_finding",
+      entityId: id,
+      afterJson: { reason: reason || "No reason provided" },
+    });
+    
+    return res.json(updatedSuggestion);
+  } catch (error) {
+    console.error("Dismiss suggested finding error:", error);
+    return res.status(500).json({ error: "Failed to dismiss suggested finding" });
   }
 });
 
