@@ -5,6 +5,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { bootstrapConsoleUser } from "./lib/consoleAuth";
 import { seedSupportCatalogue } from "./seed-catalogue";
+import { seedDocumentChecklists } from "./seed-checklists";
 import consoleRoutes from "./routes/console";
 import companyRoutes from "./routes/company";
 import onboardingRoutes from "./routes/onboarding";
@@ -74,6 +75,9 @@ app.use((req, res, next) => {
   
   // Seed support catalogue
   await seedSupportCatalogue();
+  
+  // Seed document checklists
+  await seedDocumentChecklists();
   
   // Mount console routes
   app.use("/api/console", consoleRoutes);
