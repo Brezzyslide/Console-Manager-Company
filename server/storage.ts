@@ -23,6 +23,7 @@ import {
   documentChecklistTemplates,
   documentChecklistItems,
   documentReviews,
+  suggestedFindings,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -70,6 +71,8 @@ import {
   type InsertDocumentChecklistItem,
   type DocumentReview,
   type InsertDocumentReview,
+  type SuggestedFinding,
+  type InsertSuggestedFinding,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -1085,6 +1088,99 @@ export class DatabaseStorage implements IStorage {
       .from(documentReviews)
       .where(and(...conditions))
       .orderBy(desc(documentReviews.createdAt));
+  }
+
+  // Suggested Findings
+  async createSuggestedFinding(suggestion: InsertSuggestedFinding): Promise<SuggestedFinding> {
+    const [created] = await db.insert(suggestedFindings).values(suggestion).returning();
+    return created;
+  }
+
+  async getSuggestedFinding(id: string, companyId: string): Promise<SuggestedFinding | undefined> {
+    const [suggestion] = await db
+      .select()
+      .from(suggestedFindings)
+      .where(and(
+        eq(suggestedFindings.id, id),
+        eq(suggestedFindings.companyId, companyId)
+      ));
+    return suggestion || undefined;
+  }
+
+  async getSuggestedFindingByDocumentReview(documentReviewId: string, companyId: string): Promise<SuggestedFinding | undefined> {
+    const [suggestion] = await db
+      .select()
+      .from(suggestedFindings)
+      .where(and(
+        eq(suggestedFindings.documentReviewId, documentReviewId),
+        eq(suggestedFindings.companyId, companyId)
+      ));
+    return suggestion || undefined;
+  }
+
+  async getSuggestedFindingsForIndicator(indicatorResponseId: string, companyId: string): Promise<SuggestedFinding[]> {
+    return await db
+      .select()
+      .from(suggestedFindings)
+      .where(and(
+        eq(suggestedFindings.indicatorResponseId, indicatorResponseId),
+        eq(suggestedFindings.companyId, companyId)
+      ))
+      .orderBy(desc(suggestedFindings.createdAt));
+  }
+
+  async getPendingSuggestedFindings(companyId: string, filters?: { auditId?: string }): Promise<SuggestedFinding[]> {
+    const conditions = [
+      eq(suggestedFindings.companyId, companyId),
+      eq(suggestedFindings.status, "PENDING")
+    ];
+    
+    if (filters?.auditId) {
+      conditions.push(eq(suggestedFindings.auditId, filters.auditId));
+    }
+    
+    return await db
+      .select()
+      .from(suggestedFindings)
+      .where(and(...conditions))
+      .orderBy(desc(suggestedFindings.createdAt));
+  }
+
+  async confirmSuggestedFinding(id: string, companyId: string, findingId: string): Promise<SuggestedFinding> {
+    const [updated] = await db
+      .update(suggestedFindings)
+      .set({ 
+        status: "CONFIRMED",
+        confirmedFindingId: findingId
+      })
+      .where(and(
+        eq(suggestedFindings.id, id),
+        eq(suggestedFindings.companyId, companyId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async dismissSuggestedFinding(
+    id: string, 
+    companyId: string, 
+    dismissedByUserId: string, 
+    dismissedReason?: string
+  ): Promise<SuggestedFinding> {
+    const [updated] = await db
+      .update(suggestedFindings)
+      .set({ 
+        status: "DISMISSED",
+        dismissedByUserId,
+        dismissedReason: dismissedReason || null,
+        dismissedAt: new Date()
+      })
+      .where(and(
+        eq(suggestedFindings.id, id),
+        eq(suggestedFindings.companyId, companyId)
+      ))
+      .returning();
+    return updated;
   }
 }
 
