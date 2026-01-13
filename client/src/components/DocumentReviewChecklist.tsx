@@ -67,6 +67,7 @@ export default function DocumentReviewChecklist({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documentReview", evidenceItemId] });
       queryClient.invalidateQueries({ queryKey: ["evidenceRequest"] });
+      queryClient.invalidateQueries({ queryKey: ["suggestedFindings"] });
       onReviewComplete?.();
     },
   });

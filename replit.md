@@ -123,8 +123,33 @@ Key tables:
 API endpoints:
 - `GET /api/company/document-checklists/templates` - List all active templates
 - `GET /api/company/document-checklists/templates/:documentType` - Get template with items
-- `POST /api/company/document-reviews` - Submit a document review
+- `POST /api/company/document-reviews` - Submit a document review (returns review + suggested finding if applicable)
 - `GET /api/company/document-reviews/:evidenceItemId` - Get review for evidence item
+
+### Suggested Finding System
+- Non-binding suggestions generated after document reviews based on DQS score and critical failures
+- Suggestion types: OBSERVATION, MINOR_NC, MAJOR_NC, NONE
+- Suggestion logic:
+  - Critical failures (any) → suggests MAJOR_NC (HIGH severity)
+  - DQS < 50% → suggests MINOR_NC (MEDIUM severity)
+  - DQS 50-74% → suggests OBSERVATION (LOW severity)
+  - DQS >= 75% with no critical failures → no suggestion
+- Suggestions are displayed as a banner on EvidenceDetailPage for audit-linked evidence requests
+- Auditors can: confirm as suggested type, override to different type, or dismiss with reason
+- Confirming MINOR_NC or MAJOR_NC creates a formal finding in the findings table
+- Confirming OBSERVATION just notes it (observations are not in findings table)
+- Dismissing records reason and who dismissed it
+- All actions logged to change_log for audit trail
+
+Key table:
+- `suggested_findings` - Stores suggestions with status (PENDING, CONFIRMED, DISMISSED), links to document review and finding if confirmed
+
+API endpoints:
+- `GET /api/company/suggested-findings` - Get pending suggestions (optional auditId filter)
+- `GET /api/company/suggested-findings/indicator/:indicatorResponseId` - Get suggestions for an indicator
+- `GET /api/company/suggested-findings/:id` - Get specific suggestion
+- `POST /api/company/suggested-findings/:id/confirm` - Confirm and create finding
+- `POST /api/company/suggested-findings/:id/dismiss` - Dismiss suggestion
 
 ## External Dependencies
 
