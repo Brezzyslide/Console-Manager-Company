@@ -20,6 +20,9 @@ import {
   findings,
   evidenceRequests,
   evidenceItems,
+  documentChecklistTemplates,
+  documentChecklistItems,
+  documentReviews,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -61,6 +64,12 @@ import {
   type InsertEvidenceRequest,
   type EvidenceItem,
   type InsertEvidenceItem,
+  type DocumentChecklistTemplate,
+  type InsertDocumentChecklistTemplate,
+  type DocumentChecklistItem,
+  type InsertDocumentChecklistItem,
+  type DocumentReview,
+  type InsertDocumentReview,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -187,6 +196,19 @@ export interface IStorage {
   // Audit Scope Domains
   getAuditScopeDomains(auditId: string, companyId: string): Promise<(AuditScopeDomain & { domain: AuditDomain })[]>;
   setAuditScopeDomains(auditId: string, companyId: string, domainIds: string[]): Promise<void>;
+  
+  // Document Checklist Templates
+  getDocumentChecklistTemplate(documentType: string): Promise<(DocumentChecklistTemplate & { items: DocumentChecklistItem[] }) | undefined>;
+  getDocumentChecklistTemplates(): Promise<DocumentChecklistTemplate[]>;
+  createDocumentChecklistTemplate(template: InsertDocumentChecklistTemplate): Promise<DocumentChecklistTemplate>;
+  createDocumentChecklistItem(item: InsertDocumentChecklistItem): Promise<DocumentChecklistItem>;
+  getDocumentChecklistItems(templateId: string): Promise<DocumentChecklistItem[]>;
+  
+  // Document Reviews
+  createDocumentReview(review: InsertDocumentReview): Promise<DocumentReview>;
+  getDocumentReview(id: string, companyId: string): Promise<DocumentReview | undefined>;
+  getDocumentReviewByEvidenceItem(evidenceItemId: string, companyId: string): Promise<DocumentReview | undefined>;
+  getDocumentReviews(companyId: string, filters?: { auditId?: string; evidenceRequestId?: string }): Promise<DocumentReview[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -969,6 +991,100 @@ export class DatabaseStorage implements IStorage {
         );
       }
     }
+  }
+
+  // Document Checklist Templates
+  async getDocumentChecklistTemplate(documentType: string): Promise<(DocumentChecklistTemplate & { items: DocumentChecklistItem[] }) | undefined> {
+    const [template] = await db
+      .select()
+      .from(documentChecklistTemplates)
+      .where(and(
+        eq(documentChecklistTemplates.documentType, documentType as any),
+        eq(documentChecklistTemplates.isActive, true)
+      ))
+      .orderBy(desc(documentChecklistTemplates.version))
+      .limit(1);
+    
+    if (!template) return undefined;
+    
+    const items = await db
+      .select()
+      .from(documentChecklistItems)
+      .where(eq(documentChecklistItems.templateId, template.id))
+      .orderBy(asc(documentChecklistItems.sortOrder));
+    
+    return { ...template, items };
+  }
+
+  async getDocumentChecklistTemplates(): Promise<DocumentChecklistTemplate[]> {
+    return await db
+      .select()
+      .from(documentChecklistTemplates)
+      .where(eq(documentChecklistTemplates.isActive, true))
+      .orderBy(asc(documentChecklistTemplates.documentType));
+  }
+
+  async createDocumentChecklistTemplate(template: InsertDocumentChecklistTemplate): Promise<DocumentChecklistTemplate> {
+    const [created] = await db.insert(documentChecklistTemplates).values(template).returning();
+    return created;
+  }
+
+  async createDocumentChecklistItem(item: InsertDocumentChecklistItem): Promise<DocumentChecklistItem> {
+    const [created] = await db.insert(documentChecklistItems).values(item).returning();
+    return created;
+  }
+
+  async getDocumentChecklistItems(templateId: string): Promise<DocumentChecklistItem[]> {
+    return await db
+      .select()
+      .from(documentChecklistItems)
+      .where(eq(documentChecklistItems.templateId, templateId))
+      .orderBy(asc(documentChecklistItems.sortOrder));
+  }
+
+  // Document Reviews
+  async createDocumentReview(review: InsertDocumentReview): Promise<DocumentReview> {
+    const [created] = await db.insert(documentReviews).values(review).returning();
+    return created;
+  }
+
+  async getDocumentReview(id: string, companyId: string): Promise<DocumentReview | undefined> {
+    const [review] = await db
+      .select()
+      .from(documentReviews)
+      .where(and(
+        eq(documentReviews.id, id),
+        eq(documentReviews.companyId, companyId)
+      ));
+    return review || undefined;
+  }
+
+  async getDocumentReviewByEvidenceItem(evidenceItemId: string, companyId: string): Promise<DocumentReview | undefined> {
+    const [review] = await db
+      .select()
+      .from(documentReviews)
+      .where(and(
+        eq(documentReviews.evidenceItemId, evidenceItemId),
+        eq(documentReviews.companyId, companyId)
+      ));
+    return review || undefined;
+  }
+
+  async getDocumentReviews(companyId: string, filters?: { auditId?: string; evidenceRequestId?: string }): Promise<DocumentReview[]> {
+    const conditions = [eq(documentReviews.companyId, companyId)];
+    
+    if (filters?.auditId) {
+      conditions.push(eq(documentReviews.auditId, filters.auditId));
+    }
+    if (filters?.evidenceRequestId) {
+      conditions.push(eq(documentReviews.evidenceRequestId, filters.evidenceRequestId));
+    }
+    
+    return await db
+      .select()
+      .from(documentReviews)
+      .where(and(...conditions))
+      .orderBy(desc(documentReviews.createdAt));
   }
 }
 
