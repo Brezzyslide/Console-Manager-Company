@@ -24,6 +24,8 @@ import {
   documentChecklistItems,
   documentReviews,
   suggestedFindings,
+  auditInterviews,
+  auditSiteVisits,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -73,6 +75,10 @@ import {
   type InsertDocumentReview,
   type SuggestedFinding,
   type InsertSuggestedFinding,
+  type AuditInterview,
+  type InsertAuditInterview,
+  type AuditSiteVisit,
+  type InsertAuditSiteVisit,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -212,6 +218,24 @@ export interface IStorage {
   getDocumentReview(id: string, companyId: string): Promise<DocumentReview | undefined>;
   getDocumentReviewByEvidenceItem(evidenceItemId: string, companyId: string): Promise<DocumentReview | undefined>;
   getDocumentReviews(companyId: string, filters?: { auditId?: string; evidenceRequestId?: string }): Promise<DocumentReview[]>;
+  
+  // Audit Interviews
+  createAuditInterview(interview: InsertAuditInterview): Promise<AuditInterview>;
+  getAuditInterviews(auditId: string, companyId: string): Promise<AuditInterview[]>;
+  getAuditInterview(id: string, companyId: string): Promise<AuditInterview | undefined>;
+  updateAuditInterview(id: string, companyId: string, updates: Partial<InsertAuditInterview>): Promise<AuditInterview | undefined>;
+  deleteAuditInterview(id: string, companyId: string): Promise<boolean>;
+  
+  // Audit Site Visits
+  createAuditSiteVisit(visit: InsertAuditSiteVisit): Promise<AuditSiteVisit>;
+  getAuditSiteVisits(auditId: string, companyId: string): Promise<AuditSiteVisit[]>;
+  getAuditSiteVisit(id: string, companyId: string): Promise<AuditSiteVisit | undefined>;
+  updateAuditSiteVisit(id: string, companyId: string, updates: Partial<InsertAuditSiteVisit>): Promise<AuditSiteVisit | undefined>;
+  deleteAuditSiteVisit(id: string, companyId: string): Promise<boolean>;
+  
+  // Audit Report Data
+  updateAuditExecutiveSummary(auditId: string, companyId: string, summary: string, editedByUserId: string): Promise<Audit | undefined>;
+  getAuditReportData(auditId: string, companyId: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1181,6 +1205,152 @@ export class DatabaseStorage implements IStorage {
       ))
       .returning();
     return updated;
+  }
+
+  // Audit Interviews
+  async createAuditInterview(interview: InsertAuditInterview): Promise<AuditInterview> {
+    const [created] = await db
+      .insert(auditInterviews)
+      .values(interview)
+      .returning();
+    return created;
+  }
+
+  async getAuditInterviews(auditId: string, companyId: string): Promise<AuditInterview[]> {
+    return await db
+      .select()
+      .from(auditInterviews)
+      .where(and(
+        eq(auditInterviews.auditId, auditId),
+        eq(auditInterviews.companyId, companyId)
+      ))
+      .orderBy(asc(auditInterviews.interviewDate));
+  }
+
+  async getAuditInterview(id: string, companyId: string): Promise<AuditInterview | undefined> {
+    const [interview] = await db
+      .select()
+      .from(auditInterviews)
+      .where(and(
+        eq(auditInterviews.id, id),
+        eq(auditInterviews.companyId, companyId)
+      ));
+    return interview || undefined;
+  }
+
+  async updateAuditInterview(id: string, companyId: string, updates: Partial<InsertAuditInterview>): Promise<AuditInterview | undefined> {
+    const [updated] = await db
+      .update(auditInterviews)
+      .set(updates)
+      .where(and(
+        eq(auditInterviews.id, id),
+        eq(auditInterviews.companyId, companyId)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAuditInterview(id: string, companyId: string): Promise<boolean> {
+    const result = await db
+      .delete(auditInterviews)
+      .where(and(
+        eq(auditInterviews.id, id),
+        eq(auditInterviews.companyId, companyId)
+      ));
+    return true;
+  }
+
+  // Audit Site Visits
+  async createAuditSiteVisit(visit: InsertAuditSiteVisit): Promise<AuditSiteVisit> {
+    const [created] = await db
+      .insert(auditSiteVisits)
+      .values(visit)
+      .returning();
+    return created;
+  }
+
+  async getAuditSiteVisits(auditId: string, companyId: string): Promise<AuditSiteVisit[]> {
+    return await db
+      .select()
+      .from(auditSiteVisits)
+      .where(and(
+        eq(auditSiteVisits.auditId, auditId),
+        eq(auditSiteVisits.companyId, companyId)
+      ))
+      .orderBy(asc(auditSiteVisits.visitDate));
+  }
+
+  async getAuditSiteVisit(id: string, companyId: string): Promise<AuditSiteVisit | undefined> {
+    const [visit] = await db
+      .select()
+      .from(auditSiteVisits)
+      .where(and(
+        eq(auditSiteVisits.id, id),
+        eq(auditSiteVisits.companyId, companyId)
+      ));
+    return visit || undefined;
+  }
+
+  async updateAuditSiteVisit(id: string, companyId: string, updates: Partial<InsertAuditSiteVisit>): Promise<AuditSiteVisit | undefined> {
+    const [updated] = await db
+      .update(auditSiteVisits)
+      .set(updates)
+      .where(and(
+        eq(auditSiteVisits.id, id),
+        eq(auditSiteVisits.companyId, companyId)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAuditSiteVisit(id: string, companyId: string): Promise<boolean> {
+    const result = await db
+      .delete(auditSiteVisits)
+      .where(and(
+        eq(auditSiteVisits.id, id),
+        eq(auditSiteVisits.companyId, companyId)
+      ));
+    return true;
+  }
+
+  // Audit Report Data
+  async updateAuditExecutiveSummary(auditId: string, companyId: string, summary: string, editedByUserId: string): Promise<Audit | undefined> {
+    const [updated] = await db
+      .update(audits)
+      .set({
+        executiveSummary: summary,
+        executiveSummaryEditedAt: new Date(),
+        executiveSummaryEditedByUserId: editedByUserId,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(audits.id, auditId),
+        eq(audits.companyId, companyId)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getAuditReportData(auditId: string, companyId: string): Promise<any> {
+    const audit = await this.getAudit(auditId, companyId);
+    if (!audit) return null;
+    
+    const [company, interviews, siteVisits, responses, findingsData] = await Promise.all([
+      this.getCompany(companyId),
+      this.getAuditInterviews(auditId, companyId),
+      this.getAuditSiteVisits(auditId, companyId),
+      this.getAuditIndicatorResponses(auditId),
+      this.getFindings(companyId, { auditId })
+    ]);
+    
+    return {
+      audit,
+      company,
+      interviews,
+      siteVisits,
+      indicatorResponses: responses,
+      findings: findingsData
+    };
   }
 }
 

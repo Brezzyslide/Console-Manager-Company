@@ -236,6 +236,27 @@ export const serviceContextEnum = ["SIL", "COMMUNITY_ACCESS", "IN_HOME", "CENTRE
 export const riskLevelEnum = ["LOW", "MEDIUM", "HIGH"] as const;
 export const responseStatusEnum = ["OPEN", "CLOSED"] as const;
 
+// Audit Report enums
+export const auditMethodologyEnum = ["REMOTE", "ONSITE", "HYBRID"] as const;
+export const auditRecommendationEnum = [
+  "CERTIFICATION_RECOMMENDED",
+  "CONTINUING_CERTIFICATION_RECOMMENDED",
+  "QUALIFIED_CERTIFICATION_RECOMMENDED",
+  "FOLLOW_UP_REQUIRED",
+  "CERTIFICATION_NOT_RECOMMENDED"
+] as const;
+export const ageGroupEnum = ["0-6", "7-16", "17-65", "65+"] as const;
+export const interviewTypeEnum = ["PARTICIPANT", "STAFF", "STAKEHOLDER"] as const;
+export const interviewMethodEnum = ["FACE_TO_FACE", "PHONE", "VIDEO", "FOCUS_GROUP"] as const;
+
+// NDIS Practice Standards Division grouping
+export const ndisDivisionEnum = [
+  "RIGHTS_RESPONSIBILITIES",
+  "GOVERNANCE_OPERATIONAL",
+  "PROVISION_OF_SUPPORTS",
+  "SUPPORT_PROVISION_ENVIRONMENT"
+] as const;
+
 // Sprint 4: Evidence enums
 export const evidenceStatusEnum = ["REQUESTED", "SUBMITTED", "UNDER_REVIEW", "ACCEPTED", "REJECTED"] as const;
 export const evidenceTypeEnum = [
@@ -292,6 +313,16 @@ export const audits = pgTable("audits", {
   externalAuditorEmail: text("external_auditor_email"),
   scopeLocked: boolean("scope_locked").notNull().default(false),
   closeReason: text("close_reason"),
+  // Report metadata fields
+  methodology: text("methodology", { enum: auditMethodologyEnum }),
+  ageGroupsServed: text("age_groups_served").array(),
+  participantSampleCount: integer("participant_sample_count"),
+  recommendation: text("recommendation", { enum: auditRecommendationEnum }),
+  scopeChangeNotes: text("scope_change_notes"),
+  // Executive summary (AI-generated with auditor override)
+  executiveSummary: text("executive_summary"),
+  executiveSummaryEditedAt: timestamp("executive_summary_edited_at"),
+  executiveSummaryEditedByUserId: varchar("executive_summary_edited_by_user_id").references(() => companyUsers.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
 });
@@ -386,6 +417,10 @@ export const auditTemplateIndicators = pgTable("audit_template_indicators", {
   riskLevel: text("risk_level", { enum: riskLevelEnum }).notNull().default("MEDIUM"),
   isCriticalControl: boolean("is_critical_control").notNull().default(false),
   auditDomainCode: text("audit_domain_code", { enum: auditDomainCodeEnum }),
+  // NDIS Practice Standards Division for report grouping
+  ndisDivision: text("ndis_division", { enum: ndisDivisionEnum }),
+  ndisStandardNumber: text("ndis_standard_number"),
+  ndisStandardName: text("ndis_standard_name"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -423,6 +458,8 @@ export const auditIndicatorResponses = pgTable("audit_indicator_responses", {
   templateIndicatorId: varchar("template_indicator_id").notNull().references(() => auditTemplateIndicators.id, { onDelete: "cascade" }),
   rating: text("rating", { enum: indicatorRatingEnum }).notNull(),
   comment: text("comment"),
+  // Narrative findings for report (long-form observation details)
+  narrativeFindings: text("narrative_findings"),
   scorePoints: integer("score_points").notNull().default(0),
   scoreVersion: varchar("score_version").notNull().default("v1"),
   status: text("status", { enum: responseStatusEnum }).notNull().default("OPEN"),
@@ -614,3 +651,57 @@ export const insertSuggestedFindingSchema = createInsertSchema(suggestedFindings
 
 export type InsertSuggestedFinding = z.infer<typeof insertSuggestedFindingSchema>;
 export type SuggestedFinding = typeof suggestedFindings.$inferSelect;
+
+// Audit Interviews (tracking participant/staff interviews for reports)
+export const auditInterviews = pgTable("audit_interviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  interviewType: text("interview_type", { enum: interviewTypeEnum }).notNull(),
+  interviewMethod: text("interview_method", { enum: interviewMethodEnum }).notNull(),
+  intervieweeName: text("interviewee_name"),
+  intervieweeRole: text("interviewee_role"),
+  siteLocation: text("site_location"),
+  interviewDate: timestamp("interview_date"),
+  keyQuotes: text("key_quotes"),
+  notes: text("notes"),
+  feedbackPositive: text("feedback_positive"),
+  feedbackConcerns: text("feedback_concerns"),
+  conductedByCompanyUserId: varchar("conducted_by_company_user_id").references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuditInterviewSchema = createInsertSchema(auditInterviews).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditInterview = z.infer<typeof insertAuditInterviewSchema>;
+export type AuditInterview = typeof auditInterviews.$inferSelect;
+
+// Audit Site Visits (tracking site observations for reports)
+export const auditSiteVisits = pgTable("audit_site_visits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  siteName: text("site_name").notNull(),
+  siteAddress: text("site_address"),
+  visitDate: timestamp("visit_date"),
+  ndisGroupsWitnessed: text("ndis_groups_witnessed").array(),
+  participantsAtSite: integer("participants_at_site"),
+  filesReviewedCount: integer("files_reviewed_count"),
+  observationsPositive: text("observations_positive"),
+  observationsConcerns: text("observations_concerns"),
+  safetyItemsChecked: json("safety_items_checked").$type<{ item: string; checked: boolean }[]>(),
+  notes: text("notes"),
+  conductedByCompanyUserId: varchar("conducted_by_company_user_id").references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuditSiteVisitSchema = createInsertSchema(auditSiteVisits).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditSiteVisit = z.infer<typeof insertAuditSiteVisitSchema>;
+export type AuditSiteVisit = typeof auditSiteVisits.$inferSelect;
