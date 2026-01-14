@@ -26,16 +26,16 @@ interface Props {
 }
 
 const RESPONSE_OPTIONS: { value: ChecklistResponse; label: string; color: string }[] = [
-  { value: "YES", label: "Yes", color: "text-green-600" },
-  { value: "NO", label: "No", color: "text-red-600" },
-  { value: "PARTLY", label: "Partly", color: "text-amber-600" },
-  { value: "NA", label: "N/A", color: "text-gray-500" },
+  { value: "YES", label: "Yes", color: "text-emerald-400" },
+  { value: "NO", label: "No", color: "text-red-400" },
+  { value: "PARTLY", label: "Partly", color: "text-amber-400" },
+  { value: "NA", label: "N/A", color: "text-muted-foreground" },
 ];
 
-const SECTION_LABELS: Record<string, { label: string; bgColor: string; borderColor: string }> = {
-  HYGIENE: { label: "Document Hygiene", bgColor: "bg-blue-50", borderColor: "border-blue-200" },
-  IMPLEMENTATION: { label: "Implementation", bgColor: "bg-purple-50", borderColor: "border-purple-200" },
-  CRITICAL: { label: "Critical Items", bgColor: "bg-red-50", borderColor: "border-red-200" },
+const SECTION_LABELS: Record<string, { label: string; bgColor: string; borderColor: string; headingColor: string }> = {
+  HYGIENE: { label: "Document Hygiene", bgColor: "bg-cyan-500/10", borderColor: "border-cyan-500/30", headingColor: "text-cyan-400" },
+  IMPLEMENTATION: { label: "Implementation", bgColor: "bg-violet-500/10", borderColor: "border-violet-500/30", headingColor: "text-violet-400" },
+  CRITICAL: { label: "Critical Items", bgColor: "bg-red-500/10", borderColor: "border-red-500/30", headingColor: "text-red-400" },
 };
 
 export default function DocumentReviewChecklist({
@@ -226,17 +226,17 @@ export default function DocumentReviewChecklist({
 
           return (
             <div key={section} className={`rounded-lg border ${config.borderColor} ${config.bgColor} p-4`}>
-              <h4 className="font-semibold mb-3">{config.label}</h4>
+              <h4 className={`font-semibold mb-3 ${config.headingColor}`}>{config.label}</h4>
               <div className="space-y-3">
                 {items.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-start justify-between gap-4 bg-white rounded p-3 border"
+                    className="flex items-start justify-between gap-4 bg-card/80 rounded-lg p-3 border border-border/50"
                   >
                     <div className="flex-1">
-                      <p className="text-sm">
+                      <p className="text-sm text-foreground">
                         {item.isCritical && (
-                          <span className="text-red-500 font-bold mr-1">*</span>
+                          <span className="text-red-400 font-bold mr-1">*</span>
                         )}
                         {item.itemText}
                       </p>
@@ -269,11 +269,11 @@ export default function DocumentReviewChecklist({
           );
         })}
 
-        <div className="flex items-center justify-between p-4 bg-gray-100 rounded-lg">
+        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50">
           <div className="flex items-center gap-4">
             <div>
               <span className="text-sm text-muted-foreground">Document Quality Score</span>
-              <p className="text-2xl font-bold">{score}%</p>
+              <p className="text-2xl font-bold text-foreground">{score}%</p>
             </div>
             {criticalFailures > 0 && (
               <Badge variant="destructive" className="flex items-center gap-1">
@@ -294,14 +294,14 @@ export default function DocumentReviewChecklist({
             >
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="ACCEPT" id="decision-accept" data-testid="radio-decision-accept" />
-                <Label htmlFor="decision-accept" className="flex items-center gap-1 cursor-pointer text-green-600">
+                <Label htmlFor="decision-accept" className="flex items-center gap-1 cursor-pointer text-emerald-400">
                   <CheckCircle className="h-4 w-4" />
                   Accept
                 </Label>
               </div>
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="REJECT" id="decision-reject" data-testid="radio-decision-reject" />
-                <Label htmlFor="decision-reject" className="flex items-center gap-1 cursor-pointer text-red-600">
+                <Label htmlFor="decision-reject" className="flex items-center gap-1 cursor-pointer text-red-400">
                   <XCircle className="h-4 w-4" />
                   Reject
                 </Label>
