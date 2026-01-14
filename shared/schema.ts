@@ -705,3 +705,6 @@ export const insertAuditSiteVisitSchema = createInsertSchema(auditSiteVisits).om
 
 export type InsertAuditSiteVisit = z.infer<typeof insertAuditSiteVisitSchema>;
 export type AuditSiteVisit = typeof auditSiteVisits.$inferSelect;
+
+// Chat schema (for AI integrations)
+export * from "./models/chat";
