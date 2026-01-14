@@ -11,10 +11,11 @@ import {
   LogOut, 
   Loader2,
   Shield,
-  FileText,
   Settings,
   AlertTriangle,
-  FolderOpen
+  FolderOpen,
+  ChevronRight,
+  Sparkles
 } from "lucide-react";
 
 interface CompanyLayoutProps {
@@ -56,7 +57,15 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
   if (isLoading || (!skipOnboardingCheck && onboardingLoading && isAuthenticated && !requiresPasswordReset)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="h-12 w-12 rounded-xl gradient-primary flex items-center justify-center">
+              <Sparkles className="h-6 w-6 text-background animate-pulse" />
+            </div>
+            <Loader2 className="h-16 w-16 animate-spin text-primary absolute -top-2 -left-2" />
+          </div>
+          <p className="text-muted-foreground text-sm">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -68,12 +77,21 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
   if (requireRole && user && !requireRole.includes(user.role as any)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <Shield className="h-16 w-16 text-destructive mx-auto" />
-          <h1 className="text-2xl font-bold text-foreground">Access Denied</h1>
-          <p className="text-muted-foreground">You don't have permission to access this page.</p>
-          <Button onClick={() => setLocation("/company/dashboard")} data-testid="button-go-dashboard">
+        <div className="text-center space-y-6 max-w-md mx-auto px-4">
+          <div className="h-20 w-20 rounded-2xl gradient-danger mx-auto flex items-center justify-center glow-danger">
+            <Shield className="h-10 w-10 text-white" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-foreground">Access Denied</h1>
+            <p className="text-muted-foreground">You don't have permission to access this page.</p>
+          </div>
+          <Button 
+            onClick={() => setLocation("/company/dashboard")} 
+            className="gradient-primary hover:opacity-90 text-background"
+            data-testid="button-go-dashboard"
+          >
             Go to Dashboard
+            <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </div>
       </div>
@@ -87,96 +105,121 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
 
   const isAdmin = user?.role === "CompanyAdmin";
 
+  const navItems = [
+    { href: "/company/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
+    { href: "/findings", label: "Findings", icon: AlertTriangle, testId: "nav-findings" },
+    { href: "/evidence", label: "Evidence", icon: FolderOpen, testId: "nav-evidence", startsWith: true },
+  ];
+
+  const adminItems = [
+    { href: "/company/admin/users", label: "Users", icon: Users, testId: "nav-admin-users" },
+    { href: "/company/settings/services", label: "Services", icon: Settings, testId: "nav-services" },
+  ];
+
+  const isActive = (href: string, startsWith?: boolean) => {
+    if (startsWith) return location.startsWith(href);
+    return location === href;
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/company/dashboard" className="flex items-center gap-2 font-semibold text-primary hover:opacity-80">
-              <Building2 className="h-5 w-5" />
-              <span>Provider Portal</span>
-            </Link>
-            
-            <nav className="hidden md:flex items-center gap-4">
-              <Link href="/company/dashboard">
-                <Button 
-                  variant={location === "/company/dashboard" ? "secondary" : "ghost"} 
-                  size="sm"
-                  data-testid="nav-dashboard"
-                >
-                  <LayoutDashboard className="h-4 w-4 mr-2" />
-                  Dashboard
-                </Button>
-              </Link>
-              <Link href="/findings">
-                <Button 
-                  variant={location === "/findings" ? "secondary" : "ghost"} 
-                  size="sm"
-                  data-testid="nav-findings"
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Findings
-                </Button>
-              </Link>
-              <Link href="/evidence">
-                <Button 
-                  variant={location.startsWith("/evidence") ? "secondary" : "ghost"} 
-                  size="sm"
-                  data-testid="nav-evidence"
-                >
-                  <FolderOpen className="h-4 w-4 mr-2" />
-                  Evidence
-                </Button>
+      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+        <div className="container mx-auto px-4">
+          <div className="h-16 flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <Link href="/company/dashboard" className="flex items-center gap-3 group">
+                <div className="h-9 w-9 rounded-lg gradient-mixed flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                  <Building2 className="h-5 w-5 text-white" />
+                </div>
+                <div className="hidden sm:block">
+                  <span className="font-bold text-foreground">Provider Portal</span>
+                </div>
               </Link>
               
-              {isAdmin && (
-                <>
-                  <Link href="/company/admin/users">
-                    <Button 
-                      variant={location === "/company/admin/users" ? "secondary" : "ghost"} 
-                      size="sm"
-                      data-testid="nav-admin-users"
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      User Management
-                    </Button>
-                  </Link>
-                  <Link href="/company/settings/services">
-                    <Button 
-                      variant={location === "/company/settings/services" ? "secondary" : "ghost"} 
-                      size="sm"
-                      data-testid="nav-services"
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Services
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </nav>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-foreground">{user?.fullName}</p>
-              <p className="text-xs text-muted-foreground">{user?.role}</p>
+              <nav className="hidden lg:flex items-center gap-1">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href, item.startsWith);
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <button
+                        className={`
+                          flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                          ${active 
+                            ? 'bg-primary/10 text-primary' 
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                          }
+                        `}
+                        data-testid={item.testId}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {item.label}
+                      </button>
+                    </Link>
+                  );
+                })}
+                
+                {isAdmin && (
+                  <>
+                    <div className="h-6 w-px bg-border mx-2" />
+                    {adminItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.href);
+                      return (
+                        <Link key={item.href} href={item.href}>
+                          <button
+                            className={`
+                              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                              ${active 
+                                ? 'bg-accent/10 text-accent' 
+                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                              }
+                            `}
+                            data-testid={item.testId}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {item.label}
+                          </button>
+                        </Link>
+                      );
+                    })}
+                  </>
+                )}
+              </nav>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleLogout}
-              data-testid="button-logout"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+            
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-border">
+                  <span className="text-sm font-semibold text-foreground">
+                    {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-foreground leading-none">{user?.fullName}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{user?.role}</p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleLogout}
+                className="text-muted-foreground hover:text-foreground hover:bg-destructive/10"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">Sign Out</span>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="min-h-[calc(100vh-4rem)]">
         {children}
       </main>
     </div>
   );
 }
+
+export default CompanyLayout;
