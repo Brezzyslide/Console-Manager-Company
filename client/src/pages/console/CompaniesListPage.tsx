@@ -98,8 +98,14 @@ export default function CompaniesListPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex h-[50vh] flex-col items-center justify-center gap-4">
+        <div className="relative">
+          <div className="h-12 w-12 rounded-xl gradient-accent flex items-center justify-center">
+            <Building2 className="h-6 w-6 text-white animate-pulse" />
+          </div>
+          <Loader2 className="h-16 w-16 animate-spin text-accent absolute -top-2 -left-2" />
+        </div>
+        <p className="text-muted-foreground text-sm">Loading companies...</p>
       </div>
     );
   }
@@ -122,12 +128,14 @@ export default function CompaniesListPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Company Directory</h2>
-          <p className="text-muted-foreground mt-1">Manage all registered NDIS provider organizations.</p>
+        <div className="space-y-1">
+          <h2 className="text-3xl font-bold">
+            <span className="text-gradient-accent">Company Directory</span>
+          </h2>
+          <p className="text-muted-foreground">Manage all registered NDIS provider organizations.</p>
         </div>
         <Link href="/console/companies/new" data-testid="link-create-company">
-          <Button className="shadow-lg shadow-primary/20" data-testid="button-create-company">
+          <Button className="gradient-accent text-white hover:opacity-90 shadow-lg" data-testid="button-create-company">
             <Plus className="mr-2 h-4 w-4" />
             New Company
           </Button>
@@ -135,61 +143,65 @@ export default function CompaniesListPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-card/50" data-testid="stat-total">
-          <CardHeader className="pb-2">
+        <Card className="glass-card border-border/50 overflow-hidden" data-testid="stat-total">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-accent/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardHeader className="pb-2 relative">
             <CardDescription className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Total Companies
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{stats.total}</p>
+          <CardContent className="relative">
+            <p className="text-3xl font-bold text-foreground">{stats.total}</p>
           </CardContent>
         </Card>
         
-        <Card className="bg-card/50 border-emerald-500/20" data-testid="stat-active">
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+        <Card className="glass-card border-emerald-500/20 overflow-hidden" data-testid="stat-active">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardHeader className="pb-2 relative">
+            <CardDescription className="flex items-center gap-2 text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
               Active
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{stats.active}</p>
+          <CardContent className="relative">
+            <p className="text-3xl font-bold text-emerald-400">{stats.active}</p>
           </CardContent>
         </Card>
         
-        <Card className="bg-card/50 border-amber-500/20" data-testid="stat-onboarding">
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+        <Card className="glass-card border-amber-500/20 overflow-hidden" data-testid="stat-onboarding">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardHeader className="pb-2 relative">
+            <CardDescription className="flex items-center gap-2 text-amber-400">
               <Clock className="h-4 w-4" />
               Onboarding
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{stats.onboarding}</p>
+          <CardContent className="relative">
+            <p className="text-3xl font-bold text-amber-400">{stats.onboarding}</p>
           </CardContent>
         </Card>
         
-        <Card className="bg-card/50 border-destructive/20" data-testid="stat-suspended">
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2 text-destructive">
+        <Card className="glass-card border-red-500/20 overflow-hidden" data-testid="stat-suspended">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardHeader className="pb-2 relative">
+            <CardDescription className="flex items-center gap-2 text-red-400">
               <XCircle className="h-4 w-4" />
               Suspended
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-destructive">{stats.suspended}</p>
+          <CardContent className="relative">
+            <p className="text-3xl font-bold text-red-400">{stats.suspended}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search by name, contact, email, or ABN..." 
-            className="pl-10 bg-card" 
+            className="pl-10 bg-muted/30 border-border/50 focus:border-accent" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             data-testid="input-search"
@@ -218,14 +230,14 @@ export default function CompaniesListPage() {
         {filteredCompanies.map((company) => (
           <Card 
             key={company.id} 
-            className="hover:border-primary/30 transition-all hover:shadow-md group"
+            className="glass-card border-border/50 hover:border-accent/30 hover-lift transition-all group"
             data-testid={`card-company-${company.id}`}
           >
             <CardContent className="p-0">
               <Link href={`/console/companies/${company.id}`} data-testid={`link-company-${company.id}`}>
                 <div className="p-5 flex items-center gap-5 cursor-pointer">
-                  <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                    <Building2 className="h-7 w-7 text-primary" />
+                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center shrink-0 group-hover:from-accent/30 group-hover:to-primary/30 transition-colors">
+                    <Building2 className="h-7 w-7 text-accent" />
                   </div>
                   
                   <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4">
