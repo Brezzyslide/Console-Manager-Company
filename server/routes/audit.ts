@@ -1929,13 +1929,27 @@ router.post("/suggested-findings/:id/confirm", requireCompanyAuth, requireRole([
     
     let finding = null;
     
+    // Validate that evidence request has a template indicator
+    if (!evidenceRequest.templateIndicatorId) {
+      return res.status(400).json({ error: "Cannot process: evidence request has no template indicator" });
+    }
+    
+    // Create or update the indicator response with the confirmed rating
+    // This ensures the finding appears in the Audit Results page
+    await storage.upsertAuditIndicatorResponse({
+      auditId: suggestion.auditId,
+      templateIndicatorId: evidenceRequest.templateIndicatorId,
+      rating: findingType as IndicatorRating,
+      comment: description,
+      status: "OPEN",
+      createdByCompanyUserId: userId,
+      scorePoints: scoreForRating(findingType as IndicatorRating),
+      scoreVersion: "v1",
+    });
+    
     // Only create finding for non-conformances (not observations)
     // Findings table only supports MINOR_NC and MAJOR_NC severities
     if (findingType === "MINOR_NC" || findingType === "MAJOR_NC") {
-      if (!evidenceRequest.templateIndicatorId) {
-        return res.status(400).json({ error: "Cannot create finding: evidence request has no template indicator" });
-      }
-      
       finding = await storage.createFinding({
         companyId,
         auditId: suggestion.auditId,
@@ -1945,7 +1959,7 @@ router.post("/suggested-findings/:id/confirm", requireCompanyAuth, requireRole([
         status: "OPEN",
       });
     }
-    // For OBSERVATION type, we just confirm the suggestion without creating a finding
+    // For OBSERVATION type, we create indicator response but not a finding
     // Observations are tracked as indicator ratings, not as findings
     
     // Update suggestion to confirmed status
