@@ -452,7 +452,7 @@ export interface AuditTemplateIndicator {
   evidenceRequirements: string | null;
   riskLevel: RiskLevel;
   isCriticalControl: boolean;
-  auditDomainCode: "STAFF_PERSONNEL" | "GOV_POLICY" | "OPERATIONAL" | null;
+  auditDomainCode: "STAFF_PERSONNEL" | "GOV_POLICY" | "OPERATIONAL" | "SITE_ENVIRONMENT" | null;
   sortOrder: number;
 }
 
@@ -685,6 +685,7 @@ export async function addTemplateIndicator(
     riskLevel?: RiskLevel;
     isCriticalControl?: boolean;
     sortOrder?: number;
+    auditDomainCode?: string;
   }
 ): Promise<AuditTemplateIndicator> {
   const res = await fetch(`/api/company/audit-templates/${templateId}/indicators`, {
@@ -697,6 +698,32 @@ export async function addTemplateIndicator(
     const data = await res.json();
     throw new Error(data.error || "Failed to add indicator");
   }
+  return res.json();
+}
+
+// Standard Indicators Library
+export interface StandardIndicator {
+  id: string;
+  domainCode: string;
+  category: string;
+  indicatorText: string;
+  guidanceText?: string;
+  evidenceRequirements?: string;
+  riskLevel: RiskLevel;
+  isCriticalControl: boolean;
+  sortOrder: number;
+}
+
+export async function getStandardIndicators(domainCodes?: string[]): Promise<StandardIndicator[]> {
+  const params = domainCodes?.length ? `?domains=${domainCodes.join(',')}` : '';
+  const res = await fetch(`/api/company/standard-indicators${params}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch standard indicators");
+  return res.json();
+}
+
+export async function getStandardIndicatorsByDomain(domainCode: string): Promise<StandardIndicator[]> {
+  const res = await fetch(`/api/company/standard-indicators/${domainCode}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch standard indicators");
   return res.json();
 }
 

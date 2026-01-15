@@ -10,6 +10,7 @@ import {
   riskLevelEnum,
   evidenceStatusEnum,
   evidenceTypeEnum,
+  auditDomainCodeEnum,
 } from "@shared/schema";
 
 function generatePublicToken(): string {
@@ -449,6 +450,7 @@ const createIndicatorSchema = z.object({
   riskLevel: z.enum(riskLevelEnum).optional().default("MEDIUM"),
   isCriticalControl: z.boolean().optional().default(false),
   sortOrder: z.number().int().optional().default(0),
+  auditDomainCode: z.enum(auditDomainCodeEnum).nullable().optional(),
 });
 
 router.post("/audit-templates/:id/indicators", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
@@ -471,6 +473,7 @@ router.post("/audit-templates/:id/indicators", requireCompanyAuth, requireRole([
       riskLevel: input.riskLevel,
       isCriticalControl: input.isCriticalControl,
       sortOrder: input.sortOrder,
+      auditDomainCode: input.auditDomainCode || null,
     });
     
     return res.status(201).json(indicator);
@@ -1648,6 +1651,37 @@ router.put("/audits/:auditId/domains", requireCompanyAuth, requireRole(["Company
   }
 });
 
+// ============ STANDARD INDICATORS LIBRARY ============
+
+router.get("/standard-indicators", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    await storage.ensureStandardIndicatorsSeeded();
+    
+    const domainCodes = req.query.domains 
+      ? (req.query.domains as string).split(',').filter(Boolean)
+      : undefined;
+    
+    const indicators = await storage.getStandardIndicators(domainCodes);
+    return res.json(indicators);
+  } catch (error) {
+    console.error("Get standard indicators error:", error);
+    return res.status(500).json({ error: "Failed to fetch standard indicators" });
+  }
+});
+
+router.get("/standard-indicators/:domainCode", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    await storage.ensureStandardIndicatorsSeeded();
+    
+    const { domainCode } = req.params;
+    const indicators = await storage.getStandardIndicatorsByDomain(domainCode);
+    return res.json(indicators);
+  } catch (error) {
+    console.error("Get standard indicators by domain error:", error);
+    return res.status(500).json({ error: "Failed to fetch standard indicators" });
+  }
+});
+
 router.get("/document-checklists/templates", requireCompanyAuth, async (_req: AuthenticatedCompanyRequest, res) => {
   try {
     const templates = await storage.getDocumentChecklistTemplates();
@@ -1784,13 +1818,8 @@ router.post("/document-reviews", requireCompanyAuth, requireRole(["CompanyAdmin"
       suggestedType = "MINOR_NC";
       severityFlag = "MEDIUM";
       rationaleText = `Document Quality Score of ${dqsScore}% is below the 50% threshold. This indicates multiple checklist items were not satisfied and may warrant a Minor Non-Conformance.`;
-    } else if (dqsScore < 75) {
-      // Moderate DQS suggests Observation
-      suggestedType = "OBSERVATION";
-      severityFlag = "LOW";
-      rationaleText = `Document Quality Score of ${dqsScore}% indicates room for improvement. While not a non-conformance, an Observation may help track improvement opportunities.`;
     }
-    // DQS >= 75 with no critical failures = no suggestion needed
+    // DQS >= 50 with no critical failures = no suggestion needed (observations removed from rating system)
     
     let suggestedFinding = null;
     if (suggestedType !== "NONE" && auditId) {

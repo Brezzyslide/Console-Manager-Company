@@ -386,7 +386,29 @@ export type InsertAuditSite = z.infer<typeof insertAuditSiteSchema>;
 export type AuditSite = typeof auditSites.$inferSelect;
 
 // Audit Domains (Tenant-scoped domain definitions)
-export const auditDomainCodeEnum = ["STAFF_PERSONNEL", "GOV_POLICY", "OPERATIONAL"] as const;
+export const auditDomainCodeEnum = ["STAFF_PERSONNEL", "GOV_POLICY", "OPERATIONAL", "SITE_ENVIRONMENT"] as const;
+
+// Standard Indicators Library (Global - not tenant-scoped)
+export const standardIndicators = pgTable("standard_indicators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  domainCode: text("domain_code", { enum: auditDomainCodeEnum }).notNull(),
+  category: text("category").notNull(),
+  indicatorText: text("indicator_text").notNull(),
+  guidanceText: text("guidance_text"),
+  evidenceRequirements: text("evidence_requirements"),
+  riskLevel: text("risk_level", { enum: riskLevelEnum }).notNull().default("MEDIUM"),
+  isCriticalControl: boolean("is_critical_control").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertStandardIndicatorSchema = createInsertSchema(standardIndicators).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertStandardIndicator = z.infer<typeof insertStandardIndicatorSchema>;
+export type StandardIndicator = typeof standardIndicators.$inferSelect;
 
 export const auditDomains = pgTable("audit_domains", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

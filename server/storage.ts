@@ -13,6 +13,7 @@ import {
   auditScopeLineItems,
   auditDomains,
   auditScopeDomains,
+  standardIndicators,
   auditTemplates,
   auditTemplateIndicators,
   auditRuns,
@@ -82,6 +83,8 @@ import {
   type InsertAuditSiteVisit,
   type AuditSite,
   type InsertAuditSite,
+  type StandardIndicator,
+  type InsertStandardIndicator,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -198,6 +201,11 @@ export interface IStorage {
   createEvidenceItemPublic(evidenceRequestId: string, item: Omit<InsertEvidenceItem, 'companyId' | 'evidenceRequestId'>): Promise<EvidenceItem>;
   getEvidenceItems(evidenceRequestId: string, companyId: string): Promise<EvidenceItem[]>;
   getEvidenceItem(id: string, companyId: string): Promise<EvidenceItem | undefined>;
+  
+  // Standard Indicators Library (Global)
+  getStandardIndicators(domainCodes?: string[]): Promise<StandardIndicator[]>;
+  getStandardIndicatorsByDomain(domainCode: string): Promise<StandardIndicator[]>;
+  ensureStandardIndicatorsSeeded(): Promise<void>;
   
   // Audit Domains
   getAuditDomains(companyId: string): Promise<AuditDomain[]>;
@@ -942,6 +950,122 @@ export class DatabaseStorage implements IStorage {
     return item || undefined;
   }
 
+  // Standard Indicators Library (Global)
+  async getStandardIndicators(domainCodes?: string[]): Promise<StandardIndicator[]> {
+    if (domainCodes && domainCodes.length > 0) {
+      return await db
+        .select()
+        .from(standardIndicators)
+        .where(inArray(standardIndicators.domainCode, domainCodes as ("STAFF_PERSONNEL" | "GOV_POLICY" | "OPERATIONAL" | "SITE_ENVIRONMENT")[]))
+        .orderBy(asc(standardIndicators.domainCode), asc(standardIndicators.sortOrder));
+    }
+    return await db
+      .select()
+      .from(standardIndicators)
+      .orderBy(asc(standardIndicators.domainCode), asc(standardIndicators.sortOrder));
+  }
+
+  async getStandardIndicatorsByDomain(domainCode: string): Promise<StandardIndicator[]> {
+    return await db
+      .select()
+      .from(standardIndicators)
+      .where(eq(standardIndicators.domainCode, domainCode as "STAFF_PERSONNEL" | "GOV_POLICY" | "OPERATIONAL" | "SITE_ENVIRONMENT"))
+      .orderBy(asc(standardIndicators.category), asc(standardIndicators.sortOrder));
+  }
+
+  async ensureStandardIndicatorsSeeded(): Promise<void> {
+    const existing = await db.select().from(standardIndicators).limit(1);
+    if (existing.length > 0) return;
+
+    const indicators: InsertStandardIndicator[] = [
+      // GOV_POLICY - Governance & Policy
+      { domainCode: "GOV_POLICY", category: "Core governance documents", indicatorText: "Governance framework or governance charter is documented and current", evidenceRequirements: "Governance framework document with review date", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 1 },
+      { domainCode: "GOV_POLICY", category: "Core governance documents", indicatorText: "Organisational structure chart is documented and reflects current structure", evidenceRequirements: "Org chart with roles and reporting lines", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 2 },
+      { domainCode: "GOV_POLICY", category: "Core governance documents", indicatorText: "Delegations of authority are documented and current", evidenceRequirements: "Delegations register or policy", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 3 },
+      { domainCode: "GOV_POLICY", category: "Core governance documents", indicatorText: "Roles and responsibilities matrix is documented", evidenceRequirements: "RACI or responsibility matrix", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 4 },
+      { domainCode: "GOV_POLICY", category: "Core governance documents", indicatorText: "Fit and Proper Person declarations are completed for directors and key management", evidenceRequirements: "Signed declarations on file", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 5 },
+      { domainCode: "GOV_POLICY", category: "Core governance documents", indicatorText: "Conflict of interest register is maintained and current", evidenceRequirements: "COI register with dates", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 6 },
+      { domainCode: "GOV_POLICY", category: "Core governance documents", indicatorText: "Board or management meeting minutes are documented", evidenceRequirements: "Meeting minutes samples", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 7 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Incident management policy is documented, current and approved", evidenceRequirements: "Policy with approval and review dates", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 10 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Complaints management policy is documented, current and approved", evidenceRequirements: "Policy with approval and review dates", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 11 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Risk management policy is documented, current and approved", evidenceRequirements: "Policy with approval and review dates", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 12 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Continuous improvement policy is documented, current and approved", evidenceRequirements: "Policy with approval and review dates", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 13 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Feedback and feedback handling policy is documented, current and approved", evidenceRequirements: "Policy with approval and review dates", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 14 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Privacy and confidentiality policy is documented, current and approved", evidenceRequirements: "Policy with approval and review dates", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 15 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Information management and record keeping policy is documented", evidenceRequirements: "Policy with approval and review dates", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 16 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Code of conduct is documented and staff have acknowledged", evidenceRequirements: "Code of conduct with staff acknowledgments", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 17 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Child safe standards policy is documented (where applicable)", evidenceRequirements: "Policy document", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 18 },
+      { domainCode: "GOV_POLICY", category: "Policy suite", indicatorText: "Whistleblower or reportable conduct policy is documented (if applicable)", evidenceRequirements: "Policy document", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 19 },
+      { domainCode: "GOV_POLICY", category: "Quality and risk", indicatorText: "Organisation-level risk register is maintained and current", evidenceRequirements: "Risk register with review dates", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 20 },
+      { domainCode: "GOV_POLICY", category: "Quality and risk", indicatorText: "Continuous improvement register or quality improvement plan is maintained", evidenceRequirements: "CI register or QIP with actions", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 21 },
+      { domainCode: "GOV_POLICY", category: "Quality and risk", indicatorText: "Internal audit reports are documented", evidenceRequirements: "Internal audit reports", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 22 },
+      { domainCode: "GOV_POLICY", category: "Quality and risk", indicatorText: "Previous external audit reports and responses are available", evidenceRequirements: "External audit reports with responses", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 23 },
+      { domainCode: "GOV_POLICY", category: "Quality and risk", indicatorText: "Management review records are documented", evidenceRequirements: "Management review meeting records", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 24 },
+      { domainCode: "GOV_POLICY", category: "Governance implementation", indicatorText: "Policy register showing review dates is maintained", evidenceRequirements: "Policy register", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 25 },
+      { domainCode: "GOV_POLICY", category: "Governance implementation", indicatorText: "Evidence that policies are communicated to staff", evidenceRequirements: "Communication records, emails, training", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 26 },
+      { domainCode: "GOV_POLICY", category: "Governance implementation", indicatorText: "Training or induction records reference governance policies", evidenceRequirements: "Induction materials referencing policies", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 27 },
+
+      // STAFF_PERSONNEL - Staff & Personnel Compliance
+      { domainCode: "STAFF_PERSONNEL", category: "Pre-employment screening", indicatorText: "Police check records are current for all staff", evidenceRequirements: "Police check certificates within validity", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 1 },
+      { domainCode: "STAFF_PERSONNEL", category: "Pre-employment screening", indicatorText: "Working With Children Check records are current (where required)", evidenceRequirements: "WWCC certificates", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 2 },
+      { domainCode: "STAFF_PERSONNEL", category: "Pre-employment screening", indicatorText: "NDIS Worker Screening clearance is current for all workers", evidenceRequirements: "NDIS Worker Screening clearance letters", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 3 },
+      { domainCode: "STAFF_PERSONNEL", category: "Pre-employment screening", indicatorText: "Right to work documentation is verified and on file", evidenceRequirements: "Visa or citizenship evidence", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 4 },
+      { domainCode: "STAFF_PERSONNEL", category: "Pre-employment screening", indicatorText: "Reference checks are completed (where applicable)", evidenceRequirements: "Reference check records", riskLevel: "LOW", isCriticalControl: false, sortOrder: 5 },
+      { domainCode: "STAFF_PERSONNEL", category: "Qualifications and role suitability", indicatorText: "Qualification certificates relevant to role are on file", evidenceRequirements: "Certificates matching role requirements", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 10 },
+      { domainCode: "STAFF_PERSONNEL", category: "Qualifications and role suitability", indicatorText: "Scope of practice or role descriptions are documented", evidenceRequirements: "Position descriptions", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 11 },
+      { domainCode: "STAFF_PERSONNEL", category: "Qualifications and role suitability", indicatorText: "Evidence that qualifications are appropriate to supports delivered", evidenceRequirements: "Qualification-role mapping", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 12 },
+      { domainCode: "STAFF_PERSONNEL", category: "Training and competency", indicatorText: "Training matrix or training register is maintained", evidenceRequirements: "Training matrix with dates", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 15 },
+      { domainCode: "STAFF_PERSONNEL", category: "Training and competency", indicatorText: "Mandatory training records are current (incident management, medication, restrictive practices)", evidenceRequirements: "Training completion certificates", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 16 },
+      { domainCode: "STAFF_PERSONNEL", category: "Training and competency", indicatorText: "Induction records are documented for all staff", evidenceRequirements: "Signed induction checklists", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 17 },
+      { domainCode: "STAFF_PERSONNEL", category: "Training and competency", indicatorText: "Ongoing professional development records are maintained", evidenceRequirements: "PD records and certificates", riskLevel: "LOW", isCriticalControl: false, sortOrder: 18 },
+      { domainCode: "STAFF_PERSONNEL", category: "Supervision and performance", indicatorText: "Supervision schedules are documented", evidenceRequirements: "Supervision schedule or calendar", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 20 },
+      { domainCode: "STAFF_PERSONNEL", category: "Supervision and performance", indicatorText: "Supervision session records are maintained", evidenceRequirements: "Supervision meeting notes", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 21 },
+      { domainCode: "STAFF_PERSONNEL", category: "Supervision and performance", indicatorText: "Performance reviews or appraisals are completed", evidenceRequirements: "Performance review documents", riskLevel: "LOW", isCriticalControl: false, sortOrder: 22 },
+      { domainCode: "STAFF_PERSONNEL", category: "Supervision and performance", indicatorText: "Corrective action or performance improvement plans are documented (if applicable)", evidenceRequirements: "PIPs or corrective action records", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 23 },
+      { domainCode: "STAFF_PERSONNEL", category: "Workforce governance", indicatorText: "Staff register with roles, employment type and start dates is maintained", evidenceRequirements: "Staff register", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 25 },
+      { domainCode: "STAFF_PERSONNEL", category: "Workforce governance", indicatorText: "Contractor agreements are in place (if contractors used)", evidenceRequirements: "Contractor agreements", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 26 },
+      { domainCode: "STAFF_PERSONNEL", category: "Workforce governance", indicatorText: "Rostering policies relating to skill mix and ratios are documented", evidenceRequirements: "Rostering policy or guidelines", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 27 },
+
+      // OPERATIONAL - Service Delivery
+      { domainCode: "OPERATIONAL", category: "Participant documentation", indicatorText: "Service agreements are in place for all participants", evidenceRequirements: "Signed service agreements", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 1 },
+      { domainCode: "OPERATIONAL", category: "Participant documentation", indicatorText: "Participant consent forms are completed", evidenceRequirements: "Signed consent forms", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 2 },
+      { domainCode: "OPERATIONAL", category: "Participant documentation", indicatorText: "Care plans or support plans are current and participant-centred", evidenceRequirements: "Current support plans", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 3 },
+      { domainCode: "OPERATIONAL", category: "Participant documentation", indicatorText: "Behaviour support plans are current (if applicable)", evidenceRequirements: "BSP documents with review dates", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 4 },
+      { domainCode: "OPERATIONAL", category: "Participant documentation", indicatorText: "Mealtime management plans are current (if applicable)", evidenceRequirements: "MMP documents with review dates", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 5 },
+      { domainCode: "OPERATIONAL", category: "Participant documentation", indicatorText: "Risk assessments specific to participants are documented", evidenceRequirements: "Individual risk assessments", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 6 },
+      { domainCode: "OPERATIONAL", category: "Delivery evidence", indicatorText: "Rosters and shift allocations are documented", evidenceRequirements: "Roster records", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 10 },
+      { domainCode: "OPERATIONAL", category: "Delivery evidence", indicatorText: "Timesheets or shift completion records are maintained", evidenceRequirements: "Timesheet records", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 11 },
+      { domainCode: "OPERATIONAL", category: "Delivery evidence", indicatorText: "Case notes or progress notes are maintained", evidenceRequirements: "Progress notes with dates", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 12 },
+      { domainCode: "OPERATIONAL", category: "Delivery evidence", indicatorText: "Daily logs or support records are documented", evidenceRequirements: "Daily log entries", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 13 },
+      { domainCode: "OPERATIONAL", category: "Delivery evidence", indicatorText: "Activity participation records are maintained", evidenceRequirements: "Activity records", riskLevel: "LOW", isCriticalControl: false, sortOrder: 14 },
+      { domainCode: "OPERATIONAL", category: "Clinical and support practice", indicatorText: "Medication management plans are documented (where applicable)", evidenceRequirements: "Medication management plans", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 15 },
+      { domainCode: "OPERATIONAL", category: "Clinical and support practice", indicatorText: "Medication administration records (MARs) are maintained accurately", evidenceRequirements: "MAR charts with signatures", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 16 },
+      { domainCode: "OPERATIONAL", category: "Clinical and support practice", indicatorText: "Incident reports linked to participants are documented", evidenceRequirements: "Incident reports", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 17 },
+      { domainCode: "OPERATIONAL", category: "Clinical and support practice", indicatorText: "Restrictive practice records and reporting evidence are maintained (where applicable)", evidenceRequirements: "RP registers and reports", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 18 },
+      { domainCode: "OPERATIONAL", category: "Funding and claiming", indicatorText: "Service bookings or funding approvals are documented", evidenceRequirements: "Service booking confirmations", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 20 },
+      { domainCode: "OPERATIONAL", category: "Funding and claiming", indicatorText: "Invoices or claims evidence is maintained", evidenceRequirements: "Invoice records", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 21 },
+      { domainCode: "OPERATIONAL", category: "Funding and claiming", indicatorText: "Reconciliation between roster, delivery and claiming is evident", evidenceRequirements: "Reconciliation records", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 22 },
+      { domainCode: "OPERATIONAL", category: "Funding and claiming", indicatorText: "Evidence that rates align with pricing arrangements", evidenceRequirements: "Rate comparison records", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 23 },
+
+      // SITE_ENVIRONMENT - Site-Specific & Environment
+      { domainCode: "SITE_ENVIRONMENT", category: "Site safety and readiness", indicatorText: "Site risk assessments are completed and current", evidenceRequirements: "Site risk assessment documents", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 1 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Site safety and readiness", indicatorText: "Emergency and evacuation plans are documented (site specific)", evidenceRequirements: "Emergency plans with site details", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 2 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Site safety and readiness", indicatorText: "Fire safety plans are documented", evidenceRequirements: "Fire safety plans", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 3 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Site safety and readiness", indicatorText: "Emergency drills or evacuation records are documented", evidenceRequirements: "Drill records with dates and attendees", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 4 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Site safety and readiness", indicatorText: "Maintenance logs are maintained", evidenceRequirements: "Maintenance log entries", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 5 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Environment controls", indicatorText: "Infection control procedures and cleaning schedules are documented", evidenceRequirements: "Cleaning schedules and IC procedures", riskLevel: "HIGH", isCriticalControl: true, sortOrder: 10 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Environment controls", indicatorText: "Food safety records are maintained (if meals provided)", evidenceRequirements: "Food safety records", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 11 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Environment controls", indicatorText: "Equipment maintenance records are maintained", evidenceRequirements: "Equipment maintenance logs", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 12 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Environment controls", indicatorText: "Asset registers for assistive equipment are maintained", evidenceRequirements: "Asset register", riskLevel: "LOW", isCriticalControl: false, sortOrder: 13 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Local implementation evidence", indicatorText: "Site induction records for staff are documented", evidenceRequirements: "Site-specific induction records", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 15 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Local implementation evidence", indicatorText: "Staff access instructions (keys, alarms, exits) are documented", evidenceRequirements: "Access instructions document", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 16 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Local implementation evidence", indicatorText: "Incident logs linked to the site are maintained", evidenceRequirements: "Site-linked incident logs", riskLevel: "MEDIUM", isCriticalControl: false, sortOrder: 17 },
+      { domainCode: "SITE_ENVIRONMENT", category: "Local implementation evidence", indicatorText: "Visitor or contractor sign-in records are maintained (if relevant)", evidenceRequirements: "Sign-in records", riskLevel: "LOW", isCriticalControl: false, sortOrder: 18 },
+    ];
+
+    await db.insert(standardIndicators).values(indicators);
+  }
+
   // Audit Domains
   async getAuditDomains(companyId: string): Promise<AuditDomain[]> {
     return await db
@@ -969,9 +1093,10 @@ export class DatabaseStorage implements IStorage {
     const existingCodes = new Set(existing.map(d => d.code));
     
     const defaults = [
-      { code: "GOV_POLICY" as const, name: "Governance & Policy", description: "Organizational governance, policies, and procedures", isEnabledByDefault: true },
-      { code: "STAFF_PERSONNEL" as const, name: "Staff & Personnel Compliance", description: "Staff training, competency, and personnel management", isEnabledByDefault: true },
-      { code: "OPERATIONAL" as const, name: "Operational", description: "Service delivery and operational compliance", isEnabledByDefault: true },
+      { code: "GOV_POLICY" as const, name: "Governance & Policy", description: "How the organization is run, controlled, and held accountable", isEnabledByDefault: true },
+      { code: "STAFF_PERSONNEL" as const, name: "Staff & Personnel Compliance", description: "Who is allowed to deliver care, and whether they are safe, qualified, and supervised", isEnabledByDefault: true },
+      { code: "OPERATIONAL" as const, name: "Operational / Service Delivery", description: "Evidence that supports are delivered as agreed and funded", isEnabledByDefault: true },
+      { code: "SITE_ENVIRONMENT" as const, name: "Site-Specific & Environment", description: "Whether the environment itself is safe and suitable for care", isEnabledByDefault: true },
     ];
     
     const toCreate = defaults.filter(d => !existingCodes.has(d.code));

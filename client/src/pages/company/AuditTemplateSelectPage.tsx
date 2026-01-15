@@ -9,7 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, ArrowRight, Loader2, Plus, FileText, CheckCircle2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, ArrowRight, Loader2, Plus, FileText, CheckCircle2, Library, PenLine, AlertTriangle } from "lucide-react";
 import { 
   getAudit, 
   getAuditTemplates, 
@@ -17,7 +20,9 @@ import {
   addTemplateIndicator,
   selectAuditTemplate,
   startAudit,
+  getStandardIndicators,
   type AuditTemplate,
+  type StandardIndicator,
 } from "@/lib/company-api";
 
 export default function AuditTemplateSelectPage() {
@@ -31,7 +36,10 @@ export default function AuditTemplateSelectPage() {
   const [newTemplateId, setNewTemplateId] = useState<string | null>(null);
   
   const [templateForm, setTemplateForm] = useState({ name: "", description: "" });
-  const [indicatorForm, setIndicatorForm] = useState({ indicatorText: "", guidanceText: "" });
+  const [indicatorForm, setIndicatorForm] = useState({ indicatorText: "", guidanceText: "", evidenceRequirements: "" });
+  const [indicatorTab, setIndicatorTab] = useState<"library" | "custom">("library");
+  const [selectedLibraryIndicators, setSelectedLibraryIndicators] = useState<Set<string>>(new Set());
+  const [selectedDomain, setSelectedDomain] = useState<string>("all");
 
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
@@ -43,6 +51,30 @@ export default function AuditTemplateSelectPage() {
     queryKey: ["auditTemplates"],
     queryFn: getAuditTemplates,
   });
+
+  const { data: standardIndicators, isLoading: indicatorsLoading } = useQuery({
+    queryKey: ["standardIndicators"],
+    queryFn: () => getStandardIndicators(),
+    enabled: showAddIndicatorDialog,
+  });
+
+  const filteredIndicators = standardIndicators?.filter(ind => 
+    selectedDomain === "all" || ind.domainCode === selectedDomain
+  ) || [];
+
+  const indicatorsByCategory = filteredIndicators.reduce((acc, ind) => {
+    const key = `${ind.domainCode}|${ind.category}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(ind);
+    return acc;
+  }, {} as Record<string, StandardIndicator[]>);
+
+  const domainNames: Record<string, string> = {
+    GOV_POLICY: "Governance & Policy",
+    STAFF_PERSONNEL: "Staff & Personnel",
+    OPERATIONAL: "Operational / Service Delivery",
+    SITE_ENVIRONMENT: "Site-Specific & Environment",
+  };
 
   const createTemplateMutation = useMutation({
     mutationFn: createAuditTemplate,
@@ -60,7 +92,27 @@ export default function AuditTemplateSelectPage() {
       addTemplateIndicator(templateId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["auditTemplates"] });
-      setIndicatorForm({ indicatorText: "", guidanceText: "" });
+      setIndicatorForm({ indicatorText: "", guidanceText: "", evidenceRequirements: "" });
+    },
+  });
+
+  const addBatchIndicatorsMutation = useMutation({
+    mutationFn: async ({ templateId, indicators }: { templateId: string; indicators: StandardIndicator[] }) => {
+      for (const ind of indicators) {
+        await addTemplateIndicator(templateId, {
+          indicatorText: ind.indicatorText,
+          guidanceText: ind.guidanceText,
+          evidenceRequirements: ind.evidenceRequirements,
+          riskLevel: ind.riskLevel,
+          isCriticalControl: ind.isCriticalControl,
+          sortOrder: ind.sortOrder,
+          auditDomainCode: ind.domainCode,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditTemplates"] });
+      setSelectedLibraryIndicators(new Set());
     },
   });
 
@@ -235,55 +287,200 @@ export default function AuditTemplateSelectPage() {
       </Dialog>
 
       <Dialog open={showAddIndicatorDialog} onOpenChange={setShowAddIndicatorDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Add Audit Indicators</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="indicatorText">Indicator Text *</Label>
-              <Textarea
-                id="indicatorText"
-                placeholder="e.g., The organisation has documented policies and procedures for incident management..."
-                value={indicatorForm.indicatorText}
-                onChange={(e) => setIndicatorForm(prev => ({ ...prev, indicatorText: e.target.value }))}
-                data-testid="input-indicator-text"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="guidanceText">Guidance (optional)</Label>
-              <Textarea
-                id="guidanceText"
-                placeholder="Additional guidance for auditors..."
-                value={indicatorForm.guidanceText}
-                onChange={(e) => setIndicatorForm(prev => ({ ...prev, guidanceText: e.target.value }))}
-                data-testid="input-guidance-text"
-              />
-            </div>
-          </div>
-          {addIndicatorMutation.error && (
-            <p className="text-sm text-destructive">{(addIndicatorMutation.error as Error).message}</p>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={handleFinishAddingIndicators}>
-              Done Adding
-            </Button>
-            <Button 
-              onClick={() => {
-                if (newTemplateId) {
-                  addIndicatorMutation.mutate({ 
-                    templateId: newTemplateId, 
-                    data: indicatorForm 
-                  });
-                }
-              }}
-              disabled={!indicatorForm.indicatorText.trim() || addIndicatorMutation.isPending}
-              data-testid="button-add-indicator"
-            >
-              {addIndicatorMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Add Indicator
-            </Button>
-          </DialogFooter>
+          
+          <Tabs value={indicatorTab} onValueChange={(v) => setIndicatorTab(v as "library" | "custom")} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="library" className="flex items-center gap-2">
+                <Library className="h-4 w-4" />
+                Select from Library
+              </TabsTrigger>
+              <TabsTrigger value="custom" className="flex items-center gap-2">
+                <PenLine className="h-4 w-4" />
+                Write Custom
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="library" className="flex-1 flex flex-col overflow-hidden mt-4">
+              <div className="flex gap-2 mb-4">
+                <select
+                  value={selectedDomain}
+                  onChange={(e) => setSelectedDomain(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  data-testid="select-domain-filter"
+                >
+                  <option value="all">All Domains</option>
+                  <option value="GOV_POLICY">Governance & Policy</option>
+                  <option value="STAFF_PERSONNEL">Staff & Personnel</option>
+                  <option value="OPERATIONAL">Operational / Service Delivery</option>
+                  <option value="SITE_ENVIRONMENT">Site-Specific & Environment</option>
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const allIds = new Set(filteredIndicators.map(i => i.id));
+                    setSelectedLibraryIndicators(allIds);
+                  }}
+                  data-testid="button-select-all"
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedLibraryIndicators(new Set())}
+                  data-testid="button-clear-selection"
+                >
+                  Clear
+                </Button>
+              </div>
+              
+              {indicatorsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <ScrollArea className="flex-1 border rounded-md p-4">
+                  <div className="space-y-6">
+                    {Object.entries(indicatorsByCategory).map(([key, indicators]) => {
+                      const [domain, category] = key.split('|');
+                      return (
+                        <div key={key} className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {domainNames[domain] || domain}
+                            </Badge>
+                            <span className="font-medium text-sm">{category}</span>
+                          </div>
+                          <div className="space-y-1 pl-2">
+                            {indicators.map((ind) => (
+                              <div 
+                                key={ind.id} 
+                                className="flex items-start gap-3 py-2 px-2 rounded hover:bg-muted/50 cursor-pointer"
+                                onClick={() => {
+                                  const newSet = new Set(selectedLibraryIndicators);
+                                  if (newSet.has(ind.id)) {
+                                    newSet.delete(ind.id);
+                                  } else {
+                                    newSet.add(ind.id);
+                                  }
+                                  setSelectedLibraryIndicators(newSet);
+                                }}
+                              >
+                                <Checkbox 
+                                  checked={selectedLibraryIndicators.has(ind.id)}
+                                  className="mt-1"
+                                  data-testid={`checkbox-indicator-${ind.id}`}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm">{ind.indicatorText}</p>
+                                  {ind.isCriticalControl && (
+                                    <Badge variant="destructive" className="mt-1 text-xs">
+                                      <AlertTriangle className="h-3 w-3 mr-1" />
+                                      Critical Control
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
+              
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  {selectedLibraryIndicators.size} indicator(s) selected
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleFinishAddingIndicators}>
+                    Done
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      if (newTemplateId && selectedLibraryIndicators.size > 0) {
+                        const selectedInds = standardIndicators?.filter(i => selectedLibraryIndicators.has(i.id)) || [];
+                        addBatchIndicatorsMutation.mutate({ 
+                          templateId: newTemplateId, 
+                          indicators: selectedInds 
+                        });
+                      }
+                    }}
+                    disabled={selectedLibraryIndicators.size === 0 || addBatchIndicatorsMutation.isPending}
+                    data-testid="button-add-selected"
+                  >
+                    {addBatchIndicatorsMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Add Selected ({selectedLibraryIndicators.size})
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="custom" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="indicatorText">Indicator Text *</Label>
+                <Textarea
+                  id="indicatorText"
+                  placeholder="e.g., The organisation has documented policies and procedures for incident management..."
+                  value={indicatorForm.indicatorText}
+                  onChange={(e) => setIndicatorForm(prev => ({ ...prev, indicatorText: e.target.value }))}
+                  data-testid="input-indicator-text"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="guidanceText">Guidance (optional)</Label>
+                <Textarea
+                  id="guidanceText"
+                  placeholder="Additional guidance for auditors..."
+                  value={indicatorForm.guidanceText}
+                  onChange={(e) => setIndicatorForm(prev => ({ ...prev, guidanceText: e.target.value }))}
+                  data-testid="input-guidance-text"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="evidenceRequirements">Evidence Requirements (optional)</Label>
+                <Textarea
+                  id="evidenceRequirements"
+                  placeholder="What evidence should the auditor look for..."
+                  value={indicatorForm.evidenceRequirements}
+                  onChange={(e) => setIndicatorForm(prev => ({ ...prev, evidenceRequirements: e.target.value }))}
+                  data-testid="input-evidence-requirements"
+                />
+              </div>
+              
+              {addIndicatorMutation.error && (
+                <p className="text-sm text-destructive">{(addIndicatorMutation.error as Error).message}</p>
+              )}
+              
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={handleFinishAddingIndicators}>
+                  Done Adding
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (newTemplateId) {
+                      addIndicatorMutation.mutate({ 
+                        templateId: newTemplateId, 
+                        data: indicatorForm 
+                      });
+                    }
+                  }}
+                  disabled={!indicatorForm.indicatorText.trim() || addIndicatorMutation.isPending}
+                  data-testid="button-add-indicator"
+                >
+                  {addIndicatorMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Add Indicator
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
