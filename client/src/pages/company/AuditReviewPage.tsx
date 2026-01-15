@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus, FileBarChart } from "lucide-react";
 import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -142,15 +142,25 @@ export default function AuditReviewPage() {
       </Button>
 
       <div className="mb-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">{audit?.title}</h1>
-          <Badge className={statusColors[audit?.status || "DRAFT"]}>{audit?.status}</Badge>
-          {audit?.scopeLocked && (
-            <Badge variant="outline" className="gap-1">
-              <Lock className="h-3 w-3" />
-              Scope Locked
-            </Badge>
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold">{audit?.title}</h1>
+            <Badge className={statusColors[audit?.status || "DRAFT"]}>{audit?.status}</Badge>
+            {audit?.scopeLocked && (
+              <Badge variant="outline" className="gap-1">
+                <Lock className="h-3 w-3" />
+                Scope Locked
+              </Badge>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/audits/${id}/report`)}
+            data-testid="view-report-button"
+          >
+            <FileBarChart className="h-4 w-4 mr-2" />
+            View Report
+          </Button>
         </div>
         <p className="text-muted-foreground">
           {format(new Date(audit?.scopeTimeFrom || ""), "MMM d, yyyy")} - {format(new Date(audit?.scopeTimeTo || ""), "MMM d, yyyy")}
@@ -377,8 +387,8 @@ export default function AuditReviewPage() {
             {selectedIndicator && (
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-sm font-medium">{selectedIndicator.indicatorText}</p>
-                {selectedIndicator.guidanceNotes && (
-                  <p className="text-xs text-muted-foreground mt-1">{selectedIndicator.guidanceNotes}</p>
+                {selectedIndicator.guidanceText && (
+                  <p className="text-xs text-muted-foreground mt-1">{selectedIndicator.guidanceText}</p>
                 )}
               </div>
             )}

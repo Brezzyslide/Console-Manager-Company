@@ -151,6 +151,30 @@ API endpoints:
 - `POST /api/company/suggested-findings/:id/confirm` - Confirm and create finding
 - `POST /api/company/suggested-findings/:id/dismiss` - Dismiss suggestion
 
+### Audit Report Generation
+- Professional PDF reports following DNV industry standards
+- AI-powered executive summary generation using Replit AI Integrations (OpenAI)
+- Auditor edit/override capability for AI-generated summaries
+- Interview and site visit tracking for comprehensive audit documentation
+
+Key tables:
+- `audit_interviews` - Tracks participant, staff, and stakeholder interviews with method (FACE_TO_FACE, PHONE, VIDEO, FOCUS_GROUP)
+- `audit_site_visits` - Records site observations, participants witnessed, safety items checked
+
+Report page features:
+- Executive Summary tab with AI generation, regeneration, and manual editing
+- Overview tab showing audit details and score summary (conformance counts, percentage score)
+- Interviews tab listing all conducted interviews
+- Site Visits tab showing all location observations
+- All indicator responses displayed with ratings and comments
+
+API endpoints:
+- `GET /api/company/audits/:auditId/report-data` - Get comprehensive report data (requires CompanyAdmin/Auditor role)
+- `POST /api/company/audits/:auditId/generate-executive-summary` - AI-generate executive summary
+- `PUT /api/company/audits/:auditId/executive-summary` - Save edited executive summary
+- `GET/POST/DELETE /api/company/audits/:auditId/interviews` - Interview CRUD
+- `GET/POST/DELETE /api/company/audits/:auditId/site-visits` - Site visit CRUD
+
 ## External Dependencies
 
 ### Database
@@ -168,6 +192,8 @@ API endpoints:
 - `DATABASE_URL` - PostgreSQL connection string
 - `CONSOLE_JWT_SECRET` - Secret for signing console JWT tokens (defaults to dev value)
 - `COMPANY_JWT_SECRET` - Secret for signing company JWT tokens (defaults to dev value)
+- `AI_INTEGRATIONS_OPENAI_API_KEY` - OpenAI API key (managed by Replit AI Integrations)
+- `AI_INTEGRATIONS_OPENAI_BASE_URL` - OpenAI base URL (managed by Replit AI Integrations)
 
 ### Replit-Specific Integrations
 - `@replit/vite-plugin-runtime-error-modal` - Error overlay in development

@@ -2027,4 +2027,382 @@ router.post("/suggested-findings/:id/dismiss", requireCompanyAuth, requireRole([
   }
 });
 
+// =====================
+// INTERVIEW TRACKING
+// =====================
+
+const createInterviewSchema = z.object({
+  interviewType: z.enum(["PARTICIPANT", "STAFF", "STAKEHOLDER"]),
+  interviewMethod: z.enum(["FACE_TO_FACE", "PHONE", "VIDEO", "FOCUS_GROUP"]),
+  intervieweeName: z.string().optional(),
+  intervieweeRole: z.string().optional(),
+  interviewDate: z.string().optional().transform(s => s ? new Date(s) : undefined),
+  topicsCovered: z.array(z.string()).optional(),
+  keyObservations: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+router.get("/audits/:auditId/interviews", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const interviews = await storage.getAuditInterviews(auditId, companyId);
+    return res.json(interviews);
+  } catch (error) {
+    console.error("Get interviews error:", error);
+    return res.status(500).json({ error: "Failed to fetch interviews" });
+  }
+});
+
+router.post("/audits/:auditId/interviews", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const parsed = createInterviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const interview = await storage.createAuditInterview({
+      companyId,
+      auditId,
+      ...parsed.data,
+      conductedByCompanyUserId: userId,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "INTERVIEW_CREATED",
+      entityType: "audit_interview",
+      entityId: interview.id,
+      afterJson: { interviewType: interview.interviewType, interviewMethod: interview.interviewMethod },
+    });
+    
+    return res.status(201).json(interview);
+  } catch (error) {
+    console.error("Create interview error:", error);
+    return res.status(500).json({ error: "Failed to create interview" });
+  }
+});
+
+router.delete("/audits/:auditId/interviews/:interviewId", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId, interviewId } = req.params;
+    
+    // Verify audit ownership
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    await storage.deleteAuditInterview(interviewId, companyId);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "INTERVIEW_DELETED",
+      entityType: "audit_interview",
+      entityId: interviewId,
+    });
+    
+    return res.status(204).send();
+  } catch (error) {
+    console.error("Delete interview error:", error);
+    return res.status(500).json({ error: "Failed to delete interview" });
+  }
+});
+
+// =====================
+// SITE VISIT TRACKING
+// =====================
+
+const createSiteVisitSchema = z.object({
+  siteName: z.string().min(1, "Site name is required"),
+  siteAddress: z.string().optional(),
+  visitDate: z.string().optional().transform(s => s ? new Date(s) : undefined),
+  ndisGroupsWitnessed: z.array(z.string()).optional(),
+  participantsAtSite: z.number().optional(),
+  filesReviewedCount: z.number().optional(),
+  observationsPositive: z.string().optional(),
+  observationsConcerns: z.string().optional(),
+  safetyItemsChecked: z.array(z.object({ item: z.string(), checked: z.boolean() })).optional(),
+  notes: z.string().optional(),
+});
+
+router.get("/audits/:auditId/site-visits", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const siteVisits = await storage.getAuditSiteVisits(auditId, companyId);
+    return res.json(siteVisits);
+  } catch (error) {
+    console.error("Get site visits error:", error);
+    return res.status(500).json({ error: "Failed to fetch site visits" });
+  }
+});
+
+router.post("/audits/:auditId/site-visits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const parsed = createSiteVisitSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const siteVisit = await storage.createAuditSiteVisit({
+      companyId,
+      auditId,
+      ...parsed.data,
+      conductedByCompanyUserId: userId,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "SITE_VISIT_CREATED",
+      entityType: "audit_site_visit",
+      entityId: siteVisit.id,
+      afterJson: { siteName: siteVisit.siteName },
+    });
+    
+    return res.status(201).json(siteVisit);
+  } catch (error) {
+    console.error("Create site visit error:", error);
+    return res.status(500).json({ error: "Failed to create site visit" });
+  }
+});
+
+router.delete("/audits/:auditId/site-visits/:visitId", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId, visitId } = req.params;
+    
+    // Verify audit ownership
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    await storage.deleteAuditSiteVisit(visitId, companyId);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "SITE_VISIT_DELETED",
+      entityType: "audit_site_visit",
+      entityId: visitId,
+    });
+    
+    return res.status(204).send();
+  } catch (error) {
+    console.error("Delete site visit error:", error);
+    return res.status(500).json({ error: "Failed to delete site visit" });
+  }
+});
+
+// =====================
+// AUDIT REPORT DATA
+// =====================
+
+router.get("/audits/:auditId/report-data", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.params;
+    
+    const reportData = await storage.getAuditReportData(auditId, companyId);
+    if (!reportData) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    return res.json(reportData);
+  } catch (error) {
+    console.error("Get report data error:", error);
+    return res.status(500).json({ error: "Failed to fetch report data" });
+  }
+});
+
+// =====================
+// AI EXECUTIVE SUMMARY
+// =====================
+
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+});
+
+const generateSummarySchema = z.object({
+  regenerate: z.boolean().optional(),
+});
+
+router.post("/audits/:auditId/generate-executive-summary", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const reportData = await storage.getAuditReportData(auditId, companyId);
+    if (!reportData) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    // Check if already has summary and not regenerating
+    const parsed = generateSummarySchema.safeParse(req.body);
+    if (reportData.audit.executiveSummary && !parsed.data?.regenerate) {
+      return res.json({ summary: reportData.audit.executiveSummary, cached: true });
+    }
+    
+    // Build context for AI
+    const { audit, company, interviews, siteVisits, indicatorResponses, findings } = reportData;
+    
+    const conformanceCount = indicatorResponses.filter((r: any) => r.rating === "CONFORMANCE").length;
+    const observationCount = indicatorResponses.filter((r: any) => r.rating === "OBSERVATION").length;
+    const minorNcCount = indicatorResponses.filter((r: any) => r.rating === "MINOR_NC").length;
+    const majorNcCount = indicatorResponses.filter((r: any) => r.rating === "MAJOR_NC").length;
+    const totalIndicators = indicatorResponses.length;
+    
+    const scorePoints = indicatorResponses.reduce((sum: number, r: any) => sum + (r.scorePoints || 0), 0);
+    const maxPoints = totalIndicators * 2;
+    const scorePercent = maxPoints > 0 ? Math.round((scorePoints / maxPoints) * 100) : 0;
+    
+    const prompt = `You are writing an executive summary for an NDIS (National Disability Insurance Scheme) provider audit report. Write in a professional, objective third-person tone suitable for regulatory review.
+
+AUDIT DETAILS:
+- Provider: ${company?.name || 'Unknown Provider'}
+- Audit Type: ${audit.auditType}
+- Service Context: ${audit.serviceContextLabel}
+- Audit Period: ${new Date(audit.scopeTimeFrom).toLocaleDateString()} to ${new Date(audit.scopeTimeTo).toLocaleDateString()}
+
+AUDIT RESULTS:
+- Total Indicators Assessed: ${totalIndicators}
+- Conformance: ${conformanceCount} (rating indicates full compliance)
+- Observations: ${observationCount} (minor improvements suggested)
+- Minor Non-Conformances: ${minorNcCount} (requires corrective action)
+- Major Non-Conformances: ${majorNcCount} (critical issues requiring immediate attention)
+- Overall Score: ${scorePercent}% (${scorePoints}/${maxPoints} points)
+
+INTERVIEWS CONDUCTED: ${interviews.length}
+${interviews.map((i: any) => `- ${i.interviewType} (${i.method})${i.keyObservations ? ': ' + i.keyObservations.substring(0, 100) : ''}`).join('\n')}
+
+SITE VISITS: ${siteVisits.length}
+${siteVisits.map((s: any) => `- ${s.siteName}${s.observationsPositive ? ': ' + s.observationsPositive.substring(0, 100) : ''}`).join('\n')}
+
+${findings.length > 0 ? `KEY FINDINGS (${findings.length} total):
+${findings.slice(0, 5).map((f: any) => `- [${f.severity}] ${f.findingText?.substring(0, 150) || 'No description'}`).join('\n')}` : ''}
+
+Write a 2-3 paragraph executive summary that:
+1. Opens with the audit purpose and methodology used
+2. Summarizes key strengths observed during the audit
+3. Highlights areas requiring improvement and any non-conformances identified
+4. Concludes with overall assessment and recommendation (e.g., continued certification, conditional certification with remediation, etc.)
+
+Keep the tone professional and balanced. Focus on facts rather than opinions. Limit to approximately 250-350 words.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5",
+      messages: [
+        { role: "system", content: "You are an expert NDIS compliance auditor writing professional audit reports." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 800,
+    });
+    
+    const summary = completion.choices[0]?.message?.content || "";
+    
+    // Save the generated summary
+    await storage.updateAuditExecutiveSummary(auditId, companyId, summary, userId);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "EXECUTIVE_SUMMARY_GENERATED",
+      entityType: "audit",
+      entityId: auditId,
+      afterJson: { wordCount: summary.split(/\s+/).length },
+    });
+    
+    return res.json({ summary, cached: false });
+  } catch (error) {
+    console.error("Generate executive summary error:", error);
+    return res.status(500).json({ error: "Failed to generate executive summary" });
+  }
+});
+
+const updateSummarySchema = z.object({
+  summary: z.string().min(50, "Summary must be at least 50 characters"),
+});
+
+router.put("/audits/:auditId/executive-summary", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const parsed = updateSummarySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const updated = await storage.updateAuditExecutiveSummary(auditId, companyId, parsed.data.summary, userId);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "EXECUTIVE_SUMMARY_UPDATED",
+      entityType: "audit",
+      entityId: auditId,
+      afterJson: { wordCount: parsed.data.summary.split(/\s+/).length },
+    });
+    
+    return res.json(updated);
+  } catch (error) {
+    console.error("Update executive summary error:", error);
+    return res.status(500).json({ error: "Failed to update executive summary" });
+  }
+});
+
 export default router;
