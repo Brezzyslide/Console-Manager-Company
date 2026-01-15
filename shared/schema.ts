@@ -635,6 +635,65 @@ export const insertFindingSchema = createInsertSchema(findings).omit({
 export type InsertFinding = z.infer<typeof insertFindingSchema>;
 export type Finding = typeof findings.$inferSelect;
 
+// Finding Activity Types for corrective action tracking
+export const findingActivityTypeEnum = [
+  "CREATED",
+  "STATUS_CHANGED",
+  "OWNER_ASSIGNED",
+  "DUE_DATE_SET",
+  "COMMENT_ADDED",
+  "EVIDENCE_REQUESTED",
+  "EVIDENCE_SUBMITTED",
+  "EVIDENCE_REVIEWED",
+  "CLOSURE_INITIATED",
+  "CLOSED",
+  "REOPENED",
+] as const;
+
+export type FindingActivityType = typeof findingActivityTypeEnum[number];
+
+// Finding Activities (Audit trail for corrective action journey)
+export const findingActivities = pgTable("finding_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  findingId: varchar("finding_id").notNull().references(() => findings.id, { onDelete: "cascade" }),
+  activityType: text("activity_type", { enum: findingActivityTypeEnum }).notNull(),
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  comment: text("comment"),
+  performedByCompanyUserId: varchar("performed_by_company_user_id").references(() => companyUsers.id),
+  evidenceRequestId: varchar("evidence_request_id"),
+  evidenceItemId: varchar("evidence_item_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertFindingActivitySchema = createInsertSchema(findingActivities).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFindingActivity = z.infer<typeof insertFindingActivitySchema>;
+export type FindingActivity = typeof findingActivities.$inferSelect;
+
+// Finding Closure Evidence (Links evidence items to finding closures)
+export const findingClosureEvidence = pgTable("finding_closure_evidence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  findingId: varchar("finding_id").notNull().references(() => findings.id, { onDelete: "cascade" }),
+  evidenceItemId: varchar("evidence_item_id").notNull(),
+  addedByCompanyUserId: varchar("added_by_company_user_id").references(() => companyUsers.id),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertFindingClosureEvidenceSchema = createInsertSchema(findingClosureEvidence).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertFindingClosureEvidence = z.infer<typeof insertFindingClosureEvidenceSchema>;
+export type FindingClosureEvidence = typeof findingClosureEvidence.$inferSelect;
+
 // Evidence Requests - flexible linking for different contexts:
 // auditId + no findingId = audit-linked evidence request (pre-finding)
 // auditId + findingId = finding remediation
