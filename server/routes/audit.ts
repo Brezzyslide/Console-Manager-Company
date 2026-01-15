@@ -2473,6 +2473,113 @@ router.put("/audits/:auditId/executive-summary", requireCompanyAuth, requireRole
   }
 });
 
+// =====================
+// AI FINDING DRAFT GENERATION
+// =====================
+
+const generateFindingDraftSchema = z.object({
+  indicatorText: z.string().min(1, "Indicator text is required"),
+  rating: z.enum(["MINOR_NC", "MAJOR_NC"] as const),
+  comment: z.string().optional(),
+  domainCode: z.string().optional(),
+  evidenceRequirements: z.string().optional(),
+});
+
+router.post("/audits/:auditId/generate-finding-draft", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const parsed = generateFindingDraftSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const { indicatorText, rating, comment, domainCode, evidenceRequirements } = parsed.data;
+    
+    const severityLabel = rating === "MAJOR_NC" ? "Major Non-Conformance" : "Minor Non-Conformance";
+    const domainLabels: Record<string, string> = {
+      GOV_POLICY: "Governance & Policy",
+      STAFF_PERSONNEL: "Staff & Personnel",
+      OPERATIONAL: "Operational / Client Specific",
+      SITE_ENVIRONMENT: "Site-Specific & Environment",
+    };
+    const domainLabel = domainCode ? domainLabels[domainCode] || domainCode : "General";
+    
+    const prompt = `You are an expert NDIS compliance auditor drafting a professional finding for an audit report. Write in a clear, objective, factual tone suitable for regulatory review.
+
+CONTEXT:
+- Service Provider: ${audit.entityName || 'NDIS Provider'}
+- Service Type: ${audit.serviceContextLabel || 'NDIS Service'}
+- Compliance Domain: ${domainLabel}
+
+INDICATOR ASSESSED:
+"${indicatorText}"
+
+${evidenceRequirements ? `EXPECTED EVIDENCE:
+${evidenceRequirements}
+
+` : ''}AUDITOR RATING: ${severityLabel}
+
+${comment ? `AUDITOR OBSERVATIONS:
+${comment}
+
+` : ''}Generate a professional finding draft that includes:
+
+1. **Finding Statement** (1-2 sentences): A clear, factual statement of what was observed that led to the non-conformance. Use objective language - "The organization did not..." or "Evidence reviewed did not demonstrate..."
+
+2. **Reference** (brief): Mention the relevant NDIS Practice Standard or requirement that was not met.
+
+3. **Evidence Gap** (1-2 sentences): Describe what evidence was missing, incomplete, or inadequate.
+
+4. **Risk/Impact** (1 sentence): Explain the potential impact on participant safety, rights, or service quality.
+
+5. **Corrective Action Required** (1-2 sentences): State what the provider needs to do to address this finding. Be specific but not prescriptive.
+
+Format the response as a cohesive paragraph or short paragraphs that can be used directly in an audit report. Keep the total length to approximately 150-200 words. Do not use bullet points or numbered lists in the output.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are an expert NDIS compliance auditor writing professional audit findings. Your findings are factual, balanced, and actionable. You reference NDIS Practice Standards appropriately." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.6,
+      max_tokens: 500,
+    });
+    
+    const findingDraft = completion.choices[0]?.message?.content || "";
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "FINDING_DRAFT_GENERATED",
+      entityType: "audit",
+      entityId: auditId,
+      afterJson: { indicatorText: indicatorText.substring(0, 100), rating, wordCount: findingDraft.split(/\s+/).length },
+    });
+    
+    return res.json({ 
+      findingDraft,
+      metadata: {
+        severity: rating,
+        domain: domainLabel,
+        indicatorPreview: indicatorText.substring(0, 80),
+      }
+    });
+  } catch (error) {
+    console.error("Generate finding draft error:", error);
+    return res.status(500).json({ error: "Failed to generate finding draft" });
+  }
+});
+
 // Audit Sites CRUD (for multi-location audits)
 const createAuditSiteSchema = z.object({
   siteName: z.string().min(1, "Site name is required"),

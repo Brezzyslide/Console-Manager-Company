@@ -895,6 +895,48 @@ export async function updateFinding(
   return res.json();
 }
 
+// ===== AI FINDING DRAFT =====
+
+export interface GenerateFindingDraftInput {
+  indicatorText: string;
+  rating: IndicatorRating;
+  comment?: string;
+  domainCode?: string;
+  evidenceRequirements?: string;
+}
+
+export interface GenerateFindingDraftResponse {
+  findingDraft: string;
+  metadata: {
+    severity: string;
+    domain: string;
+    indicatorPreview: string;
+  };
+}
+
+export async function generateFindingDraft(
+  auditId: string,
+  input: GenerateFindingDraftInput
+): Promise<GenerateFindingDraftResponse> {
+  const res = await fetch(`/api/company/audits/${auditId}/generate-finding-draft`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    let errorMessage = "Failed to generate finding draft";
+    try {
+      const data = await res.json();
+      errorMessage = data.error || errorMessage;
+    } catch {
+      // Response body was empty or not JSON
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
 // ===== EVIDENCE API =====
 
 export type EvidenceStatus = "REQUESTED" | "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED";

@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp, Link, Check, Copy, Layers, Settings2, Lock } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp, Link, Check, Copy, Layers, Settings2, Lock, Sparkles } from "lucide-react";
 import { AuditNavTabs } from "@/components/AuditNavTabs";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -26,6 +26,7 @@ import {
   updateAuditScope,
   getAuditDomains,
   updateAuditScopeDomains,
+  generateFindingDraft,
   type IndicatorRating,
   type AuditTemplateIndicator,
   type AuditIndicatorResponse,
@@ -103,6 +104,7 @@ export default function AuditRunnerPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [selectedLineItemIds, setSelectedLineItemIds] = useState<string[]>([]);
   const [selectedDomainIds, setSelectedDomainIds] = useState<string[]>([]);
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [evidenceForm, setEvidenceForm] = useState({
     evidenceType: "" as EvidenceType | "",
     requestNote: "",
@@ -528,11 +530,68 @@ export default function AuditRunnerPage() {
                 <label className="text-sm font-medium">
                   Comment {rating && (rating === "MINOR_NC" || rating === "MAJOR_NC") && <span className="text-destructive">*</span>}
                 </label>
-                {rating && (rating === "MINOR_NC" || rating === "MAJOR_NC") && (
-                  <span className={`text-xs ${comment.trim().length >= 10 ? "text-muted-foreground" : "text-destructive"}`}>
-                    {comment.trim().length}/10 min
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {rating && (rating === "MINOR_NC" || rating === "MAJOR_NC") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (!currentIndicator || !rating || !id) return;
+                        if (comment.trim().length > 20) {
+                          const confirmed = window.confirm(
+                            "This will replace your existing comment with an AI-generated draft. Continue?"
+                          );
+                          if (!confirmed) return;
+                        }
+                        const previousComment = comment;
+                        setIsGeneratingDraft(true);
+                        try {
+                          const result = await generateFindingDraft(id, {
+                            indicatorText: currentIndicator.indicatorText,
+                            rating,
+                            comment: comment || undefined,
+                            domainCode: currentIndicator.auditDomainCode || undefined,
+                            evidenceRequirements: currentIndicator.evidenceRequirements || undefined,
+                          });
+                          setComment(result.findingDraft);
+                          toast({
+                            title: "Finding Draft Generated",
+                            description: "AI has drafted a finding based on this indicator. Review and edit as needed.",
+                          });
+                        } catch (error) {
+                          setComment(previousComment);
+                          toast({
+                            title: "Generation Failed",
+                            description: (error as Error).message,
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setIsGeneratingDraft(false);
+                        }
+                      }}
+                      disabled={isGeneratingDraft}
+                      className="text-xs"
+                      data-testid="button-generate-finding-draft"
+                    >
+                      {isGeneratingDraft ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          AI Draft
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {rating && (rating === "MINOR_NC" || rating === "MAJOR_NC") && (
+                    <span className={`text-xs ${comment.trim().length >= 10 ? "text-muted-foreground" : "text-destructive"}`}>
+                      {comment.trim().length}/10 min
+                    </span>
+                  )}
+                </div>
               </div>
               <Textarea
                 placeholder={rating && (rating === "MINOR_NC" || rating === "MAJOR_NC") 
