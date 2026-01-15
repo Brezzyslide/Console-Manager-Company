@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   FolderOpen,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  ClipboardCheck
 } from "lucide-react";
 
 interface CompanyLayoutProps {
@@ -107,6 +108,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
 
   const navItems = [
     { href: "/company/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
+    { href: "/audits", label: "Audits", icon: ClipboardCheck, testId: "nav-audits", startsWith: true },
     { href: "/findings", label: "Findings", icon: AlertTriangle, testId: "nav-findings" },
     { href: "/evidence", label: "Evidence", icon: FolderOpen, testId: "nav-evidence", startsWith: true },
   ];
