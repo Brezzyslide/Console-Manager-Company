@@ -898,7 +898,27 @@ export async function updateFinding(
 // ===== EVIDENCE API =====
 
 export type EvidenceStatus = "REQUESTED" | "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED";
-export type EvidenceType = "POLICY" | "PROCEDURE" | "TRAINING_RECORD" | "INCIDENT_REPORT" | "CASE_NOTE" | "MEDICATION_RECORD" | "BSP" | "RISK_ASSESSMENT" | "ROSTER" | "OTHER";
+export type EvidenceType = 
+  // Client Identity & Authority
+  | "CLIENT_PROFILE" | "NDIS_PLAN" | "SERVICE_AGREEMENT" | "CONSENT_FORM" | "GUARDIAN_DOCUMENTATION"
+  // Assessment & Planning
+  | "CARE_PLAN" | "BSP" | "MMP" | "HEALTH_PLAN" | "COMMUNICATION_PLAN" | "RISK_ASSESSMENT" | "EMERGENCY_PLAN"
+  // Delivery of Supports
+  | "ROSTER" | "SHIFT_NOTES" | "DAILY_LOG" | "PROGRESS_NOTES" | "ACTIVITY_RECORD"
+  // Staff & Personnel
+  | "QUALIFICATION" | "WWCC" | "TRAINING_RECORD" | "SUPERVISION_RECORD"
+  // Medication & Health
+  | "MEDICATION_PLAN" | "MAR" | "PRN_LOG"
+  // Incidents & Complaints
+  | "INCIDENT_REPORT" | "COMPLAINT_RECORD" | "RP_RECORD"
+  // Funding & Claims
+  | "SERVICE_BOOKING" | "INVOICE_CLAIM"
+  // Governance
+  | "POLICY" | "PROCEDURE"
+  // Other
+  | "REVIEW_RECORD" | "OTHER"
+  // Legacy types (backward compatibility)
+  | "CASE_NOTE" | "MEDICATION_RECORD" | "CLEARANCE" | "SUPERVISION" | "ROSTER_TIMESHEET" | "INCIDENT_RECORD";
 
 export interface EvidenceRequest {
   id: string;

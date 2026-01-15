@@ -34,31 +34,107 @@ const statusConfig: Record<EvidenceStatus, { label: string; color: string; icon:
 };
 
 const evidenceTypeLabels: Record<string, string> = {
+  // Client Identity & Authority
+  CLIENT_PROFILE: "Client Profile / Intake",
+  NDIS_PLAN: "NDIS Plan",
+  SERVICE_AGREEMENT: "Service Agreement",
+  CONSENT_FORM: "Consent Form",
+  GUARDIAN_DOCUMENTATION: "Guardian / Nominee Documentation",
+  // Assessment & Planning
+  CARE_PLAN: "Care / Support Plan",
+  BSP: "Behaviour Support Plan",
+  MMP: "Mealtime Management Plan",
+  HEALTH_PLAN: "Health Management Plan",
+  COMMUNICATION_PLAN: "Communication Plan",
+  RISK_ASSESSMENT: "Risk Assessment",
+  EMERGENCY_PLAN: "Emergency Plan",
+  // Delivery of Supports
+  ROSTER: "Roster / Shift Allocation",
+  SHIFT_NOTES: "Shift Notes / Case Notes",
+  DAILY_LOG: "Daily Support Log",
+  PROGRESS_NOTES: "Progress Notes",
+  ACTIVITY_RECORD: "Activity Record",
+  // Staff & Personnel
+  QUALIFICATION: "Qualification / Credential",
+  WWCC: "WWCC / Police Check / Screening",
+  TRAINING_RECORD: "Training Record",
+  SUPERVISION_RECORD: "Supervision Record",
+  // Medication & Health
+  MEDICATION_PLAN: "Medication Management Plan",
+  MAR: "Medication Administration Record",
+  PRN_LOG: "PRN Protocol / Log",
+  // Incidents & Complaints
+  INCIDENT_REPORT: "Incident Report",
+  COMPLAINT_RECORD: "Complaint Record",
+  RP_RECORD: "Restrictive Practice Record",
+  // Funding & Claims
+  SERVICE_BOOKING: "Service Booking / Funding",
+  INVOICE_CLAIM: "Invoice / Claim Record",
+  // Governance
   POLICY: "Policy Document",
   PROCEDURE: "Procedure",
-  TRAINING_RECORD: "Training Record",
-  INCIDENT_REPORT: "Incident Report",
+  // Other
+  REVIEW_RECORD: "Review / Monitoring Record",
+  OTHER: "Other",
+  // Legacy types (backward compatibility)
   CASE_NOTE: "Case Note",
   MEDICATION_RECORD: "Medication Record",
-  BSP: "Behaviour Support Plan",
-  RISK_ASSESSMENT: "Risk Assessment",
-  ROSTER: "Roster/Schedule",
-  OTHER: "Other",
+  CLEARANCE: "Clearance",
+  SUPERVISION: "Supervision",
+  ROSTER_TIMESHEET: "Roster/Timesheet",
+  INCIDENT_RECORD: "Incident Record",
 };
 
 const documentTypeLabels: Record<string, string> = {
-  POLICY: "Policy",
-  PROCEDURE: "Procedure",
-  TRAINING_RECORD: "Training Record",
-  RISK_ASSESSMENT: "Risk Assessment",
-  CARE_PLAN: "Care Plan",
-  QUALIFICATION: "Qualification",
-  WWCC: "WWCC/Police Check",
+  // Client Identity & Authority
+  CLIENT_PROFILE: "Client Profile / Intake",
+  NDIS_PLAN: "NDIS Plan",
   SERVICE_AGREEMENT: "Service Agreement",
+  CONSENT_FORM: "Consent Form",
+  GUARDIAN_DOCUMENTATION: "Guardian / Nominee Documentation",
+  // Assessment & Planning
+  CARE_PLAN: "Care / Support Plan",
+  BSP: "Behaviour Support Plan",
+  MMP: "Mealtime Management Plan",
+  HEALTH_PLAN: "Health Management Plan",
+  COMMUNICATION_PLAN: "Communication Plan",
+  RISK_ASSESSMENT: "Risk Assessment",
+  EMERGENCY_PLAN: "Emergency Plan",
+  // Delivery of Supports
+  ROSTER: "Roster / Shift Allocation",
+  SHIFT_NOTES: "Shift Notes / Case Notes",
+  DAILY_LOG: "Daily Support Log",
+  PROGRESS_NOTES: "Progress Notes",
+  ACTIVITY_RECORD: "Activity Record",
+  // Staff & Personnel
+  QUALIFICATION: "Qualification / Credential",
+  WWCC: "WWCC / Police Check / Screening",
+  TRAINING_RECORD: "Training Record",
+  SUPERVISION_RECORD: "Supervision Record",
+  // Medication & Health
+  MEDICATION_PLAN: "Medication Management Plan",
+  MAR: "Medication Administration Record",
+  PRN_LOG: "PRN Protocol / Log",
+  // Incidents & Complaints
   INCIDENT_REPORT: "Incident Report",
   COMPLAINT_RECORD: "Complaint Record",
-  CONSENT_FORM: "Consent Form",
+  RP_RECORD: "Restrictive Practice Record",
+  // Funding & Claims
+  SERVICE_BOOKING: "Service Booking / Funding",
+  INVOICE_CLAIM: "Invoice / Claim Record",
+  // Governance
+  POLICY: "Policy Document",
+  PROCEDURE: "Procedure",
+  // Other
+  REVIEW_RECORD: "Review / Monitoring Record",
   OTHER: "Other",
+  // Legacy types (backward compatibility)
+  CASE_NOTE: "Case Note",
+  MEDICATION_RECORD: "Medication Record",
+  CLEARANCE: "Clearance",
+  SUPERVISION: "Supervision",
+  ROSTER_TIMESHEET: "Roster/Timesheet",
+  INCIDENT_RECORD: "Incident Record",
 };
 
 export default function EvidenceDetailPage() {

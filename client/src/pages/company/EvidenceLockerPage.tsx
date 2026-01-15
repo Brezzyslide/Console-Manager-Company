@@ -23,15 +23,47 @@ import { format } from "date-fns";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
 
 const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
+  // Client Identity & Authority
+  { value: "CLIENT_PROFILE", label: "Client Profile / Intake" },
+  { value: "NDIS_PLAN", label: "NDIS Plan" },
+  { value: "SERVICE_AGREEMENT", label: "Service Agreement" },
+  { value: "CONSENT_FORM", label: "Consent Form" },
+  { value: "GUARDIAN_DOCUMENTATION", label: "Guardian / Nominee Documentation" },
+  // Assessment & Planning
+  { value: "CARE_PLAN", label: "Care / Support Plan" },
+  { value: "BSP", label: "Behaviour Support Plan (BSP)" },
+  { value: "MMP", label: "Mealtime Management Plan (MMP)" },
+  { value: "HEALTH_PLAN", label: "Health Management Plan" },
+  { value: "COMMUNICATION_PLAN", label: "Communication Plan" },
+  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
+  { value: "EMERGENCY_PLAN", label: "Emergency Plan" },
+  // Delivery of Supports
+  { value: "ROSTER", label: "Roster / Shift Allocation" },
+  { value: "SHIFT_NOTES", label: "Shift Notes / Case Notes" },
+  { value: "DAILY_LOG", label: "Daily Support Log" },
+  { value: "PROGRESS_NOTES", label: "Progress Notes" },
+  { value: "ACTIVITY_RECORD", label: "Activity Record" },
+  // Staff & Personnel
+  { value: "QUALIFICATION", label: "Qualification / Credential" },
+  { value: "WWCC", label: "WWCC / Police Check / Screening" },
+  { value: "TRAINING_RECORD", label: "Training Record" },
+  { value: "SUPERVISION_RECORD", label: "Supervision Record" },
+  // Medication & Health
+  { value: "MEDICATION_PLAN", label: "Medication Management Plan" },
+  { value: "MAR", label: "Medication Administration Record" },
+  { value: "PRN_LOG", label: "PRN Protocol / Log" },
+  // Incidents & Complaints
+  { value: "INCIDENT_REPORT", label: "Incident Report" },
+  { value: "COMPLAINT_RECORD", label: "Complaint Record" },
+  { value: "RP_RECORD", label: "Restrictive Practice Record" },
+  // Funding & Claims
+  { value: "SERVICE_BOOKING", label: "Service Booking / Funding" },
+  { value: "INVOICE_CLAIM", label: "Invoice / Claim Record" },
+  // Governance
   { value: "POLICY", label: "Policy Document" },
   { value: "PROCEDURE", label: "Procedure" },
-  { value: "TRAINING_RECORD", label: "Training Record" },
-  { value: "INCIDENT_REPORT", label: "Incident Report" },
-  { value: "CASE_NOTE", label: "Case Note" },
-  { value: "MEDICATION_RECORD", label: "Medication Record" },
-  { value: "BSP", label: "Behaviour Support Plan" },
-  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
-  { value: "ROSTER", label: "Roster/Schedule" },
+  // Other
+  { value: "REVIEW_RECORD", label: "Review / Monitoring Record" },
   { value: "OTHER", label: "Other" },
 ];
 
@@ -44,16 +76,55 @@ const statusConfig: Record<EvidenceStatus, { label: string; color: string; icon:
 };
 
 const evidenceTypeLabels: Record<string, string> = {
+  // Client Identity & Authority
+  CLIENT_PROFILE: "Client Profile / Intake",
+  NDIS_PLAN: "NDIS Plan",
+  SERVICE_AGREEMENT: "Service Agreement",
+  CONSENT_FORM: "Consent Form",
+  GUARDIAN_DOCUMENTATION: "Guardian / Nominee Documentation",
+  // Assessment & Planning
+  CARE_PLAN: "Care / Support Plan",
+  BSP: "Behaviour Support Plan",
+  MMP: "Mealtime Management Plan",
+  HEALTH_PLAN: "Health Management Plan",
+  COMMUNICATION_PLAN: "Communication Plan",
+  RISK_ASSESSMENT: "Risk Assessment",
+  EMERGENCY_PLAN: "Emergency Plan",
+  // Delivery of Supports
+  ROSTER: "Roster / Shift Allocation",
+  SHIFT_NOTES: "Shift Notes / Case Notes",
+  DAILY_LOG: "Daily Support Log",
+  PROGRESS_NOTES: "Progress Notes",
+  ACTIVITY_RECORD: "Activity Record",
+  // Staff & Personnel
+  QUALIFICATION: "Qualification / Credential",
+  WWCC: "WWCC / Police Check / Screening",
+  TRAINING_RECORD: "Training Record",
+  SUPERVISION_RECORD: "Supervision Record",
+  // Medication & Health
+  MEDICATION_PLAN: "Medication Management Plan",
+  MAR: "Medication Administration Record",
+  PRN_LOG: "PRN Protocol / Log",
+  // Incidents & Complaints
+  INCIDENT_REPORT: "Incident Report",
+  COMPLAINT_RECORD: "Complaint Record",
+  RP_RECORD: "Restrictive Practice Record",
+  // Funding & Claims
+  SERVICE_BOOKING: "Service Booking / Funding",
+  INVOICE_CLAIM: "Invoice / Claim Record",
+  // Governance
   POLICY: "Policy Document",
   PROCEDURE: "Procedure",
-  TRAINING_RECORD: "Training Record",
-  INCIDENT_REPORT: "Incident Report",
+  // Other
+  REVIEW_RECORD: "Review / Monitoring Record",
+  OTHER: "Other",
+  // Legacy types (backward compatibility)
   CASE_NOTE: "Case Note",
   MEDICATION_RECORD: "Medication Record",
-  BSP: "Behaviour Support Plan",
-  RISK_ASSESSMENT: "Risk Assessment",
-  ROSTER: "Roster/Schedule",
-  OTHER: "Other",
+  CLEARANCE: "Clearance",
+  SUPERVISION: "Supervision",
+  ROSTER_TIMESHEET: "Roster/Timesheet",
+  INCIDENT_RECORD: "Incident Record",
 };
 
 export default function EvidenceLockerPage() {

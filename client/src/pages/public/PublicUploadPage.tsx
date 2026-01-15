@@ -19,26 +19,238 @@ interface EvidenceRequestInfo {
 }
 
 const DOCUMENT_TYPES = [
-  { value: "POLICY", label: "Policy Document" },
-  { value: "PROCEDURE", label: "Procedure Document" },
-  { value: "TRAINING_RECORD", label: "Training Record / Certificate" },
-  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
-  { value: "CARE_PLAN", label: "Care / Support Plan" },
-  { value: "QUALIFICATION", label: "Qualification / Credential" },
-  { value: "WWCC", label: "WWCC / Police Check" },
+  // Client Identity & Authority
+  { value: "CLIENT_PROFILE", label: "Client Profile / Intake Record" },
+  { value: "NDIS_PLAN", label: "NDIS Plan" },
   { value: "SERVICE_AGREEMENT", label: "Service Agreement" },
+  { value: "CONSENT_FORM", label: "Consent Form" },
+  { value: "GUARDIAN_DOCUMENTATION", label: "Guardian / Nominee Documentation" },
+  // Assessment & Planning
+  { value: "CARE_PLAN", label: "Care / Support Plan" },
+  { value: "BSP", label: "Behaviour Support Plan (BSP)" },
+  { value: "MMP", label: "Mealtime Management Plan (MMP)" },
+  { value: "HEALTH_PLAN", label: "Health Management Plan" },
+  { value: "COMMUNICATION_PLAN", label: "Communication Plan" },
+  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
+  { value: "EMERGENCY_PLAN", label: "Emergency / Evacuation Plan" },
+  // Delivery of Supports
+  { value: "ROSTER", label: "Roster / Shift Allocation" },
+  { value: "SHIFT_NOTES", label: "Shift Notes / Case Notes" },
+  { value: "DAILY_LOG", label: "Daily Support Log" },
+  { value: "PROGRESS_NOTES", label: "Progress Notes" },
+  { value: "ACTIVITY_RECORD", label: "Activity / Community Access Record" },
+  // Staff & Personnel
+  { value: "QUALIFICATION", label: "Qualification / Credential" },
+  { value: "WWCC", label: "WWCC / Police Check / NDIS Screening" },
+  { value: "TRAINING_RECORD", label: "Training Record / Certificate" },
+  { value: "SUPERVISION_RECORD", label: "Supervision Record" },
+  // Medication & Health
+  { value: "MEDICATION_PLAN", label: "Medication Management Plan" },
+  { value: "MAR", label: "Medication Administration Record (MAR)" },
+  { value: "PRN_LOG", label: "PRN Protocol / Usage Log" },
+  // Incidents & Complaints
   { value: "INCIDENT_REPORT", label: "Incident Report" },
   { value: "COMPLAINT_RECORD", label: "Complaint Record" },
-  { value: "CONSENT_FORM", label: "Consent Form" },
+  { value: "RP_RECORD", label: "Restrictive Practice Record" },
+  // Funding & Claims
+  { value: "SERVICE_BOOKING", label: "Service Booking / Funding Allocation" },
+  { value: "INVOICE_CLAIM", label: "Invoice / Claim Record" },
+  // Governance
+  { value: "POLICY", label: "Policy Document" },
+  { value: "PROCEDURE", label: "Procedure Document" },
+  // Other
+  { value: "REVIEW_RECORD", label: "Review / Monitoring Record" },
   { value: "OTHER", label: "Other Document" },
 ] as const;
 
 const DOCUMENT_TIPS: Record<string, string[]> = {
+  // Client Identity & Authority
+  CLIENT_PROFILE: [
+    "Include complete demographic information (name, DOB, address)",
+    "Include emergency contact details",
+    "Document communication preferences",
+    "Ensure NDIS number is recorded",
+  ],
+  NDIS_PLAN: [
+    "Provide current plan with visible plan dates",
+    "NDIS number must be clearly visible",
+    "Include all funded support categories",
+    "Previous plans may be needed for audit period coverage",
+  ],
+  SERVICE_AGREEMENT: [
+    "Must be signed and dated by participant or nominee",
+    "Services listed must align with NDIS plan",
+    "Include current pricing matching NDIS price guide",
+    "Include cancellation policy and complaints process",
+  ],
+  CONSENT_FORM: [
+    "Include participant name and date of consent",
+    "Clearly state what is being consented to",
+    "Specify who information can be shared with",
+    "Must be signed by participant or authorised representative",
+  ],
+  GUARDIAN_DOCUMENTATION: [
+    "Include guardianship order or tribunal documentation",
+    "Clearly show scope of guardianship authority",
+    "Check validity dates - must be current",
+    "Include nominee appointment letters if applicable",
+  ],
+  // Assessment & Planning
+  CARE_PLAN: [
+    "Must include participant name and identifiers",
+    "Goals should link to NDIS plan objectives",
+    "Include specific support strategies",
+    "Show review date and participant sign-off",
+  ],
+  BSP: [
+    "Must be developed by a qualified behaviour support practitioner",
+    "Include strategies to reduce restrictive practices",
+    "Show clear review date (typically 12 months)",
+    "Include NDIS Quality and Safeguards Commission lodgement reference if applicable",
+  ],
+  MMP: [
+    "Must be developed by a qualified speech pathologist",
+    "Include texture modifications and positioning requirements",
+    "Document risk of aspiration and management strategies",
+    "Show clear review date",
+  ],
+  HEALTH_PLAN: [
+    "Document ongoing health conditions",
+    "Include medication requirements and allergies",
+    "List treating health professionals",
+    "Include emergency health protocols",
+  ],
+  COMMUNICATION_PLAN: [
+    "Describe how the participant communicates",
+    "Include any augmentative/alternative communication (AAC) needs",
+    "List what works well and what to avoid",
+    "Include sensory or environmental considerations",
+  ],
+  RISK_ASSESSMENT: [
+    "Include assessment date and assessor name",
+    "Identify specific risks for this participant",
+    "Include risk ratings (likelihood x consequence)",
+    "Document control measures and who is responsible",
+  ],
+  EMERGENCY_PLAN: [
+    "Include participant-specific evacuation needs",
+    "Document mobility and communication considerations",
+    "Include medication or equipment that must go with participant",
+    "Show how staff will be made aware of this plan",
+  ],
+  // Delivery of Supports
+  ROSTER: [
+    "Show client allocation and staff assignment",
+    "Include shift times and support type",
+    "Must cover the audit period being reviewed",
+    "Show skill-matching where relevant",
+  ],
+  SHIFT_NOTES: [
+    "Include date, time, and staff member name",
+    "Document what support was provided",
+    "Note any concerns or changes in participant presentation",
+    "Should align with care plan objectives",
+  ],
+  DAILY_LOG: [
+    "Include date and staff completing the log",
+    "Document activities and participation",
+    "Note food/fluid intake if relevant",
+    "Record any incidents or concerns",
+  ],
+  PROGRESS_NOTES: [
+    "Link progress to specific goals in care plan",
+    "Include measurable outcomes where possible",
+    "Note barriers or adjustments needed",
+    "Include participant feedback",
+  ],
+  ACTIVITY_RECORD: [
+    "Document what activity was undertaken",
+    "Include location and duration",
+    "Note participant engagement and outcomes",
+    "Link to community participation goals",
+  ],
+  // Staff & Personnel
+  QUALIFICATION: [
+    "Staff member name must match employment records",
+    "Include issuing institution details",
+    "Show issue date and expiry if applicable",
+    "Include registration or certification number",
+  ],
+  WWCC: [
+    "Name must match employee records exactly",
+    "Clearance must be current (check expiry)",
+    "Reference number must be legible",
+    "Status must show cleared/valid",
+  ],
+  TRAINING_RECORD: [
+    "Include staff member name",
+    "Show training date and completion evidence",
+    "Name the training provider",
+    "Include expiry/renewal date if applicable",
+  ],
+  SUPERVISION_RECORD: [
+    "Include date and names of supervisor and supervisee",
+    "Document topics discussed",
+    "Note any actions or follow-ups agreed",
+    "Include signatures of both parties",
+  ],
+  // Medication & Health
+  MEDICATION_PLAN: [
+    "List all medications with dosages and times",
+    "Include prescriber details",
+    "Document administration route and any special instructions",
+    "Show review date and who reviewed",
+  ],
+  MAR: [
+    "Every dose must be signed with time given",
+    "Missed doses must be explained",
+    "PRN administration must include reason",
+    "No gaps or unexplained entries",
+  ],
+  PRN_LOG: [
+    "Document reason for PRN administration",
+    "Include time given and dose",
+    "Record effectiveness/outcome",
+    "Check against PRN limits in medication plan",
+  ],
+  // Incidents & Complaints
+  INCIDENT_REPORT: [
+    "Include incident date, time, and location",
+    "Describe what occurred and who was involved",
+    "Document immediate actions taken",
+    "Include any NDIS Commission reportable incident reference",
+  ],
+  COMPLAINT_RECORD: [
+    "Include date complaint was received",
+    "Document who made the complaint",
+    "Record investigation steps and findings",
+    "Show resolution and communication to complainant",
+  ],
+  RP_RECORD: [
+    "Document type of restrictive practice used",
+    "Include authorisation details and BSP reference",
+    "Record duration and participant response",
+    "Include NDIS Commission reporting reference",
+  ],
+  // Funding & Claims
+  SERVICE_BOOKING: [
+    "Include NDIS portal booking reference",
+    "Show allocated budget by support category",
+    "Document dates of allocation",
+    "Include any variations or amendments",
+  ],
+  INVOICE_CLAIM: [
+    "Include participant name and NDIS number",
+    "Show service dates and support item codes",
+    "Rates must match NDIS price guide",
+    "Claims should reconcile with delivery records",
+  ],
+  // Governance
   POLICY: [
     "Include clear title and version number",
-    "Document should be dated within review period (typically 2 years)",
+    "Document should be dated within review period (typically 2-3 years)",
     "Include approval signature or authorisation",
-    "Reference relevant legislation or standards",
+    "Reference relevant legislation or NDIS Practice Standards",
   ],
   PROCEDURE: [
     "Include step-by-step instructions",
@@ -46,65 +258,18 @@ const DOCUMENT_TIPS: Record<string, string[]> = {
     "Link to parent policy if applicable",
     "Include escalation pathway where relevant",
   ],
-  TRAINING_RECORD: [
-    "Include staff member name",
-    "Show training date and completion evidence",
-    "Name the training provider or organisation",
-    "Include expiry date if applicable",
-  ],
-  RISK_ASSESSMENT: [
-    "Include assessment date and assessor name",
-    "Clearly identify and describe risks",
-    "Include risk ratings (likelihood x impact)",
-    "Document control measures for each risk",
-  ],
-  CARE_PLAN: [
-    "Include participant name and identifiers",
-    "Document goals and outcomes",
-    "Detail support strategies",
-    "Obtain participant consent/signature",
-  ],
-  QUALIFICATION: [
-    "Ensure staff member name matches records",
-    "Include issuing institution details",
-    "Show issue date and expiry date if applicable",
-    "Include registration/certification number",
-  ],
-  WWCC: [
-    "Ensure person name matches employee records",
-    "Check date is current and visible",
-    "Card/reference number must be legible",
-    "Status must show cleared/valid",
-  ],
-  SERVICE_AGREEMENT: [
-    "Include participant name and details",
-    "Clearly describe services to be provided",
-    "Document pricing and fees",
-    "Include cancellation policy and complaints process",
-  ],
-  INCIDENT_REPORT: [
-    "Include incident date, time, and location",
-    "Describe what occurred and who was involved",
-    "Document immediate actions taken",
-    "Submit within required timeframes",
-  ],
-  COMPLAINT_RECORD: [
-    "Include date complaint was received",
-    "Describe nature of complaint",
-    "Document investigation steps",
-    "Record outcome and resolution",
-  ],
-  CONSENT_FORM: [
-    "Include participant name and date of consent",
-    "Clearly state purpose of consent",
-    "Define scope of consent",
-    "Obtain participant signature",
+  // Other
+  REVIEW_RECORD: [
+    "Include date of review and who participated",
+    "Document what was reviewed and any changes made",
+    "Show participant or representative involvement",
+    "Note next review date",
   ],
   OTHER: [
     "Ensure document title and purpose are clear",
     "Include relevant dates",
     "Make sure document is legible",
-    "Verify document is relevant to the request",
+    "Verify document is relevant to the audit request",
   ],
 };
 

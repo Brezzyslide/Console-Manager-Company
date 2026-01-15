@@ -268,34 +268,109 @@ export const ndisDivisionEnum = [
 // Sprint 4: Evidence enums
 export const evidenceStatusEnum = ["REQUESTED", "SUBMITTED", "UNDER_REVIEW", "ACCEPTED", "REJECTED"] as const;
 export const evidenceTypeEnum = [
-  "POLICY",
-  "PROCEDURE", 
+  // Client Identity & Authority
+  "CLIENT_PROFILE",
+  "NDIS_PLAN",
+  "SERVICE_AGREEMENT",
+  "CONSENT_FORM",
+  "GUARDIAN_DOCUMENTATION",
+  // Assessment & Planning
+  "CARE_PLAN",
+  "BSP",
+  "MMP",
+  "HEALTH_PLAN",
+  "COMMUNICATION_PLAN",
+  "RISK_ASSESSMENT",
+  "EMERGENCY_PLAN",
+  // Delivery of Supports
+  "ROSTER",
+  "SHIFT_NOTES",
+  "DAILY_LOG",
+  "PROGRESS_NOTES",
+  "ACTIVITY_RECORD",
+  // Staff & Personnel
+  "QUALIFICATION",
+  "WWCC",
   "TRAINING_RECORD",
+  "SUPERVISION_RECORD",
+  // Medication & Health
+  "MEDICATION_PLAN",
+  "MAR",
+  "PRN_LOG",
+  // Incidents & Complaints
   "INCIDENT_REPORT",
+  "COMPLAINT_RECORD",
+  "RP_RECORD",
+  // Funding & Claims
+  "SERVICE_BOOKING",
+  "INVOICE_CLAIM",
+  // Governance
+  "POLICY",
+  "PROCEDURE",
+  // Other
+  "REVIEW_RECORD",
+  "OTHER",
+  // Legacy types (kept for backward compatibility)
   "CASE_NOTE",
   "MEDICATION_RECORD",
-  "BSP",
-  "RISK_ASSESSMENT",
-  "ROSTER",
-  "OTHER"
+  "CLEARANCE",
+  "SUPERVISION",
+  "ROSTER_TIMESHEET",
+  "INCIDENT_RECORD"
 ] as const;
 export const storageKindEnum = ["UPLOAD", "LINK"] as const;
 
-// Document Review System enums
+// Document Review System enums (aligned with evidence types)
 export const documentTypeEnum = [
+  // Client Identity & Authority
+  "CLIENT_PROFILE",
+  "NDIS_PLAN",
+  "SERVICE_AGREEMENT",
+  "CONSENT_FORM",
+  "GUARDIAN_DOCUMENTATION",
+  // Assessment & Planning
+  "CARE_PLAN",
+  "BSP",
+  "MMP",
+  "HEALTH_PLAN",
+  "COMMUNICATION_PLAN",
+  "RISK_ASSESSMENT",
+  "EMERGENCY_PLAN",
+  // Delivery of Supports
+  "ROSTER",
+  "SHIFT_NOTES",
+  "DAILY_LOG",
+  "PROGRESS_NOTES",
+  "ACTIVITY_RECORD",
+  // Staff & Personnel
+  "QUALIFICATION",
+  "WWCC",
+  "TRAINING_RECORD",
+  "SUPERVISION_RECORD",
+  // Medication & Health
+  "MEDICATION_PLAN",
+  "MAR",
+  "PRN_LOG",
+  // Incidents & Complaints
+  "INCIDENT_REPORT",
+  "COMPLAINT_RECORD",
+  "RP_RECORD",
+  // Funding & Claims
+  "SERVICE_BOOKING",
+  "INVOICE_CLAIM",
+  // Governance
   "POLICY",
   "PROCEDURE",
-  "CARE_PLAN",
-  "QUALIFICATION",
+  // Other
+  "REVIEW_RECORD",
+  "OTHER",
+  // Legacy types (kept for backward compatibility)
+  "CASE_NOTE",
+  "MEDICATION_RECORD",
   "CLEARANCE",
-  "TRAINING_RECORD",
   "SUPERVISION",
   "ROSTER_TIMESHEET",
-  "INVOICE_CLAIM",
-  "INCIDENT_RECORD",
-  "COMPLAINT_RECORD",
-  "RISK_ASSESSMENT",
-  "OTHER"
+  "INCIDENT_RECORD"
 ] as const;
 
 export const checklistSectionEnum = ["HYGIENE", "IMPLEMENTATION", "CRITICAL"] as const;
