@@ -7,6 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
   ArrowLeft, 
@@ -21,7 +25,9 @@ import {
   Eye,
   Users,
   MapPin,
-  Wand2
+  Wand2,
+  Plus,
+  Trash2
 } from "lucide-react";
 import { AuditNavTabs } from "@/components/AuditNavTabs";
 import { getAudit, type IndicatorRating } from "@/lib/company-api";
@@ -59,6 +65,23 @@ export default function AuditReportPage() {
   const [executiveSummary, setExecutiveSummary] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  
+  // Interview form state
+  const [showAddInterviewDialog, setShowAddInterviewDialog] = useState(false);
+  const [interviewType, setInterviewType] = useState<string>("");
+  const [interviewMethod, setInterviewMethod] = useState<string>("");
+  const [intervieweeName, setIntervieweeName] = useState("");
+  const [intervieweeRole, setIntervieweeRole] = useState("");
+  const [keyObservations, setKeyObservations] = useState("");
+  
+  // Site visit form state
+  const [showAddSiteVisitDialog, setShowAddSiteVisitDialog] = useState(false);
+  const [siteName, setSiteName] = useState("");
+  const [siteAddress, setSiteAddress] = useState("");
+  const [participantsAtSite, setParticipantsAtSite] = useState("");
+  const [filesReviewedCount, setFilesReviewedCount] = useState("");
+  const [observationsPositive, setObservationsPositive] = useState("");
+  const [observationsConcerns, setObservationsConcerns] = useState("");
 
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
@@ -151,6 +174,151 @@ export default function AuditReportPage() {
   const handleSummaryChange = (value: string) => {
     setExecutiveSummary(value);
     setHasChanges(true);
+  };
+
+  const addInterviewMutation = useMutation({
+    mutationFn: async (data: {
+      interviewType: string;
+      interviewMethod: string;
+      intervieweeName?: string;
+      intervieweeRole?: string;
+      keyObservations?: string;
+    }) => {
+      const res = await fetch(`/api/company/audits/${id}/interviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to add interview" }));
+        throw new Error(error.error || "Failed to add interview");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditReportData", id] });
+      setShowAddInterviewDialog(false);
+      resetInterviewForm();
+      toast({ title: "Interview added", description: "The interview has been recorded." });
+    },
+    onError: (error: Error) => {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    },
+  });
+
+  const deleteInterviewMutation = useMutation({
+    mutationFn: async (interviewId: string) => {
+      const res = await fetch(`/api/company/audits/${id}/interviews/${interviewId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to delete interview" }));
+        throw new Error(error.error || "Failed to delete interview");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditReportData", id] });
+      toast({ title: "Interview deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    },
+  });
+
+  const addSiteVisitMutation = useMutation({
+    mutationFn: async (data: {
+      siteName: string;
+      siteAddress?: string;
+      participantsAtSite?: number;
+      filesReviewedCount?: number;
+      observationsPositive?: string;
+      observationsConcerns?: string;
+    }) => {
+      const res = await fetch(`/api/company/audits/${id}/site-visits`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to add site visit" }));
+        throw new Error(error.error || "Failed to add site visit");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditReportData", id] });
+      setShowAddSiteVisitDialog(false);
+      resetSiteVisitForm();
+      toast({ title: "Site visit added", description: "The site visit has been recorded." });
+    },
+    onError: (error: Error) => {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    },
+  });
+
+  const deleteSiteVisitMutation = useMutation({
+    mutationFn: async (siteVisitId: string) => {
+      const res = await fetch(`/api/company/audits/${id}/site-visits/${siteVisitId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to delete site visit" }));
+        throw new Error(error.error || "Failed to delete site visit");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditReportData", id] });
+      toast({ title: "Site visit deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    },
+  });
+
+  const resetInterviewForm = () => {
+    setInterviewType("");
+    setInterviewMethod("");
+    setIntervieweeName("");
+    setIntervieweeRole("");
+    setKeyObservations("");
+  };
+
+  const resetSiteVisitForm = () => {
+    setSiteName("");
+    setSiteAddress("");
+    setParticipantsAtSite("");
+    setFilesReviewedCount("");
+    setObservationsPositive("");
+    setObservationsConcerns("");
+  };
+
+  const handleAddInterview = () => {
+    if (!interviewType || !interviewMethod) return;
+    addInterviewMutation.mutate({
+      interviewType,
+      interviewMethod,
+      intervieweeName: intervieweeName || undefined,
+      intervieweeRole: intervieweeRole || undefined,
+      keyObservations: keyObservations || undefined,
+    });
+  };
+
+  const handleAddSiteVisit = () => {
+    if (!siteName) return;
+    addSiteVisitMutation.mutate({
+      siteName,
+      siteAddress: siteAddress || undefined,
+      participantsAtSite: participantsAtSite ? parseInt(participantsAtSite) : undefined,
+      filesReviewedCount: filesReviewedCount ? parseInt(filesReviewedCount) : undefined,
+      observationsPositive: observationsPositive || undefined,
+      observationsConcerns: observationsConcerns || undefined,
+    });
   };
 
   const isLoading = auditLoading || reportLoading;
@@ -472,10 +640,18 @@ export default function AuditReportPage() {
         <TabsContent value="interviews" className="space-y-4">
           <Card data-testid="interviews-card">
             <CardHeader>
-              <CardTitle>Interviews Conducted</CardTitle>
-              <CardDescription>
-                {interviews.length} interview{interviews.length !== 1 ? "s" : ""} recorded for this audit
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Interviews Conducted</CardTitle>
+                  <CardDescription>
+                    {interviews.length} interview{interviews.length !== 1 ? "s" : ""} recorded for this audit
+                  </CardDescription>
+                </div>
+                <Button onClick={() => setShowAddInterviewDialog(true)} data-testid="button-add-interview">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Interview
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {interviews.length === 0 ? (
@@ -499,11 +675,22 @@ export default function AuditReportPage() {
                           <Badge variant="outline">{interview.interviewType}</Badge>
                           <Badge variant="secondary">{interview.interviewMethod}</Badge>
                         </div>
-                        {interview.interviewDate && (
-                          <span className="text-sm text-muted-foreground">
-                            {format(new Date(interview.interviewDate), "MMM d, yyyy")}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {interview.interviewDate && (
+                            <span className="text-sm text-muted-foreground">
+                              {format(new Date(interview.interviewDate), "MMM d, yyyy")}
+                            </span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteInterviewMutation.mutate(interview.id)}
+                            disabled={deleteInterviewMutation.isPending}
+                            data-testid={`button-delete-interview-${interview.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                       {interview.intervieweeName && (
                         <p className="font-medium">{interview.intervieweeName}</p>
@@ -527,10 +714,18 @@ export default function AuditReportPage() {
         <TabsContent value="sites" className="space-y-4">
           <Card data-testid="site-visits-card">
             <CardHeader>
-              <CardTitle>Site Visits</CardTitle>
-              <CardDescription>
-                {siteVisits.length} site visit{siteVisits.length !== 1 ? "s" : ""} recorded for this audit
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Site Visits</CardTitle>
+                  <CardDescription>
+                    {siteVisits.length} site visit{siteVisits.length !== 1 ? "s" : ""} recorded for this audit
+                  </CardDescription>
+                </div>
+                <Button onClick={() => setShowAddSiteVisitDialog(true)} data-testid="button-add-site-visit">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Site Visit
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {siteVisits.length === 0 ? (
@@ -551,11 +746,22 @@ export default function AuditReportPage() {
                     >
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-medium">{visit.siteName}</h4>
-                        {visit.visitDate && (
-                          <span className="text-sm text-muted-foreground">
-                            {format(new Date(visit.visitDate), "MMM d, yyyy")}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {visit.visitDate && (
+                            <span className="text-sm text-muted-foreground">
+                              {format(new Date(visit.visitDate), "MMM d, yyyy")}
+                            </span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteSiteVisitMutation.mutate(visit.id)}
+                            disabled={deleteSiteVisitMutation.isPending}
+                            data-testid={`button-delete-site-visit-${visit.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                       {visit.siteAddress && (
                         <p className="text-sm text-muted-foreground mb-2">{visit.siteAddress}</p>
@@ -592,6 +798,166 @@ export default function AuditReportPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Add Interview Dialog */}
+      <Dialog open={showAddInterviewDialog} onOpenChange={setShowAddInterviewDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Interview</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Interview Type *</Label>
+              <Select value={interviewType} onValueChange={setInterviewType}>
+                <SelectTrigger data-testid="select-interview-type">
+                  <SelectValue placeholder="Select type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PARTICIPANT">Participant</SelectItem>
+                  <SelectItem value="STAFF">Staff</SelectItem>
+                  <SelectItem value="STAKEHOLDER">Stakeholder</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Method *</Label>
+              <Select value={interviewMethod} onValueChange={setInterviewMethod}>
+                <SelectTrigger data-testid="select-interview-method">
+                  <SelectValue placeholder="Select method..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FACE_TO_FACE">Face to Face</SelectItem>
+                  <SelectItem value="PHONE">Phone</SelectItem>
+                  <SelectItem value="VIDEO">Video Call</SelectItem>
+                  <SelectItem value="FOCUS_GROUP">Focus Group</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Interviewee Name</Label>
+              <Input
+                value={intervieweeName}
+                onChange={(e) => setIntervieweeName(e.target.value)}
+                placeholder="Name of person interviewed"
+                data-testid="input-interviewee-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Interviewee Role</Label>
+              <Input
+                value={intervieweeRole}
+                onChange={(e) => setIntervieweeRole(e.target.value)}
+                placeholder="Role or position"
+                data-testid="input-interviewee-role"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Key Observations</Label>
+              <Textarea
+                value={keyObservations}
+                onChange={(e) => setKeyObservations(e.target.value)}
+                placeholder="Key observations from the interview..."
+                data-testid="input-key-observations"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowAddInterviewDialog(false); resetInterviewForm(); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddInterview}
+              disabled={!interviewType || !interviewMethod || addInterviewMutation.isPending}
+              data-testid="button-save-interview"
+            >
+              {addInterviewMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save Interview
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Site Visit Dialog */}
+      <Dialog open={showAddSiteVisitDialog} onOpenChange={setShowAddSiteVisitDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Site Visit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Site Name *</Label>
+              <Input
+                value={siteName}
+                onChange={(e) => setSiteName(e.target.value)}
+                placeholder="Name of the site visited"
+                data-testid="input-site-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Site Address</Label>
+              <Input
+                value={siteAddress}
+                onChange={(e) => setSiteAddress(e.target.value)}
+                placeholder="Address of the site"
+                data-testid="input-site-address"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Participants at Site</Label>
+                <Input
+                  type="number"
+                  value={participantsAtSite}
+                  onChange={(e) => setParticipantsAtSite(e.target.value)}
+                  placeholder="0"
+                  data-testid="input-participants-count"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Files Reviewed</Label>
+                <Input
+                  type="number"
+                  value={filesReviewedCount}
+                  onChange={(e) => setFilesReviewedCount(e.target.value)}
+                  placeholder="0"
+                  data-testid="input-files-reviewed"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Positive Observations</Label>
+              <Textarea
+                value={observationsPositive}
+                onChange={(e) => setObservationsPositive(e.target.value)}
+                placeholder="Positive observations during the visit..."
+                data-testid="input-observations-positive"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Areas of Concern</Label>
+              <Textarea
+                value={observationsConcerns}
+                onChange={(e) => setObservationsConcerns(e.target.value)}
+                placeholder="Any concerns identified..."
+                data-testid="input-observations-concerns"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowAddSiteVisitDialog(false); resetSiteVisitForm(); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddSiteVisit}
+              disabled={!siteName || addSiteVisitMutation.isPending}
+              data-testid="button-save-site-visit"
+            >
+              {addSiteVisitMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save Site Visit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
