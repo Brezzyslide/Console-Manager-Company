@@ -21,9 +21,9 @@ import {
   Eye,
   Users,
   MapPin,
-  Download,
   Wand2
 } from "lucide-react";
+import { AuditNavTabs } from "@/components/AuditNavTabs";
 import { getAudit, type IndicatorRating } from "@/lib/company-api";
 import { format } from "date-fns";
 
@@ -191,34 +191,19 @@ export default function AuditReportPage() {
 
   return (
     <div className="space-y-6" data-testid="audit-report-page">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(`/company/audits/${id}/review`)}
-            data-testid="back-button"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight" data-testid="page-title">
-              Audit Report
-            </h1>
-            <p className="text-muted-foreground">{audit.title}</p>
-          </div>
-        </div>
-        <Button 
-          variant="outline" 
-          onClick={() => {
-            window.open(`/api/company/audits/${id}/download-pdf`, '_blank');
-          }}
-          data-testid="download-pdf-button"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Download PDF
-        </Button>
+      <Button variant="ghost" className="mb-2" onClick={() => navigate("/company/audits")}>
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to Audits
+      </Button>
+
+      <div className="mb-2">
+        <h1 className="text-2xl font-bold tracking-tight" data-testid="page-title">
+          {audit.title}
+        </h1>
+        <p className="text-muted-foreground">Audit Report</p>
       </div>
+
+      <AuditNavTabs auditId={id!} currentTab="report" />
 
       <Tabs defaultValue="summary" className="space-y-4">
         <TabsList data-testid="report-tabs">

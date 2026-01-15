@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus, FileBarChart } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus } from "lucide-react";
+import { AuditNavTabs } from "@/components/AuditNavTabs";
 import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -136,36 +137,28 @@ export default function AuditReviewPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <Button variant="ghost" className="mb-4" onClick={() => navigate("/audits")}>
+      <Button variant="ghost" className="mb-4" onClick={() => navigate("/company/audits")}>
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Audits
       </Button>
 
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold">{audit?.title}</h1>
-            <Badge className={statusColors[audit?.status || "DRAFT"]}>{audit?.status}</Badge>
-            {audit?.scopeLocked && (
-              <Badge variant="outline" className="gap-1">
-                <Lock className="h-3 w-3" />
-                Scope Locked
-              </Badge>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/audits/${id}/report`)}
-            data-testid="view-report-button"
-          >
-            <FileBarChart className="h-4 w-4 mr-2" />
-            View Report
-          </Button>
+      <div className="mb-4">
+        <div className="flex items-center gap-4 mb-2">
+          <h1 className="text-2xl font-bold">{audit?.title}</h1>
+          <Badge className={statusColors[audit?.status || "DRAFT"]}>{audit?.status}</Badge>
+          {audit?.scopeLocked && (
+            <Badge variant="outline" className="gap-1">
+              <Lock className="h-3 w-3" />
+              Scope Locked
+            </Badge>
+          )}
         </div>
         <p className="text-muted-foreground">
           {format(new Date(audit?.scopeTimeFrom || ""), "MMM d, yyyy")} - {format(new Date(audit?.scopeTimeTo || ""), "MMM d, yyyy")}
         </p>
       </div>
+
+      <AuditNavTabs auditId={id!} currentTab="review" />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
