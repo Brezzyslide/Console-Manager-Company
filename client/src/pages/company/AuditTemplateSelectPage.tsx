@@ -308,7 +308,20 @@ export default function AuditTemplateSelectPage() {
               <div className="flex gap-2 mb-4">
                 <select
                   value={selectedDomain}
-                  onChange={(e) => setSelectedDomain(e.target.value)}
+                  onChange={(e) => {
+                    const newDomain = e.target.value;
+                    setSelectedDomain(newDomain);
+                    if (newDomain !== "all" && standardIndicators) {
+                      const domainIndicatorIds = standardIndicators
+                        .filter(ind => ind.domainCode === newDomain)
+                        .map(ind => ind.id);
+                      setSelectedLibraryIndicators(prev => {
+                        const newSet = new Set(prev);
+                        domainIndicatorIds.forEach(id => newSet.add(id));
+                        return newSet;
+                      });
+                    }
+                  }}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   data-testid="select-domain-filter"
                 >
