@@ -72,7 +72,7 @@ export default function AuditTemplateSelectPage() {
   const domainNames: Record<string, string> = {
     GOV_POLICY: "Governance & Policy",
     STAFF_PERSONNEL: "Staff & Personnel",
-    OPERATIONAL: "Operational / Service Delivery",
+    OPERATIONAL: "Operational / Client Specific",
     SITE_ENVIRONMENT: "Site-Specific & Environment",
   };
 
@@ -315,7 +315,7 @@ export default function AuditTemplateSelectPage() {
                   <option value="all">All Domains</option>
                   <option value="GOV_POLICY">Governance & Policy</option>
                   <option value="STAFF_PERSONNEL">Staff & Personnel</option>
-                  <option value="OPERATIONAL">Operational / Service Delivery</option>
+                  <option value="OPERATIONAL">Operational / Client Specific</option>
                   <option value="SITE_ENVIRONMENT">Site-Specific & Environment</option>
                 </select>
                 <Button
