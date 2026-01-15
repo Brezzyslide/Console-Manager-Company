@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Send, FileUp, Link, Check, Copy, Layers, Settings2, Lock } from "lucide-react";
+import { AuditNavTabs } from "@/components/AuditNavTabs";
 import { useToast } from "@/hooks/use-toast";
 import { 
   getAuditRunner, 
@@ -359,6 +360,8 @@ export default function AuditRunnerPage() {
           )}
         </div>
       </div>
+
+      <AuditNavTabs auditId={id!} currentTab="runner" />
 
       <Card className="mb-6">
         <CardContent className="pt-6">

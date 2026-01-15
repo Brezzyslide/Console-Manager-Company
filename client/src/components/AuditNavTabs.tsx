@@ -1,10 +1,10 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ClipboardList, FileBarChart, Download } from "lucide-react";
+import { ClipboardCheck, ClipboardList, FileBarChart, Download } from "lucide-react";
 
 interface AuditNavTabsProps {
   auditId: string;
-  currentTab: "review" | "report";
+  currentTab: "runner" | "review" | "report";
 }
 
 export function AuditNavTabs({ auditId, currentTab }: AuditNavTabsProps) {
@@ -12,6 +12,14 @@ export function AuditNavTabs({ auditId, currentTab }: AuditNavTabsProps) {
 
   return (
     <div className="flex items-center gap-2 border-b pb-4 mb-6">
+      <Button
+        variant={currentTab === "runner" ? "default" : "ghost"}
+        onClick={() => navigate(`/audits/${auditId}`)}
+        data-testid="nav-runner-tab"
+      >
+        <ClipboardCheck className="h-4 w-4 mr-2" />
+        Audit
+      </Button>
       <Button
         variant={currentTab === "review" ? "default" : "ghost"}
         onClick={() => navigate(`/audits/${auditId}/review`)}
