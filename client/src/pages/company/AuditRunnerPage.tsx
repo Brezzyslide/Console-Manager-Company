@@ -619,7 +619,7 @@ export default function AuditRunnerPage() {
                     <Input
                       readOnly
                       value={`${window.location.origin}/upload/${createdRequest.publicToken}`}
-                      className="text-sm"
+                      className="text-sm bg-white text-gray-900 border-green-300"
                       data-testid="input-shareable-link"
                     />
                     <Button
