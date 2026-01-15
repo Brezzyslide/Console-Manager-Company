@@ -344,7 +344,7 @@ export default function AuditTemplateSelectPage() {
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <ScrollArea className="flex-1 border rounded-md p-4">
+                <ScrollArea className="h-[400px] border rounded-md p-4">
                   <div className="space-y-6">
                     {Object.entries(indicatorsByCategory).map(([key, indicators]) => {
                       const [domain, category] = key.split('|');
