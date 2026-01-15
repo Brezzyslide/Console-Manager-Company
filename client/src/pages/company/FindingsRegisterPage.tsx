@@ -536,7 +536,7 @@ export default function FindingsRegisterPage() {
                 <SelectTrigger data-testid="select-evidence-type">
                   <SelectValue placeholder="Select evidence type" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[300px] overflow-y-auto">
                   {evidenceTypeOptions.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
