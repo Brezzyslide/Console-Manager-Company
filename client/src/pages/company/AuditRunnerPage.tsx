@@ -474,13 +474,13 @@ export default function AuditRunnerPage() {
                     <Button
                       key={opt.value}
                       variant={rating === opt.value ? "default" : "outline"}
-                      className={`${rating === opt.value ? opt.color : ""} flex-col h-auto py-3`}
+                      className={`${rating === opt.value ? opt.color : ""} flex-col h-auto py-3 whitespace-normal text-center`}
                       onClick={() => setRating(opt.value)}
                       data-testid={`button-rating-${opt.value}`}
                     >
-                      <div className="flex items-center">
-                        <Icon className="h-4 w-4 mr-2" />
-                        {opt.label}
+                      <div className="flex items-center justify-center flex-wrap">
+                        <Icon className="h-4 w-4 mr-1 shrink-0" />
+                        <span className="text-sm">{opt.label}</span>
                       </div>
                       <span className="text-xs opacity-75 mt-1">
                         {opt.points >= 0 ? `+${opt.points}` : opt.points} pts
