@@ -208,9 +208,15 @@ export default function AuditReportPage() {
             <p className="text-muted-foreground">{audit.title}</p>
           </div>
         </div>
-        <Button variant="outline" disabled data-testid="download-pdf-button">
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            window.open(`/api/company/audits/${id}/download-pdf`, '_blank');
+          }}
+          data-testid="download-pdf-button"
+        >
           <Download className="h-4 w-4 mr-2" />
-          Download PDF (Coming Soon)
+          Download PDF
         </Button>
       </div>
 

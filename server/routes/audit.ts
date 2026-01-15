@@ -2264,6 +2264,35 @@ router.get("/audits/:auditId/report-data", requireCompanyAuth, requireRole(["Com
   }
 });
 
+// PDF Report Download
+import { generateAuditReportPDF } from "../services/pdf-report";
+
+router.get("/audits/:auditId/download-pdf", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.params;
+    
+    const reportData = await storage.getAuditReportData(auditId, companyId);
+    if (!reportData) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const doc = generateAuditReportPDF(reportData);
+    
+    const sanitizedTitle = reportData.audit.title.replace(/[^a-zA-Z0-9-_]/g, '_');
+    const filename = `Audit_Report_${sanitizedTitle}_${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    doc.pipe(res);
+    doc.end();
+  } catch (error) {
+    console.error("PDF generation error:", error);
+    return res.status(500).json({ error: "Failed to generate PDF report" });
+  }
+});
+
 // =====================
 // AI EXECUTIVE SUMMARY
 // =====================

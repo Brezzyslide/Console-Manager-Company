@@ -156,10 +156,17 @@ API endpoints:
 - AI-powered executive summary generation using Replit AI Integrations (OpenAI)
 - Auditor edit/override capability for AI-generated summaries
 - Interview and site visit tracking for comprehensive audit documentation
+- PDF download with cover page, table of contents, scoring summary, and detailed sections
 
 Key tables:
 - `audit_interviews` - Tracks participant, staff, and stakeholder interviews with method (FACE_TO_FACE, PHONE, VIDEO, FOCUS_GROUP)
 - `audit_site_visits` - Records site observations, participants witnessed, safety items checked
+- `audit_sites` - Multi-location site tracking with primary site flag
+
+Audit form fields:
+- Entity Being Audited (name, ABN, address) - separate from the certification body
+- Audit Purpose: INITIAL_CERTIFICATION, RECERTIFICATION, SURVEILLANCE, SCOPE_EXTENSION, TRANSFER_AUDIT, SPECIAL_AUDIT
+- Certification Body details (organization, lead auditor name, email)
 
 Report page features:
 - Executive Summary tab with AI generation, regeneration, and manual editing
@@ -167,9 +174,22 @@ Report page features:
 - Interviews tab listing all conducted interviews
 - Site Visits tab showing all location observations
 - All indicator responses displayed with ratings and comments
+- Download PDF button generates professional report document
+
+PDF Report structure:
+- Cover page with entity details, certification body, audit period
+- Table of contents with section listings
+- Executive summary with AI-generated or manually edited content
+- Scoring summary (conformance/observation/NC counts and percentage)
+- Detailed scoring table with points breakdown
+- Grouped indicator responses by rating category
+- Findings section with severity, status, due dates
+- Interview summary grouped by type (participant/staff/stakeholder)
+- Site visit observations with safety checklist results
 
 API endpoints:
 - `GET /api/company/audits/:auditId/report-data` - Get comprehensive report data (requires CompanyAdmin/Auditor role)
+- `GET /api/company/audits/:auditId/download-pdf` - Generate and download PDF report (requires CompanyAdmin/Auditor role)
 - `POST /api/company/audits/:auditId/generate-executive-summary` - AI-generate executive summary
 - `PUT /api/company/audits/:auditId/executive-summary` - Save edited executive summary
 - `GET/POST/DELETE /api/company/audits/:auditId/interviews` - Interview CRUD
