@@ -113,6 +113,7 @@ export default function AuditTemplateSelectPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["auditTemplates"] });
       setSelectedLibraryIndicators(new Set());
+      setShowAddIndicatorDialog(false);
     },
   });
 
