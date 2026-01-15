@@ -49,10 +49,10 @@ const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
 ];
 
 const ratingOptions: { value: IndicatorRating; label: string; icon: any; color: string; points: number }[] = [
-  { value: "CONFORMANCE", label: "Conformance", icon: CheckCircle2, color: "bg-green-500 hover:bg-green-600", points: 2 },
-  { value: "OBSERVATION", label: "Observation", icon: Eye, color: "bg-blue-500 hover:bg-blue-600", points: 1 },
-  { value: "MINOR_NC", label: "Minor NC", icon: AlertTriangle, color: "bg-yellow-500 hover:bg-yellow-600", points: 0 },
-  { value: "MAJOR_NC", label: "Major NC", icon: AlertCircle, color: "bg-red-500 hover:bg-red-600", points: -2 },
+  { value: "CONFORMITY_BEST_PRACTICE", label: "Conformity with Best Practice", icon: CheckCircle2, color: "bg-emerald-500 hover:bg-emerald-600", points: 3 },
+  { value: "CONFORMITY", label: "Conformity", icon: CheckCircle2, color: "bg-green-500 hover:bg-green-600", points: 2 },
+  { value: "MINOR_NC", label: "Minor Non-Conformance", icon: AlertTriangle, color: "bg-yellow-500 hover:bg-yellow-600", points: 1 },
+  { value: "MAJOR_NC", label: "Major Non-Conformance", icon: AlertCircle, color: "bg-red-500 hover:bg-red-600", points: 0 },
 ];
 
 export default function AuditRunnerPage() {
@@ -247,7 +247,7 @@ export default function AuditRunnerPage() {
   const handleSave = () => {
     if (!rating) return;
     
-    const requiresComment = rating !== "CONFORMANCE";
+    const requiresComment = rating === "MINOR_NC" || rating === "MAJOR_NC";
     if (requiresComment && comment.trim().length < 10) {
       return;
     }
@@ -263,7 +263,7 @@ export default function AuditRunnerPage() {
   
   const handleSaveAndNext = () => {
     if (!rating) return;
-    const requiresComment = rating !== "CONFORMANCE";
+    const requiresComment = rating === "MINOR_NC" || rating === "MAJOR_NC";
     if (requiresComment && comment.trim().length < 10) return;
     if (!currentIndicator) return;
     
@@ -494,16 +494,16 @@ export default function AuditRunnerPage() {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium">
-                  Comment {rating && rating !== "CONFORMANCE" && <span className="text-destructive">*</span>}
+                  Comment {rating && (rating === "MINOR_NC" || rating === "MAJOR_NC") && <span className="text-destructive">*</span>}
                 </label>
-                {rating && rating !== "CONFORMANCE" && (
+                {rating && (rating === "MINOR_NC" || rating === "MAJOR_NC") && (
                   <span className={`text-xs ${comment.trim().length >= 10 ? "text-muted-foreground" : "text-destructive"}`}>
                     {comment.trim().length}/10 min
                   </span>
                 )}
               </div>
               <Textarea
-                placeholder={rating && rating !== "CONFORMANCE" 
+                placeholder={rating && (rating === "MINOR_NC" || rating === "MAJOR_NC") 
                   ? "Comment required (minimum 10 characters)..." 
                   : "Optional comment..."}
                 value={comment}
@@ -528,7 +528,7 @@ export default function AuditRunnerPage() {
               </Button>
               <Button 
                 onClick={handleSaveAndNext}
-                disabled={!rating || (rating !== "CONFORMANCE" && comment.trim().length < 10) || saveMutation.isPending}
+                disabled={!rating || ((rating === "MINOR_NC" || rating === "MAJOR_NC") && comment.trim().length < 10) || saveMutation.isPending}
                 data-testid="button-save-response"
               >
                 {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}

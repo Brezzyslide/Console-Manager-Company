@@ -22,10 +22,10 @@ type IndicatorRating = typeof indicatorRatingEnum[number];
 
 function scoreForRating(rating: IndicatorRating): number {
   switch (rating) {
-    case "CONFORMANCE": return 2;
-    case "OBSERVATION": return 1;
-    case "MINOR_NC": return 0;
-    case "MAJOR_NC": return -2;
+    case "CONFORMITY_BEST_PRACTICE": return 3;
+    case "CONFORMITY": return 2;
+    case "MINOR_NC": return 1;
+    case "MAJOR_NC": return 0;
     default: return 0;
   }
 }
@@ -232,7 +232,7 @@ router.get("/audits", requireCompanyAuth, async (req: AuthenticatedCompanyReques
         const responses = await storage.getAuditIndicatorResponses(audit.id);
         
         const scorePointsTotal = responses.reduce((sum, r) => sum + r.scorePoints, 0);
-        const maxPoints = indicators.length * 2;
+        const maxPoints = indicators.length * 3;
         const scorePercent = maxPoints > 0 
           ? Math.round(Math.max(0, Math.min(100, (scorePointsTotal / maxPoints) * 100)))
           : null;
@@ -642,8 +642,8 @@ router.get("/audits/:id/summary", requireCompanyAuth, async (req: AuthenticatedC
     if (!auditRun) {
       return res.json({
         indicatorCount: 0,
-        conformanceCount: 0,
-        observationCount: 0,
+        conformityBestPracticeCount: 0,
+        conformityCount: 0,
         minorNcCount: 0,
         majorNcCount: 0,
         scorePointsTotal: 0,
@@ -656,28 +656,30 @@ router.get("/audits/:id/summary", requireCompanyAuth, async (req: AuthenticatedC
     const responses = await storage.getAuditIndicatorResponses(auditId);
     
     const counts = {
-      CONFORMANCE: 0,
-      OBSERVATION: 0,
+      CONFORMITY_BEST_PRACTICE: 0,
+      CONFORMITY: 0,
       MINOR_NC: 0,
       MAJOR_NC: 0,
     };
     
     let scorePointsTotal = 0;
     responses.forEach(r => {
-      counts[r.rating as keyof typeof counts]++;
+      if (counts.hasOwnProperty(r.rating)) {
+        counts[r.rating as keyof typeof counts]++;
+      }
       scorePointsTotal += r.scorePoints;
     });
     
     const indicatorCount = indicators.length;
-    const maxPoints = indicatorCount * 2;
+    const maxPoints = indicatorCount * 3;
     const scorePercent = maxPoints > 0 
       ? Math.round(Math.max(0, Math.min(100, (scorePointsTotal / maxPoints) * 100)))
       : 0;
     
     return res.json({
       indicatorCount,
-      conformanceCount: counts.CONFORMANCE,
-      observationCount: counts.OBSERVATION,
+      conformityBestPracticeCount: counts.CONFORMITY_BEST_PRACTICE,
+      conformityCount: counts.CONFORMITY,
       minorNcCount: counts.MINOR_NC,
       majorNcCount: counts.MAJOR_NC,
       scorePointsTotal,
@@ -694,13 +696,13 @@ const saveResponseSchema = z.object({
   rating: z.enum(indicatorRatingEnum),
   comment: z.string().nullable().optional(),
 }).refine(data => {
-  if (data.rating !== "CONFORMANCE") {
+  if (data.rating === "MINOR_NC" || data.rating === "MAJOR_NC") {
     if (!data.comment || data.comment.length < 10) {
       return false;
     }
   }
   return true;
-}, { message: "Comment is required (minimum 10 characters) for Observation, Minor NC, and Major NC ratings" });
+}, { message: "Comment is required (minimum 10 characters) for Minor NC and Major NC ratings" });
 
 router.put("/audits/:id/responses/:indicatorId", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
@@ -802,7 +804,7 @@ router.post("/audits/:id/in-review/responses", requireCompanyAuth, requireRole([
       rating: z.enum(indicatorRatingEnum),
       comment: z.string().nullable().optional(),
     }).refine(data => {
-      if (data.rating !== "CONFORMANCE") {
+      if (data.rating === "MINOR_NC" || data.rating === "MAJOR_NC") {
         if (!data.comment || data.comment.length < 10) {
           return false;
         }
@@ -2328,14 +2330,14 @@ router.post("/audits/:auditId/generate-executive-summary", requireCompanyAuth, r
     // Build context for AI
     const { audit, company, interviews, siteVisits, indicatorResponses, findings } = reportData;
     
-    const conformanceCount = indicatorResponses.filter((r: any) => r.rating === "CONFORMANCE").length;
-    const observationCount = indicatorResponses.filter((r: any) => r.rating === "OBSERVATION").length;
+    const conformityBestPracticeCount = indicatorResponses.filter((r: any) => r.rating === "CONFORMITY_BEST_PRACTICE").length;
+    const conformityCount = indicatorResponses.filter((r: any) => r.rating === "CONFORMITY").length;
     const minorNcCount = indicatorResponses.filter((r: any) => r.rating === "MINOR_NC").length;
     const majorNcCount = indicatorResponses.filter((r: any) => r.rating === "MAJOR_NC").length;
     const totalIndicators = indicatorResponses.length;
     
     const scorePoints = indicatorResponses.reduce((sum: number, r: any) => sum + (r.scorePoints || 0), 0);
-    const maxPoints = totalIndicators * 2;
+    const maxPoints = totalIndicators * 3;
     const scorePercent = maxPoints > 0 ? Math.round((scorePoints / maxPoints) * 100) : 0;
     
     const prompt = `You are writing an executive summary for an NDIS (National Disability Insurance Scheme) provider audit report. Write in a professional, objective third-person tone suitable for regulatory review.
@@ -2348,8 +2350,8 @@ AUDIT DETAILS:
 
 AUDIT RESULTS:
 - Total Indicators Assessed: ${totalIndicators}
-- Conformance: ${conformanceCount} (rating indicates full compliance)
-- Observations: ${observationCount} (minor improvements suggested)
+- Conformity with Best Practice: ${conformityBestPracticeCount} (exceeds requirements with exemplary practice)
+- Conformity: ${conformityCount} (meets requirements)
 - Minor Non-Conformances: ${minorNcCount} (requires corrective action)
 - Major Non-Conformances: ${majorNcCount} (critical issues requiring immediate attention)
 - Overall Score: ${scorePercent}% (${scorePoints}/${maxPoints} points)

@@ -28,15 +28,15 @@ import { getAudit, type IndicatorRating } from "@/lib/company-api";
 import { format } from "date-fns";
 
 const ratingColors: Record<IndicatorRating, string> = {
-  CONFORMANCE: "text-green-500 bg-green-500/10",
-  OBSERVATION: "text-blue-500 bg-blue-500/10",
+  CONFORMITY_BEST_PRACTICE: "text-emerald-500 bg-emerald-500/10",
+  CONFORMITY: "text-green-500 bg-green-500/10",
   MINOR_NC: "text-yellow-500 bg-yellow-500/10",
   MAJOR_NC: "text-red-500 bg-red-500/10",
 };
 
 const ratingLabels: Record<IndicatorRating, string> = {
-  CONFORMANCE: "Conformance",
-  OBSERVATION: "Observation",
+  CONFORMITY_BEST_PRACTICE: "Conformity with Best Practice",
+  CONFORMITY: "Conformity",
   MINOR_NC: "Minor NC",
   MAJOR_NC: "Major NC",
 };
@@ -179,14 +179,14 @@ export default function AuditReportPage() {
   const indicatorResponses = reportData.indicatorResponses || [];
   const findings = reportData.findings || [];
 
-  const conformanceCount = indicatorResponses.filter((r: any) => r.rating === "CONFORMANCE").length;
-  const observationCount = indicatorResponses.filter((r: any) => r.rating === "OBSERVATION").length;
+  const conformityBestPracticeCount = indicatorResponses.filter((r: any) => r.rating === "CONFORMITY_BEST_PRACTICE").length;
+  const conformityCount = indicatorResponses.filter((r: any) => r.rating === "CONFORMITY").length;
   const minorNcCount = indicatorResponses.filter((r: any) => r.rating === "MINOR_NC").length;
   const majorNcCount = indicatorResponses.filter((r: any) => r.rating === "MAJOR_NC").length;
   const totalIndicators = indicatorResponses.length;
   
   const scorePoints = indicatorResponses.reduce((sum: number, r: any) => sum + (r.scorePoints || 0), 0);
-  const maxPoints = totalIndicators * 2;
+  const maxPoints = totalIndicators * 3;
   const scorePercent = maxPoints > 0 ? Math.round((scorePoints / maxPoints) * 100) : 0;
 
   return (
@@ -400,19 +400,19 @@ export default function AuditReportPage() {
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 pt-2">
-                  <div className={`p-2 rounded-lg ${ratingColors.CONFORMANCE}`}>
+                  <div className={`p-2 rounded-lg ${ratingColors.CONFORMITY_BEST_PRACTICE}`}>
                     <div className="flex items-center gap-1">
                       <CheckCircle2 className="h-4 w-4" />
-                      <span className="text-sm font-medium">{conformanceCount}</span>
+                      <span className="text-sm font-medium">{conformityBestPracticeCount}</span>
                     </div>
-                    <p className="text-xs">Conformance</p>
+                    <p className="text-xs">Best Practice</p>
                   </div>
-                  <div className={`p-2 rounded-lg ${ratingColors.OBSERVATION}`}>
+                  <div className={`p-2 rounded-lg ${ratingColors.CONFORMITY}`}>
                     <div className="flex items-center gap-1">
-                      <Eye className="h-4 w-4" />
-                      <span className="text-sm font-medium">{observationCount}</span>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="text-sm font-medium">{conformityCount}</span>
                     </div>
-                    <p className="text-xs">Observation</p>
+                    <p className="text-xs">Conformity</p>
                   </div>
                   <div className={`p-2 rounded-lg ${ratingColors.MINOR_NC}`}>
                     <div className="flex items-center gap-1">

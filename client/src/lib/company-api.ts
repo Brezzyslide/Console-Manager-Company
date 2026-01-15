@@ -401,7 +401,7 @@ export async function updateDocument(
 export type AuditType = "INTERNAL" | "EXTERNAL";
 export type AuditStatus = "DRAFT" | "IN_PROGRESS" | "IN_REVIEW" | "CLOSED";
 export type ServiceContext = "SIL" | "COMMUNITY_ACCESS" | "IN_HOME" | "CENTRE_BASED" | "OTHER";
-export type IndicatorRating = "CONFORMANCE" | "OBSERVATION" | "MINOR_NC" | "MAJOR_NC";
+export type IndicatorRating = "MAJOR_NC" | "MINOR_NC" | "CONFORMITY" | "CONFORMITY_BEST_PRACTICE";
 export type FindingStatus = "OPEN" | "UNDER_REVIEW" | "CLOSED";
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 

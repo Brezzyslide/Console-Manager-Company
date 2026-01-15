@@ -230,7 +230,7 @@ export type CompanyDocument = typeof companyDocuments.$inferSelect;
 // Audit type enums
 export const auditTypeEnum = ["INTERNAL", "EXTERNAL"] as const;
 export const auditStatusEnum = ["DRAFT", "IN_PROGRESS", "IN_REVIEW", "CLOSED"] as const;
-export const indicatorRatingEnum = ["CONFORMANCE", "OBSERVATION", "MINOR_NC", "MAJOR_NC"] as const;
+export const indicatorRatingEnum = ["MAJOR_NC", "MINOR_NC", "CONFORMITY", "CONFORMITY_BEST_PRACTICE"] as const;
 export const findingStatusEnum = ["OPEN", "UNDER_REVIEW", "CLOSED"] as const;
 export const serviceContextEnum = ["SIL", "COMMUNITY_ACCESS", "IN_HOME", "CENTRE_BASED", "OTHER"] as const;
 export const riskLevelEnum = ["LOW", "MEDIUM", "HIGH"] as const;
@@ -658,7 +658,7 @@ export type InsertDocumentReview = z.infer<typeof insertDocumentReviewSchema>;
 export type DocumentReview = typeof documentReviews.$inferSelect;
 
 // Suggested Findings (non-binding suggestions based on document review)
-const suggestedFindingTypeEnum = ["OBSERVATION", "MINOR_NC", "MAJOR_NC", "NONE"] as const;
+const suggestedFindingTypeEnum = ["MINOR_NC", "MAJOR_NC", "NONE"] as const;
 const severityFlagEnum = ["LOW", "MEDIUM", "HIGH"] as const;
 const suggestionStatusEnum = ["PENDING", "CONFIRMED", "DISMISSED"] as const;
 

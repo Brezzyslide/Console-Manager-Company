@@ -22,15 +22,15 @@ const evidenceStatusConfig: Record<EvidenceStatus, { label: string; color: strin
 };
 
 const ratingIcons: Record<string, any> = {
-  CONFORMANCE: CheckCircle2,
-  OBSERVATION: Eye,
+  CONFORMITY_BEST_PRACTICE: CheckCircle2,
+  CONFORMITY: CheckCircle2,
   MINOR_NC: AlertTriangle,
   MAJOR_NC: AlertCircle,
 };
 
 const ratingColors: Record<string, string> = {
-  CONFORMANCE: "text-green-500",
-  OBSERVATION: "text-blue-500",
+  CONFORMITY_BEST_PRACTICE: "text-emerald-500",
+  CONFORMITY: "text-green-500",
   MINOR_NC: "text-yellow-500",
   MAJOR_NC: "text-red-500",
 };
@@ -116,9 +116,11 @@ export default function AuditReviewPage() {
   const requiresCloseReason = openMajorFindings.length > 0;
 
   const getRatingCounts = () => {
-    const counts = { CONFORMANCE: 0, OBSERVATION: 0, MINOR_NC: 0, MAJOR_NC: 0 };
+    const counts = { CONFORMITY_BEST_PRACTICE: 0, CONFORMITY: 0, MINOR_NC: 0, MAJOR_NC: 0 };
     responses.forEach(r => {
-      counts[r.rating]++;
+      if (counts.hasOwnProperty(r.rating)) {
+        counts[r.rating as keyof typeof counts]++;
+      }
     });
     return counts;
   };
@@ -133,7 +135,7 @@ export default function AuditReviewPage() {
     ? indicators.find(i => i.id === selectedIndicatorId) 
     : null;
 
-  const canAddResponse = newRating && (newRating === "CONFORMANCE" || newComment.length >= 10);
+  const canAddResponse = newRating && (newRating === "CONFORMITY" || newRating === "CONFORMITY_BEST_PRACTICE" || newComment.length >= 10);
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -163,14 +165,14 @@ export default function AuditReviewPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold text-green-500">{ratingCounts.CONFORMANCE}</div>
-            <div className="text-sm text-muted-foreground">Conformance</div>
+            <div className="text-2xl font-bold text-emerald-500">{ratingCounts.CONFORMITY_BEST_PRACTICE}</div>
+            <div className="text-sm text-muted-foreground">Best Practice</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold text-blue-500">{ratingCounts.OBSERVATION}</div>
-            <div className="text-sm text-muted-foreground">Observations</div>
+            <div className="text-2xl font-bold text-green-500">{ratingCounts.CONFORMITY}</div>
+            <div className="text-sm text-muted-foreground">Conformity</div>
           </CardContent>
         </Card>
         <Card>
@@ -393,28 +395,28 @@ export default function AuditReviewPage() {
                   <SelectValue placeholder="Select a rating..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CONFORMANCE">
+                  <SelectItem value="CONFORMITY_BEST_PRACTICE">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      Conformance (+2 pts)
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      Conformity with Best Practice (3 pts)
                     </div>
                   </SelectItem>
-                  <SelectItem value="OBSERVATION">
+                  <SelectItem value="CONFORMITY">
                     <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-blue-500" />
-                      Observation (+1 pt)
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      Conformity (2 pts)
                     </div>
                   </SelectItem>
                   <SelectItem value="MINOR_NC">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                      Minor Non-Conformance (0 pts)
+                      Minor Non-Conformance (1 pt)
                     </div>
                   </SelectItem>
                   <SelectItem value="MAJOR_NC">
                     <div className="flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 text-red-500" />
-                      Major Non-Conformance (-2 pts)
+                      Major Non-Conformance (0 pts)
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -424,7 +426,7 @@ export default function AuditReviewPage() {
             <div className="space-y-2">
               <Label>
                 Comment
-                {newRating && newRating !== "CONFORMANCE" && (
+                {newRating && (newRating === "MINOR_NC" || newRating === "MAJOR_NC") && (
                   <span className="text-destructive ml-1">* (required, min 10 chars)</span>
                 )}
               </Label>
