@@ -191,7 +191,7 @@ export default function AuditReportPage() {
 
   return (
     <div className="space-y-6" data-testid="audit-report-page">
-      <Button variant="ghost" className="mb-2" onClick={() => navigate("/company/audits")}>
+      <Button variant="ghost" className="mb-2" onClick={() => navigate("/audits")}>
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Audits
       </Button>

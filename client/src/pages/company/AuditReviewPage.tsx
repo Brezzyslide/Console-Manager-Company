@@ -137,7 +137,7 @@ export default function AuditReviewPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <Button variant="ghost" className="mb-4" onClick={() => navigate("/company/audits")}>
+      <Button variant="ghost" className="mb-4" onClick={() => navigate("/audits")}>
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Audits
       </Button>

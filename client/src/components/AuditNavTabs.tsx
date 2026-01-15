@@ -14,7 +14,7 @@ export function AuditNavTabs({ auditId, currentTab }: AuditNavTabsProps) {
     <div className="flex items-center gap-2 border-b pb-4 mb-6">
       <Button
         variant={currentTab === "review" ? "default" : "ghost"}
-        onClick={() => navigate(`/company/audits/${auditId}/review`)}
+        onClick={() => navigate(`/audits/${auditId}/review`)}
         data-testid="nav-review-tab"
       >
         <ClipboardList className="h-4 w-4 mr-2" />
@@ -22,7 +22,7 @@ export function AuditNavTabs({ auditId, currentTab }: AuditNavTabsProps) {
       </Button>
       <Button
         variant={currentTab === "report" ? "default" : "ghost"}
-        onClick={() => navigate(`/company/audits/${auditId}/report`)}
+        onClick={() => navigate(`/audits/${auditId}/report`)}
         data-testid="nav-report-tab"
       >
         <FileBarChart className="h-4 w-4 mr-2" />
