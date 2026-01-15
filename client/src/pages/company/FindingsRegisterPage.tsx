@@ -378,7 +378,7 @@ export default function FindingsRegisterPage() {
                     <Card 
                       key={outcome.id}
                       className={`cursor-pointer hover:bg-accent/50 transition-colors ${outcome.rating === "MAJOR_NC" ? "border-red-200" : "border-yellow-200"}`}
-                      onClick={() => finding && handleEditFinding(finding.id)}
+                      onClick={() => finding && navigate(`/findings/${finding.id}`)}
                       data-testid={`card-finding-${outcome.id}`}
                     >
                       <CardContent className="py-4">
@@ -414,6 +414,16 @@ export default function FindingsRegisterPage() {
                               <span>Audit: {outcome.auditTitle}</span>
                             </div>
                           </div>
+                          {finding && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); handleEditFinding(finding.id); }}
+                              data-testid={`button-edit-finding-${finding.id}`}
+                            >
+                              Quick Edit
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

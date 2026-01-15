@@ -19,6 +19,8 @@ import {
   auditRuns,
   auditIndicatorResponses,
   findings,
+  findingActivities,
+  findingClosureEvidence,
   evidenceRequests,
   evidenceItems,
   documentChecklistTemplates,
@@ -65,6 +67,10 @@ import {
   type InsertAuditIndicatorResponse,
   type Finding,
   type InsertFinding,
+  type FindingActivity,
+  type InsertFindingActivity,
+  type FindingClosureEvidence,
+  type InsertFindingClosureEvidence,
   type EvidenceRequest,
   type InsertEvidenceRequest,
   type EvidenceItem,
@@ -839,6 +845,59 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
+  // Finding Activities (Corrective Action Journey)
+  async createFindingActivity(activity: InsertFindingActivity): Promise<FindingActivity> {
+    const [created] = await db.insert(findingActivities).values(activity).returning();
+    return created;
+  }
+
+  async getFindingActivities(findingId: string, companyId: string): Promise<FindingActivity[]> {
+    return await db
+      .select()
+      .from(findingActivities)
+      .where(and(eq(findingActivities.findingId, findingId), eq(findingActivities.companyId, companyId)))
+      .orderBy(findingActivities.createdAt);
+  }
+
+  async getFindingActivitiesWithUsers(findingId: string, companyId: string): Promise<Array<FindingActivity & { performedByUser?: { fullName: string; email: string } }>> {
+    const activities = await db
+      .select({
+        activity: findingActivities,
+        userName: companyUsers.fullName,
+        userEmail: companyUsers.email,
+      })
+      .from(findingActivities)
+      .leftJoin(companyUsers, eq(findingActivities.performedByCompanyUserId, companyUsers.id))
+      .where(and(eq(findingActivities.findingId, findingId), eq(findingActivities.companyId, companyId)))
+      .orderBy(findingActivities.createdAt);
+
+    return activities.map(row => ({
+      ...row.activity,
+      performedByUser: row.userName ? { fullName: row.userName, email: row.userEmail! } : undefined,
+    }));
+  }
+
+  // Finding Closure Evidence
+  async createFindingClosureEvidence(evidence: InsertFindingClosureEvidence): Promise<FindingClosureEvidence> {
+    const [created] = await db.insert(findingClosureEvidence).values(evidence).returning();
+    return created;
+  }
+
+  async getFindingClosureEvidence(findingId: string, companyId: string): Promise<FindingClosureEvidence[]> {
+    return await db
+      .select()
+      .from(findingClosureEvidence)
+      .where(and(eq(findingClosureEvidence.findingId, findingId), eq(findingClosureEvidence.companyId, companyId)))
+      .orderBy(findingClosureEvidence.createdAt);
+  }
+
+  async deleteFindingClosureEvidence(id: string, companyId: string): Promise<boolean> {
+    const result = await db
+      .delete(findingClosureEvidence)
+      .where(and(eq(findingClosureEvidence.id, id), eq(findingClosureEvidence.companyId, companyId)));
+    return true;
+  }
+
   // Evidence Requests
   async createEvidenceRequest(request: InsertEvidenceRequest): Promise<EvidenceRequest> {
     const [created] = await db.insert(evidenceRequests).values(request).returning();
@@ -1530,13 +1589,22 @@ export class DatabaseStorage implements IStorage {
       this.getAuditSites(auditId)
     ]);
     
+    // Get activities for each finding (for corrective action journey)
+    const findingsWithActivities = await Promise.all(
+      findingsData.map(async (finding) => {
+        const activities = await this.getFindingActivitiesWithUsers(finding.id, companyId);
+        const closureEvidence = await this.getFindingClosureEvidence(finding.id, companyId);
+        return { ...finding, activities, closureEvidence };
+      })
+    );
+    
     return {
       audit,
       company,
       interviews,
       siteVisits,
       indicatorResponses: responses,
-      findings: findingsData,
+      findings: findingsWithActivities,
       sites
     };
   }

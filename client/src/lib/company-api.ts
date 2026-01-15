@@ -476,7 +476,11 @@ export interface Finding {
   status: FindingStatus;
   ownerCompanyUserId: string | null;
   dueDate: string | null;
+  closureNote?: string | null;
+  closedAt?: string | null;
+  closedByCompanyUserId?: string | null;
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 export interface ScopeOption {
@@ -880,7 +884,7 @@ export async function getFinding(id: string): Promise<Finding & { audit: Audit; 
 
 export async function updateFinding(
   id: string,
-  updates: { ownerCompanyUserId?: string | null; dueDate?: string | null; status?: FindingStatus }
+  updates: { ownerCompanyUserId?: string | null; dueDate?: string | null; status?: FindingStatus; comment?: string }
 ): Promise<Finding> {
   const res = await fetch(`/api/company/findings/${id}`, {
     method: "PATCH",
@@ -892,6 +896,92 @@ export async function updateFinding(
     const data = await res.json();
     throw new Error(data.error || "Failed to update finding");
   }
+  return res.json();
+}
+
+// ===== FINDING CORRECTIVE ACTION WORKFLOW =====
+
+export interface FindingActivity {
+  id: string;
+  companyId: string;
+  findingId: string;
+  activityType: "CREATED" | "STATUS_CHANGED" | "OWNER_ASSIGNED" | "DUE_DATE_SET" | "COMMENT_ADDED" | "EVIDENCE_REQUESTED" | "EVIDENCE_SUBMITTED" | "EVIDENCE_REVIEWED" | "CLOSURE_INITIATED" | "CLOSED" | "REOPENED";
+  previousValue?: string;
+  newValue?: string;
+  comment?: string;
+  performedByCompanyUserId?: string;
+  evidenceRequestId?: string;
+  evidenceItemId?: string;
+  createdAt: string;
+  performedByUser?: { fullName: string; email: string };
+}
+
+export interface FindingClosureEvidence {
+  id: string;
+  companyId: string;
+  findingId: string;
+  evidenceItemId: string;
+  addedByCompanyUserId?: string;
+  note?: string;
+  createdAt: string;
+}
+
+export interface FindingDetail extends Finding {
+  audit: Audit;
+  indicator: AuditTemplateIndicator;
+  activities: FindingActivity[];
+  evidenceRequests: Array<EvidenceRequest & { items: EvidenceItem[] }>;
+  closureEvidence: FindingClosureEvidence[];
+  owner?: { id: string; fullName: string; email: string } | null;
+  closedBy?: { id: string; fullName: string; email: string } | null;
+}
+
+export async function getFindingDetail(id: string): Promise<FindingDetail> {
+  const res = await fetch(`/api/company/findings/${id}/detail`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch finding detail");
+  return res.json();
+}
+
+export async function getFindingActivities(id: string): Promise<FindingActivity[]> {
+  const res = await fetch(`/api/company/findings/${id}/activities`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch finding activities");
+  return res.json();
+}
+
+export async function addFindingComment(id: string, comment: string): Promise<FindingActivity> {
+  const res = await fetch(`/api/company/findings/${id}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ comment }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to add comment");
+  }
+  return res.json();
+}
+
+export async function closeFinding(
+  id: string,
+  data: { closureNote: string; evidenceItemIds?: string[] }
+): Promise<Finding> {
+  const res = await fetch(`/api/company/findings/${id}/close`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.error || "Failed to close finding");
+  }
+  return res.json();
+}
+
+export async function getFindingClosureEvidence(id: string): Promise<FindingClosureEvidence[]> {
+  const res = await fetch(`/api/company/findings/${id}/closure-evidence`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch closure evidence");
   return res.json();
 }
 

@@ -652,6 +652,65 @@ function generateFindings(doc: PDFKit.PDFDocument, data: ReportData, pageWidth: 
         .text(finding.closureNote, { align: 'justify' });
     }
 
+    // Corrective Action Journey (if activities exist)
+    if (finding.activities && finding.activities.length > 0) {
+      doc.moveDown(0.5);
+      doc.fillColor(COLORS.primary)
+        .fontSize(9)
+        .font('Helvetica-Bold')
+        .text('Corrective Action Journey:');
+      doc.moveDown(0.2);
+      
+      const activityLabels: Record<string, string> = {
+        CREATED: 'Finding Created',
+        STATUS_CHANGED: 'Status Changed',
+        OWNER_ASSIGNED: 'Owner Assigned',
+        DUE_DATE_SET: 'Due Date Set',
+        COMMENT_ADDED: 'Comment Added',
+        EVIDENCE_REQUESTED: 'Evidence Requested',
+        EVIDENCE_SUBMITTED: 'Evidence Submitted',
+        EVIDENCE_REVIEWED: 'Evidence Reviewed',
+        CLOSURE_INITIATED: 'Closure Initiated',
+        CLOSED: 'Finding Closed',
+        REOPENED: 'Finding Reopened',
+      };
+      
+      finding.activities.forEach((activity: any, actIdx: number) => {
+        if (doc.y > doc.page.height - 60) {
+          doc.addPage();
+        }
+        
+        const activityDate = format(new Date(activity.createdAt), 'dd MMM yyyy HH:mm');
+        const activityLabel = activityLabels[activity.activityType] || activity.activityType;
+        const performedBy = activity.performedByUser?.fullName || 'System';
+        
+        doc.fillColor(COLORS.muted)
+          .fontSize(8)
+          .font('Helvetica')
+          .text(`${actIdx + 1}. ${activityDate} - ${activityLabel}`, { continued: true });
+        
+        doc.fillColor(COLORS.black)
+          .text(` (${performedBy})`);
+        
+        if (activity.previousValue && activity.newValue) {
+          doc.fillColor(COLORS.muted)
+            .fontSize(8)
+            .text(`   ${activity.previousValue} → ${activity.newValue}`);
+        }
+        
+        if (activity.comment) {
+          const commentPreview = activity.comment.length > 100 
+            ? activity.comment.substring(0, 100) + '...' 
+            : activity.comment;
+          doc.fillColor(COLORS.black)
+            .fontSize(8)
+            .font('Helvetica-Oblique')
+            .text(`   "${commentPreview}"`);
+          doc.font('Helvetica');
+        }
+      });
+    }
+
     doc.moveDown(1);
   });
 }

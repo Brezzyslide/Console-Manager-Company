@@ -765,6 +765,16 @@ router.put("/audits/:id/responses/:indicatorId", requireCompanyAuth, requireRole
           findingText,
         });
         
+        // Track finding creation in activity log
+        await storage.createFindingActivity({
+          companyId,
+          findingId: finding.id,
+          activityType: "CREATED",
+          newValue: input.rating,
+          comment: `Non-conformance identified: ${input.comment || "No comment provided"}`,
+          performedByCompanyUserId: userId,
+        });
+        
         await storage.logChange({
           actorType: "company_user",
           actorId: userId,
@@ -867,6 +877,16 @@ router.post("/audits/:id/in-review/responses", requireCompanyAuth, requireRole([
           templateIndicatorId: input.indicatorId,
           severity: input.rating as "MINOR_NC" | "MAJOR_NC",
           findingText,
+        });
+        
+        // Track finding creation in activity log
+        await storage.createFindingActivity({
+          companyId,
+          findingId: finding.id,
+          activityType: "CREATED",
+          newValue: input.rating,
+          comment: `Non-conformance identified during review: ${input.comment || "No comment provided"}`,
+          performedByCompanyUserId: userId,
         });
         
         await storage.logChange({
@@ -1058,6 +1078,7 @@ const updateFindingSchema = z.object({
   ownerCompanyUserId: z.string().uuid().nullable().optional(),
   dueDate: z.string().nullable().optional().transform(s => s ? new Date(s) : null),
   status: z.enum(["OPEN", "UNDER_REVIEW", "CLOSED"]).optional(),
+  comment: z.string().optional(),
 });
 
 router.patch("/findings/:id", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
@@ -1085,6 +1106,45 @@ router.patch("/findings/:id", requireCompanyAuth, async (req: AuthenticatedCompa
     
     const updated = await storage.updateFinding(findingId, companyId, updates);
     
+    // Track finding activities for corrective action journey
+    if (input.status !== undefined && input.status !== finding.status) {
+      await storage.createFindingActivity({
+        companyId,
+        findingId,
+        activityType: input.status === "CLOSED" ? "CLOSED" : input.status === "OPEN" && finding.status === "CLOSED" ? "REOPENED" : "STATUS_CHANGED",
+        previousValue: finding.status,
+        newValue: input.status,
+        comment: input.comment,
+        performedByCompanyUserId: userId,
+      });
+    }
+    
+    if (input.ownerCompanyUserId !== undefined && input.ownerCompanyUserId !== finding.ownerCompanyUserId) {
+      await storage.createFindingActivity({
+        companyId,
+        findingId,
+        activityType: "OWNER_ASSIGNED",
+        previousValue: finding.ownerCompanyUserId || undefined,
+        newValue: input.ownerCompanyUserId || undefined,
+        performedByCompanyUserId: userId,
+      });
+    }
+    
+    if (input.dueDate !== undefined) {
+      const prevDueDate = finding.dueDate ? finding.dueDate.toISOString() : null;
+      const newDueDate = input.dueDate ? input.dueDate.toISOString() : null;
+      if (prevDueDate !== newDueDate) {
+        await storage.createFindingActivity({
+          companyId,
+          findingId,
+          activityType: "DUE_DATE_SET",
+          previousValue: prevDueDate || undefined,
+          newValue: newDueDate || undefined,
+          performedByCompanyUserId: userId,
+        });
+      }
+    }
+    
     await storage.logChange({
       actorType: "company_user",
       actorId: userId,
@@ -1103,6 +1163,219 @@ router.patch("/findings/:id", requireCompanyAuth, async (req: AuthenticatedCompa
     }
     console.error("Update finding error:", error);
     return res.status(500).json({ error: "Failed to update finding" });
+  }
+});
+
+// Get finding activities (corrective action journey)
+router.get("/findings/:id/activities", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const findingId = req.params.id;
+    
+    const finding = await storage.getFinding(findingId, companyId);
+    if (!finding) {
+      return res.status(404).json({ error: "Finding not found" });
+    }
+    
+    const activities = await storage.getFindingActivitiesWithUsers(findingId, companyId);
+    return res.json(activities);
+  } catch (error) {
+    console.error("Get finding activities error:", error);
+    return res.status(500).json({ error: "Failed to fetch finding activities" });
+  }
+});
+
+// Add comment to finding (tracked as activity)
+const addFindingCommentSchema = z.object({
+  comment: z.string().min(1, "Comment is required"),
+});
+
+router.post("/findings/:id/comments", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const findingId = req.params.id;
+    
+    const finding = await storage.getFinding(findingId, companyId);
+    if (!finding) {
+      return res.status(404).json({ error: "Finding not found" });
+    }
+    
+    const input = addFindingCommentSchema.parse(req.body);
+    
+    const activity = await storage.createFindingActivity({
+      companyId,
+      findingId,
+      activityType: "COMMENT_ADDED",
+      comment: input.comment,
+      performedByCompanyUserId: userId,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "FINDING_COMMENT_ADDED",
+      entityType: "finding",
+      entityId: findingId,
+      afterJson: { comment: input.comment },
+    });
+    
+    return res.status(201).json(activity);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Add finding comment error:", error);
+    return res.status(500).json({ error: "Failed to add comment" });
+  }
+});
+
+// Close finding with evidence and closure note
+const closeFindingSchema = z.object({
+  closureNote: z.string().min(10, "Closure note must be at least 10 characters"),
+  evidenceItemIds: z.array(z.string()).optional(),
+});
+
+router.post("/findings/:id/close", requireCompanyAuth, requireRole(["CompanyAdmin", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const findingId = req.params.id;
+    
+    const finding = await storage.getFinding(findingId, companyId);
+    if (!finding) {
+      return res.status(404).json({ error: "Finding not found" });
+    }
+    
+    if (finding.status === "CLOSED") {
+      return res.status(400).json({ error: "Finding is already closed" });
+    }
+    
+    const input = closeFindingSchema.parse(req.body);
+    
+    // Link closure evidence
+    if (input.evidenceItemIds && input.evidenceItemIds.length > 0) {
+      for (const evidenceItemId of input.evidenceItemIds) {
+        await storage.createFindingClosureEvidence({
+          companyId,
+          findingId,
+          evidenceItemId,
+          addedByCompanyUserId: userId,
+        });
+      }
+    }
+    
+    // Update finding status and closure info
+    const updated = await storage.updateFinding(findingId, companyId, {
+      status: "CLOSED",
+      closureNote: input.closureNote,
+      closedAt: new Date(),
+      closedByCompanyUserId: userId,
+    });
+    
+    // Track closure activity
+    await storage.createFindingActivity({
+      companyId,
+      findingId,
+      activityType: "CLOSED",
+      previousValue: finding.status,
+      newValue: "CLOSED",
+      comment: input.closureNote,
+      performedByCompanyUserId: userId,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "FINDING_CLOSED",
+      entityType: "finding",
+      entityId: findingId,
+      beforeJson: { status: finding.status },
+      afterJson: { status: "CLOSED", closureNote: input.closureNote, evidenceCount: input.evidenceItemIds?.length || 0 },
+    });
+    
+    return res.json(updated);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Close finding error:", error);
+    return res.status(500).json({ error: "Failed to close finding" });
+  }
+});
+
+// Get finding closure evidence
+router.get("/findings/:id/closure-evidence", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const findingId = req.params.id;
+    
+    const finding = await storage.getFinding(findingId, companyId);
+    if (!finding) {
+      return res.status(404).json({ error: "Finding not found" });
+    }
+    
+    const closureEvidence = await storage.getFindingClosureEvidence(findingId, companyId);
+    return res.json(closureEvidence);
+  } catch (error) {
+    console.error("Get finding closure evidence error:", error);
+    return res.status(500).json({ error: "Failed to fetch closure evidence" });
+  }
+});
+
+// Get complete finding detail with activities, evidence requests, and closure evidence
+router.get("/findings/:id/detail", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const findingId = req.params.id;
+    
+    const finding = await storage.getFinding(findingId, companyId);
+    if (!finding) {
+      return res.status(404).json({ error: "Finding not found" });
+    }
+    
+    const [audit, indicator, activities, evidenceRequests, closureEvidence] = await Promise.all([
+      storage.getAudit(finding.auditId, companyId),
+      storage.getAuditTemplateIndicator(finding.templateIndicatorId),
+      storage.getFindingActivitiesWithUsers(findingId, companyId),
+      storage.getEvidenceRequests(companyId, { findingId }),
+      storage.getFindingClosureEvidence(findingId, companyId),
+    ]);
+    
+    // Get evidence items for each request
+    const evidenceRequestsWithItems = await Promise.all(
+      evidenceRequests.map(async (request) => {
+        const items = await storage.getEvidenceItems(request.id, companyId);
+        return { ...request, items };
+      })
+    );
+    
+    // Get user info for owner and closer
+    let owner = null;
+    let closedBy = null;
+    
+    if (finding.ownerCompanyUserId) {
+      owner = await storage.getCompanyUser(finding.ownerCompanyUserId);
+    }
+    if (finding.closedByCompanyUserId) {
+      closedBy = await storage.getCompanyUser(finding.closedByCompanyUserId);
+    }
+    
+    return res.json({
+      ...finding,
+      audit,
+      indicator,
+      activities,
+      evidenceRequests: evidenceRequestsWithItems,
+      closureEvidence,
+      owner: owner ? { id: owner.id, fullName: owner.fullName, email: owner.email } : null,
+      closedBy: closedBy ? { id: closedBy.id, fullName: closedBy.fullName, email: closedBy.email } : null,
+    });
+  } catch (error) {
+    console.error("Get finding detail error:", error);
+    return res.status(500).json({ error: "Failed to fetch finding detail" });
   }
 });
 
@@ -1142,6 +1415,17 @@ router.post("/findings/:id/request-evidence", requireCompanyAuth, requireRole(["
       requestedByCompanyUserId: userId,
       dueDate: input.dueDate,
       publicToken: generatePublicToken(),
+    });
+    
+    // Track evidence request in finding activity log
+    await storage.createFindingActivity({
+      companyId,
+      findingId,
+      activityType: "EVIDENCE_REQUESTED",
+      newValue: input.evidenceType,
+      comment: input.requestNote,
+      performedByCompanyUserId: userId,
+      evidenceRequestId: evidenceRequest.id,
     });
     
     await storage.logChange({
