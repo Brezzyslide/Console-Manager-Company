@@ -1,0 +1,167 @@
+1. Client Identity, Authority & Consent
+
+These establish who the person is and who can decide.
+
+Client profile / intake record
+
+NDIS plan (current and previous if relevant)
+
+NDIS number and plan dates
+
+Service agreement (signed, current)
+
+Consent forms:
+
+Consent to provide supports
+
+Consent to share information
+
+Consent to medication (if applicable)
+
+Guardian / nominee documentation (if applicable)
+
+Evidence of supported decision making (where relevant)
+
+Auditors look for: alignment between authority, consent, and services delivered.
+
+2. Assessment & Planning Records
+
+These show why supports exist and how they’re meant to work.
+
+Comprehensive care / support plan
+
+Goals and outcomes linked to the NDIS plan
+
+Risk assessments (client-specific)
+
+Functional assessments (if used)
+
+Behaviour support plan (if applicable)
+
+Mealtime management plan (if applicable)
+
+Communication plan
+
+Health management plan
+
+Disaster / emergency response section within the care plan
+
+Auditors look for: currency, personalisation, funding alignment, and clarity.
+
+3. Delivery of Supports (Proof of Care)
+
+This is the evidence that care actually happened.
+
+Rosters showing client allocation
+
+Shift notes / case notes
+
+Daily support logs
+
+Activity participation records
+
+Progress notes against goals
+
+Community access records
+
+Overnight / supervision logs (where relevant)
+
+Auditors look for: consistency, accuracy, and alignment with the care plan.
+
+4. Medication & Health Records (if applicable)
+
+These are high-risk and closely scrutinised.
+
+Medication management plan
+
+Medication administration records (MARs)
+
+PRN protocols and usage logs
+
+Medication reviews
+
+Incident reports related to medication
+
+Evidence of staff competency for medication support
+
+Auditors look for: accuracy, timeliness, and safe practice.
+
+5. Incidents, Complaints & Safeguards
+
+This shows how risk is managed around the individual.
+
+Incident reports involving the client
+
+Incident follow-up actions
+
+Behavioural incidents and de-escalation records
+
+Restrictive practice records and authorisations (if applicable)
+
+Complaints made by or on behalf of the client
+
+Outcomes and resolution records
+
+Auditors look for: responsiveness, learning, and safeguards.
+
+6. Funding, Claims & Financial Alignment
+
+This proves supports match what’s funded.
+
+Service bookings or funding allocation records
+
+Invoices or claim summaries for the client
+
+Evidence rostered hours align with claims
+
+Variations or changes to supports
+
+Evidence client was informed of changes
+
+Auditors look for: transparency and accuracy, not accounting perfection.
+
+7. Reviews, Monitoring & Change Management
+
+This shows the service is not static.
+
+Care plan review records
+
+Progress reviews against goals
+
+Changes to support needs and rationale
+
+Evidence of client or representative involvement in reviews
+
+Transition or exit planning (if applicable)
+
+Auditors look for: responsiveness and continuous adjustment.
+
+8. Client Safety & Environment (where site-based)
+
+These are client-specific even though they involve a site.
+
+Client-specific emergency or evacuation needs
+
+Room or environment risk assessments (SIL/SDA)
+
+Behavioural or safety considerations related to the environment
+
+Evidence staff are aware of site-specific risks for that client
+
+Auditors look for: individualised safety, not generic plans.
+
+9. Cross-cutting client file checks (what auditors always test)
+
+These aren’t documents, but patterns auditors check across the file:
+
+Records are in date and consistent
+
+Names, dates, and details match across documents
+
+Care plan aligns with daily records
+
+Incidents align with case notes
+
+Funding aligns with delivery
+
+Client voice is visible in planning and reviews
