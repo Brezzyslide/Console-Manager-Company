@@ -29,6 +29,7 @@ import AuditTemplateSelectPage from "@/pages/company/AuditTemplateSelectPage";
 import AuditRunnerPage from "@/pages/company/AuditRunnerPage";
 import AuditReviewPage from "@/pages/company/AuditReviewPage";
 import AuditReportPage from "@/pages/company/AuditReportPage";
+import ReportsPage from "@/pages/company/ReportsPage";
 import FindingsRegisterPage from "@/pages/company/FindingsRegisterPage";
 import ServicesSettingsPage from "@/pages/company/ServicesSettingsPage";
 import EvidenceLockerPage from "@/pages/company/EvidenceLockerPage";
@@ -147,9 +148,19 @@ function Router() {
           <AuditReportPage />
         </CompanyLayout>
       </Route>
+      <Route path="/audits/:id">
+        <CompanyLayout>
+          <AuditRunnerPage />
+        </CompanyLayout>
+      </Route>
       <Route path="/findings">
         <CompanyLayout>
           <FindingsRegisterPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/reports">
+        <CompanyLayout>
+          <ReportsPage />
         </CompanyLayout>
       </Route>
       
