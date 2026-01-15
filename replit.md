@@ -57,11 +57,11 @@ Key tables:
 - `evidence_requests` - Evidence requests (standalone, audit-linked, or finding-linked) with public shareable tokens
 - `evidence_items` - Uploaded evidence files supporting both internal and external uploads
 
-### Audit Scoring Model (v1)
-- Ratings: CONFORMANCE (+2 pts), OBSERVATION (+1 pt), MINOR_NC (0 pts), MAJOR_NC (-2 pts)
-- Score calculation: `scorePercent = (scorePointsTotal / maxPoints) * 100` where `maxPoints = indicatorCount * 2`
+### Audit Scoring Model (v1.1 - Updated Jan 2026)
+- Ratings: CONFORMITY_BEST_PRACTICE (3 pts), CONFORMITY (2 pts), MINOR_NC (1 pt), MAJOR_NC (0 pts)
+- Score calculation: `scorePercent = (scorePointsTotal / maxPoints) * 100` where `maxPoints = indicatorCount * 3`
 - Score version stored per response for future model updates
-- Comments required (min 10 chars) for non-conformance ratings
+- Comments required (min 10 chars) only for MINOR_NC and MAJOR_NC ratings
 
 ### Audit Results Page (formerly Findings Register)
 - Shows all indicator responses grouped by rating category
@@ -219,3 +219,46 @@ API endpoints:
 - `@replit/vite-plugin-runtime-error-modal` - Error overlay in development
 - `@replit/vite-plugin-cartographer` - Development tooling
 - Custom `vite-plugin-meta-images` - OpenGraph image handling for deployments
+
+## Future Enhancement Roadmap
+
+### AI-Powered Enhancements
+
+**1. Smart Evidence Analysis**
+- AI reviews uploaded documents and automatically suggests which checklist items they satisfy
+- OCR + AI to extract key dates, signatures, and compliance indicators from PDFs
+- Auto-flag expired certifications (WWCC, first aid, qualifications)
+
+**2. Predictive Compliance Risk Scoring**
+- Analyze patterns across audits to predict which areas are likely to fail next time
+- "Your policy documents have a 73% rejection rate - consider updating templates"
+- Dashboard showing compliance risk trends over time
+
+**3. Automated Finding Recommendations**
+- After document review, AI suggests the exact finding text based on what failed
+- Pre-populate corrective action recommendations based on similar past findings
+- Suggest due dates based on severity and typical remediation timeframes
+
+**4. Interview Assistant**
+- AI generates suggested interview questions based on the audit scope and indicators
+- Real-time transcription during interviews with automatic key observation extraction
+- Post-interview summary generation
+
+### Workflow Automation
+
+**5. Smart Notifications & Escalations**
+- Automated reminders when evidence requests are overdue
+- Escalation workflows when findings aren't addressed by due date
+- Weekly compliance digest emails to stakeholders
+
+**6. Continuous Monitoring**
+- Integration with HR systems to flag when staff certifications expire
+- Connect to incident management to auto-generate findings from serious incidents
+- Policy version tracking with renewal reminders
+
+### Additional Ideas (To Be Prioritized)
+- Mobile app for on-site auditors
+- Integration with NDIS Commission portal
+- Benchmarking against industry averages
+- Template marketplace for audit templates
+- White-label option for consulting firms
