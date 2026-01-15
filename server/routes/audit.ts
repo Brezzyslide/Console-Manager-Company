@@ -2374,7 +2374,7 @@ Write a 2-3 paragraph executive summary that:
 Keep the tone professional and balanced. Focus on facts rather than opinions. Limit to approximately 250-350 words.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         { role: "system", content: "You are an expert NDIS compliance auditor writing professional audit reports." },
         { role: "user", content: prompt }
