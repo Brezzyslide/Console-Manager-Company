@@ -326,6 +326,19 @@ export default function AuditReportPage() {
                   <span className="text-muted-foreground">Type</span>
                   <span className="font-medium">{audit.auditType}</span>
                 </div>
+                {audit.auditPurpose && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Purpose</span>
+                    <span className="font-medium">
+                      {audit.auditPurpose === "INITIAL_CERTIFICATION" ? "Initial Certification" :
+                       audit.auditPurpose === "RECERTIFICATION" ? "Recertification" :
+                       audit.auditPurpose === "SURVEILLANCE" ? "Surveillance" :
+                       audit.auditPurpose === "SCOPE_EXTENSION" ? "Scope Extension" :
+                       audit.auditPurpose === "TRANSFER_AUDIT" ? "Transfer Audit" :
+                       audit.auditPurpose === "SPECIAL_AUDIT" ? "Special Audit" : audit.auditPurpose}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Service Context</span>
                   <span className="font-medium">{audit.serviceContextLabel}</span>
@@ -342,6 +355,34 @@ export default function AuditReportPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {(audit.entityName || audit.entityAbn || audit.entityAddress) && (
+              <Card data-testid="entity-details-card">
+                <CardHeader>
+                  <CardTitle>Entity Being Audited</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {audit.entityName && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Organisation</span>
+                      <span className="font-medium">{audit.entityName}</span>
+                    </div>
+                  )}
+                  {audit.entityAbn && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">ABN</span>
+                      <span className="font-medium">{audit.entityAbn}</span>
+                    </div>
+                  )}
+                  {audit.entityAddress && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Address</span>
+                      <span className="font-medium text-right max-w-[200px]">{audit.entityAddress}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             <Card data-testid="score-summary-card">
               <CardHeader>

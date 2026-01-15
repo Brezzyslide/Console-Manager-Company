@@ -422,6 +422,12 @@ export interface Audit {
   externalAuditorEmail: string | null;
   scopeLocked: boolean;
   closeReason: string | null;
+  entityName: string | null;
+  entityAbn: string | null;
+  entityAddress: string | null;
+  auditPurpose: string | null;
+  methodology: string | null;
+  executiveSummary: string | null;
   createdAt: string;
   scorePercent?: number | null;
   completedCount?: number;
