@@ -11,8 +11,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, ArrowRight, Loader2, ClipboardCheck, UserCheck, AlertTriangle, Settings, Layers } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, ClipboardCheck, UserCheck, AlertTriangle, Settings, Layers, Building2 } from "lucide-react";
 import { createAudit, getAuditOptions, getAuditDomains, type AuditType, type AuditDomain } from "@/lib/company-api";
+
+const auditPurposeOptions = [
+  { value: "INITIAL_CERTIFICATION", label: "Initial Certification" },
+  { value: "RECERTIFICATION", label: "Recertification" },
+  { value: "SURVEILLANCE", label: "Surveillance Audit" },
+  { value: "SCOPE_EXTENSION", label: "Scope Extension" },
+  { value: "TRANSFER_AUDIT", label: "Transfer Audit" },
+  { value: "SPECIAL_AUDIT", label: "Special Audit" },
+] as const;
 
 export default function CreateAuditPage() {
   const [, navigate] = useLocation();
@@ -31,6 +40,10 @@ export default function CreateAuditPage() {
     externalAuditorName: "",
     externalAuditorOrg: "",
     externalAuditorEmail: "",
+    entityName: "",
+    entityAbn: "",
+    entityAddress: "",
+    auditPurpose: "",
   });
 
   const { data: auditOptions, isLoading: optionsLoading } = useQuery({
@@ -83,6 +96,10 @@ export default function CreateAuditPage() {
       externalAuditorName: auditType === "EXTERNAL" ? formData.externalAuditorName : undefined,
       externalAuditorOrg: auditType === "EXTERNAL" ? formData.externalAuditorOrg : undefined,
       externalAuditorEmail: auditType === "EXTERNAL" ? formData.externalAuditorEmail : undefined,
+      entityName: formData.entityName || undefined,
+      entityAbn: formData.entityAbn || undefined,
+      entityAddress: formData.entityAddress || undefined,
+      auditPurpose: formData.auditPurpose || undefined,
       selectedLineItemIds: Array.from(selectedLineItems),
       selectedDomainIds: Array.from(selectedDomains),
     });
@@ -420,6 +437,71 @@ export default function CreateAuditPage() {
                 </div>
               )}
 
+              {auditType === "EXTERNAL" && (
+                <>
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="font-medium">Entity Being Audited</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Details of the organization being assessed
+                    </p>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="entityName">Entity Name</Label>
+                      <Input
+                        id="entityName"
+                        placeholder="Legal name of the organization being audited"
+                        value={formData.entityName}
+                        onChange={(e) => setFormData(prev => ({ ...prev, entityName: e.target.value }))}
+                        data-testid="input-entity-name"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="entityAbn">ABN</Label>
+                        <Input
+                          id="entityAbn"
+                          placeholder="Australian Business Number"
+                          value={formData.entityAbn}
+                          onChange={(e) => setFormData(prev => ({ ...prev, entityAbn: e.target.value }))}
+                          data-testid="input-entity-abn"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="auditPurpose">Audit Purpose</Label>
+                        <Select 
+                          value={formData.auditPurpose} 
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, auditPurpose: value }))}
+                        >
+                          <SelectTrigger data-testid="select-audit-purpose">
+                            <SelectValue placeholder="Select purpose" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {auditPurposeOptions.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="entityAddress">Address</Label>
+                      <Input
+                        id="entityAddress"
+                        placeholder="Primary address of the entity"
+                        value={formData.entityAddress}
+                        onChange={(e) => setFormData(prev => ({ ...prev, entityAddress: e.target.value }))}
+                        data-testid="input-entity-address"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="scopeFrom">Scope Period From *</Label>
@@ -465,10 +547,10 @@ export default function CreateAuditPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="auditorOrg">Organization *</Label>
+                      <Label htmlFor="auditorOrg">Certification Body *</Label>
                       <Input
                         id="auditorOrg"
-                        placeholder="Auditing organization or certification body"
+                        placeholder="e.g., DNV, BSI, SAI Global"
                         value={formData.externalAuditorOrg}
                         onChange={(e) => setFormData(prev => ({ ...prev, externalAuditorOrg: e.target.value }))}
                         data-testid="input-auditor-org"

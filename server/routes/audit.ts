@@ -101,6 +101,10 @@ const createAuditSchema = z.object({
   externalAuditorName: z.string().optional(),
   externalAuditorOrg: z.string().optional(),
   externalAuditorEmail: z.string().email().optional(),
+  entityName: z.string().optional(),
+  entityAbn: z.string().optional(),
+  entityAddress: z.string().optional(),
+  auditPurpose: z.enum(["INITIAL_CERTIFICATION", "RECERTIFICATION", "SURVEILLANCE", "SCOPE_EXTENSION", "TRANSFER_AUDIT", "SPECIAL_AUDIT"]).optional(),
   selectedLineItemIds: z.array(z.string().uuid()).min(1, "At least one line item must be selected"),
   selectedDomainIds: z.array(z.string()).optional(),
 }).refine(data => {
@@ -157,6 +161,10 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
       externalAuditorName: input.externalAuditorName || null,
       externalAuditorOrg: input.externalAuditorOrg || null,
       externalAuditorEmail: input.externalAuditorEmail || null,
+      entityName: input.entityName || null,
+      entityAbn: input.entityAbn || null,
+      entityAddress: input.entityAddress || null,
+      auditPurpose: input.auditPurpose || null,
       scopeLocked: false,
     });
     
@@ -2402,6 +2410,109 @@ router.put("/audits/:auditId/executive-summary", requireCompanyAuth, requireRole
   } catch (error) {
     console.error("Update executive summary error:", error);
     return res.status(500).json({ error: "Failed to update executive summary" });
+  }
+});
+
+// Audit Sites CRUD (for multi-location audits)
+const createAuditSiteSchema = z.object({
+  siteName: z.string().min(1, "Site name is required"),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  postcode: z.string().optional(),
+  isPrimarySite: z.boolean().optional(),
+  notes: z.string().optional(),
+});
+
+router.get("/audits/:auditId/sites", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const sites = await storage.getAuditSites(auditId);
+    return res.json(sites);
+  } catch (error) {
+    console.error("Get audit sites error:", error);
+    return res.status(500).json({ error: "Failed to fetch audit sites" });
+  }
+});
+
+router.post("/audits/:auditId/sites", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const parsed = createAuditSiteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const site = await storage.createAuditSite({
+      auditId,
+      siteName: parsed.data.siteName,
+      address: parsed.data.address || null,
+      city: parsed.data.city || null,
+      state: parsed.data.state || null,
+      postcode: parsed.data.postcode || null,
+      isPrimarySite: parsed.data.isPrimarySite || false,
+      notes: parsed.data.notes || null,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "AUDIT_SITE_ADDED",
+      entityType: "audit_site",
+      entityId: site.id,
+      afterJson: { auditId, siteName: site.siteName },
+    });
+    
+    return res.status(201).json(site);
+  } catch (error) {
+    console.error("Create audit site error:", error);
+    return res.status(500).json({ error: "Failed to create audit site" });
+  }
+});
+
+router.delete("/audits/:auditId/sites/:siteId", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId, siteId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    await storage.deleteAuditSite(siteId);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "AUDIT_SITE_DELETED",
+      entityType: "audit_site",
+      entityId: siteId,
+      afterJson: { auditId },
+    });
+    
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Delete audit site error:", error);
+    return res.status(500).json({ error: "Failed to delete audit site" });
   }
 });
 

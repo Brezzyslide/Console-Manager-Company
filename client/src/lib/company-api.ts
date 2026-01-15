@@ -582,6 +582,10 @@ export async function createAudit(input: {
   externalAuditorName?: string;
   externalAuditorOrg?: string;
   externalAuditorEmail?: string;
+  entityName?: string;
+  entityAbn?: string;
+  entityAddress?: string;
+  auditPurpose?: string;
   selectedLineItemIds?: string[];
   selectedDomainIds?: string[];
 }): Promise<Audit> {

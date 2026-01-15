@@ -238,6 +238,14 @@ export const responseStatusEnum = ["OPEN", "CLOSED"] as const;
 
 // Audit Report enums
 export const auditMethodologyEnum = ["REMOTE", "ONSITE", "HYBRID"] as const;
+export const auditPurposeEnum = [
+  "INITIAL_CERTIFICATION",
+  "RECERTIFICATION", 
+  "SURVEILLANCE",
+  "SCOPE_EXTENSION",
+  "TRANSFER_AUDIT",
+  "SPECIAL_AUDIT",
+] as const;
 export const auditRecommendationEnum = [
   "CERTIFICATION_RECOMMENDED",
   "CONTINUING_CERTIFICATION_RECOMMENDED",
@@ -313,6 +321,12 @@ export const audits = pgTable("audits", {
   externalAuditorEmail: text("external_auditor_email"),
   scopeLocked: boolean("scope_locked").notNull().default(false),
   closeReason: text("close_reason"),
+  // Entity being audited (separate from the auditing organization)
+  entityName: text("entity_name"),
+  entityAbn: text("entity_abn"),
+  entityAddress: text("entity_address"),
+  // Audit purpose (recertification, initial, surveillance, etc.)
+  auditPurpose: text("audit_purpose", { enum: auditPurposeEnum }),
   // Report metadata fields
   methodology: text("methodology", { enum: auditMethodologyEnum }),
   ageGroupsServed: text("age_groups_served").array(),
@@ -348,6 +362,28 @@ export const insertAuditScopeLineItemSchema = createInsertSchema(auditScopeLineI
 
 export type InsertAuditScopeLineItem = z.infer<typeof insertAuditScopeLineItemSchema>;
 export type AuditScopeLineItem = typeof auditScopeLineItems.$inferSelect;
+
+// Audit Sites (Locations being audited for multi-site audits)
+export const auditSites = pgTable("audit_sites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  siteName: text("site_name").notNull(),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  postcode: text("postcode"),
+  isPrimarySite: boolean("is_primary_site").notNull().default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuditSiteSchema = createInsertSchema(auditSites).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditSite = z.infer<typeof insertAuditSiteSchema>;
+export type AuditSite = typeof auditSites.$inferSelect;
 
 // Audit Domains (Tenant-scoped domain definitions)
 export const auditDomainCodeEnum = ["STAFF_PERSONNEL", "GOV_POLICY", "OPERATIONAL"] as const;

@@ -26,6 +26,7 @@ import {
   suggestedFindings,
   auditInterviews,
   auditSiteVisits,
+  auditSites,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -79,6 +80,8 @@ import {
   type InsertAuditInterview,
   type AuditSiteVisit,
   type InsertAuditSiteVisit,
+  type AuditSite,
+  type InsertAuditSite,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -236,6 +239,11 @@ export interface IStorage {
   // Audit Report Data
   updateAuditExecutiveSummary(auditId: string, companyId: string, summary: string, editedByUserId: string): Promise<Audit | undefined>;
   getAuditReportData(auditId: string, companyId: string): Promise<any>;
+  
+  // Audit Sites (for multi-location audits)
+  getAuditSites(auditId: string): Promise<AuditSite[]>;
+  createAuditSite(site: InsertAuditSite): Promise<AuditSite>;
+  deleteAuditSite(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1335,12 +1343,13 @@ export class DatabaseStorage implements IStorage {
     const audit = await this.getAudit(auditId, companyId);
     if (!audit) return null;
     
-    const [company, interviews, siteVisits, responses, findingsData] = await Promise.all([
+    const [company, interviews, siteVisits, responses, findingsData, sites] = await Promise.all([
       this.getCompany(companyId),
       this.getAuditInterviews(auditId, companyId),
       this.getAuditSiteVisits(auditId, companyId),
       this.getAuditIndicatorResponses(auditId),
-      this.getFindings(companyId, { auditId })
+      this.getFindings(companyId, { auditId }),
+      this.getAuditSites(auditId)
     ]);
     
     return {
@@ -1349,8 +1358,33 @@ export class DatabaseStorage implements IStorage {
       interviews,
       siteVisits,
       indicatorResponses: responses,
-      findings: findingsData
+      findings: findingsData,
+      sites
     };
+  }
+  
+  // Audit Sites (for multi-location audits)
+  async getAuditSites(auditId: string): Promise<AuditSite[]> {
+    return await db
+      .select()
+      .from(auditSites)
+      .where(eq(auditSites.auditId, auditId))
+      .orderBy(desc(auditSites.isPrimarySite), asc(auditSites.siteName));
+  }
+  
+  async createAuditSite(site: InsertAuditSite): Promise<AuditSite> {
+    const [created] = await db
+      .insert(auditSites)
+      .values(site)
+      .returning();
+    return created;
+  }
+  
+  async deleteAuditSite(id: string): Promise<boolean> {
+    const result = await db
+      .delete(auditSites)
+      .where(eq(auditSites.id, id));
+    return true;
   }
 }
 
