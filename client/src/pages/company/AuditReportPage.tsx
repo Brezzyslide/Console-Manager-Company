@@ -437,10 +437,9 @@ export default function AuditReportPage() {
                         )}
                         Regenerate
                       </Button>
-                      {hasChanges && (
-                        <Button
+                      <Button
                           onClick={() => saveSummaryMutation.mutate(executiveSummary)}
-                          disabled={saveSummaryMutation.isPending}
+                          disabled={saveSummaryMutation.isPending || !hasChanges}
                           data-testid="save-summary-button"
                         >
                           {saveSummaryMutation.isPending ? (
@@ -450,7 +449,6 @@ export default function AuditReportPage() {
                           )}
                           Save Changes
                         </Button>
-                      )}
                     </>
                   )}
                 </div>
