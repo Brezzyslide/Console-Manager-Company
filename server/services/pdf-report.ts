@@ -16,7 +16,7 @@ interface ReportData {
   interviews: AuditInterview[];
   siteVisits: AuditSiteVisit[];
   indicatorResponses: AuditIndicatorResponse[];
-  findings: Finding[];
+  findings: any[];
   sites: AuditSite[];
 }
 
@@ -33,15 +33,15 @@ const COLORS = {
 };
 
 const RATING_COLORS: Record<string, string> = {
-  CONFORMANCE: COLORS.success,
-  OBSERVATION: COLORS.warning,
+  CONFORMITY_BEST_PRACTICE: '#10b981',
+  CONFORMITY: COLORS.success,
   MINOR_NC: '#f97316',
   MAJOR_NC: COLORS.danger
 };
 
 const RATING_LABELS: Record<string, string> = {
-  CONFORMANCE: 'Conformance',
-  OBSERVATION: 'Observation',
+  CONFORMITY_BEST_PRACTICE: 'Best Practice',
+  CONFORMITY: 'Conformity',
   MINOR_NC: 'Minor Non-Conformance',
   MAJOR_NC: 'Major Non-Conformance'
 };
@@ -320,8 +320,8 @@ function generateExecutiveSummary(doc: PDFKit.PDFDocument, data: ReportData, pag
   const boxY = doc.y;
 
   const boxes = [
-    { label: 'Conformance', count: scores.conformance, color: COLORS.success },
-    { label: 'Observation', count: scores.observation, color: COLORS.warning },
+    { label: 'Best Practice', count: scores.bestPractice, color: '#10b981' },
+    { label: 'Conformity', count: scores.conformity, color: COLORS.success },
     { label: 'Minor NC', count: scores.minorNc, color: '#f97316' },
     { label: 'Major NC', count: scores.majorNc, color: COLORS.danger }
   ];
@@ -482,10 +482,10 @@ function generateAuditResults(doc: PDFKit.PDFDocument, data: ReportData, pageWid
     .text('Points', doc.page.margins.left + col1Width + col2Width + 5, tableTop + 7);
 
   const rows = [
-    { label: 'Conformance (+2 pts each)', count: scores.conformance, points: scores.conformance * 2, color: COLORS.success },
-    { label: 'Observation (+1 pt each)', count: scores.observation, points: scores.observation * 1, color: COLORS.warning },
-    { label: 'Minor Non-Conformance (0 pts)', count: scores.minorNc, points: 0, color: '#f97316' },
-    { label: 'Major Non-Conformance (-2 pts each)', count: scores.majorNc, points: scores.majorNc * -2, color: COLORS.danger }
+    { label: 'Best Practice (+3 pts each)', count: scores.bestPractice, points: scores.bestPractice * 3, color: '#10b981' },
+    { label: 'Conformity (+2 pts each)', count: scores.conformity, points: scores.conformity * 2, color: COLORS.success },
+    { label: 'Minor Non-Conformance (+1 pt each)', count: scores.minorNc, points: scores.minorNc * 1, color: '#f97316' },
+    { label: 'Major Non-Conformance (0 pts)', count: scores.majorNc, points: 0, color: COLORS.danger }
   ];
 
   rows.forEach((row, idx) => {
@@ -711,6 +711,105 @@ function generateFindings(doc: PDFKit.PDFDocument, data: ReportData, pageWidth: 
       });
     }
 
+    // Evidence Requests and Submitted Evidence
+    const evidenceRequests = Array.isArray(finding.evidenceRequests) ? finding.evidenceRequests : [];
+    if (evidenceRequests.length > 0) {
+      doc.moveDown(0.5);
+      doc.fillColor(COLORS.secondary)
+        .fontSize(9)
+        .font('Helvetica-Bold')
+        .text('Evidence Requests:');
+      doc.moveDown(0.2);
+
+      const evidenceTypeLabels: Record<string, string> = {
+        CLIENT_PROFILE: 'Client Profile / Intake Record',
+        NDIS_PLAN: 'NDIS Plan',
+        SERVICE_AGREEMENT: 'Service Agreement',
+        CONSENT_FORM: 'Consent Form',
+        GUARDIAN_DOCUMENTATION: 'Guardian / Nominee Documentation',
+        CARE_PLAN: 'Care / Support Plan',
+        BSP: 'Behaviour Support Plan (BSP)',
+        MMP: 'Mealtime Management Plan (MMP)',
+        HEALTH_PLAN: 'Health Management Plan',
+        COMMUNICATION_PLAN: 'Communication Plan',
+        RISK_ASSESSMENT: 'Risk Assessment',
+        EMERGENCY_PLAN: 'Emergency / Evacuation Plan',
+        ROSTER: 'Roster / Shift Allocation',
+        SHIFT_NOTES: 'Shift Notes / Case Notes',
+        DAILY_LOG: 'Daily Support Log',
+        PROGRESS_NOTES: 'Progress Notes',
+        ACTIVITY_RECORD: 'Activity / Community Access Record',
+        QUALIFICATION: 'Qualification / Credential',
+        WWCC: 'WWCC / Police Check / NDIS Screening',
+        TRAINING_RECORD: 'Training Record / Certificate',
+        SUPERVISION_RECORD: 'Supervision Record',
+        MEDICATION_PLAN: 'Medication Management Plan',
+        MAR: 'Medication Administration Record (MAR)',
+        PRN_LOG: 'PRN Protocol / Usage Log',
+        INCIDENT_REPORT: 'Incident Report',
+        COMPLAINT_RECORD: 'Complaint Record',
+        RP_RECORD: 'Restrictive Practice Record',
+        SERVICE_BOOKING: 'Service Booking / Funding Allocation',
+        INVOICE_CLAIM: 'Invoice / Claim Record',
+        POLICY: 'Policy Document',
+        PROCEDURE: 'Procedure Document',
+        REVIEW_RECORD: 'Review / Monitoring Record',
+        OTHER: 'Other Document',
+      };
+
+      evidenceRequests.forEach((request: any, reqIdx: number) => {
+        if (doc.y > doc.page.height - 80) {
+          doc.addPage();
+        }
+
+        const statusColor = request.status === 'ACCEPTED' ? COLORS.success :
+                           request.status === 'SUBMITTED' ? COLORS.secondary :
+                           request.status === 'REJECTED' ? COLORS.danger :
+                           COLORS.warning;
+        
+        const typeLabel = evidenceTypeLabels[request.evidenceType] || request.evidenceType;
+
+        doc.fillColor(COLORS.black)
+          .fontSize(8)
+          .font('Helvetica-Bold')
+          .text(`${reqIdx + 1}. ${typeLabel}`, { continued: true });
+        
+        doc.fillColor(statusColor)
+          .text(` [${request.status}]`);
+
+        if (request.requestNote) {
+          doc.fillColor(COLORS.muted)
+            .fontSize(8)
+            .font('Helvetica')
+            .text(`   Request: ${request.requestNote.length > 80 ? request.requestNote.substring(0, 80) + '...' : request.requestNote}`);
+        }
+
+        const items = Array.isArray(request.items) ? request.items : [];
+        if (items.length > 0) {
+          doc.fillColor(COLORS.success)
+            .fontSize(8)
+            .font('Helvetica')
+            .text(`   Submitted Files (${items.length}):`);
+          
+          items.forEach((item: any) => {
+            doc.fillColor(COLORS.black)
+              .fontSize(7)
+              .text(`     • ${item.fileName || 'Unknown file'}`);
+          });
+        }
+      });
+    }
+
+    // Closure Evidence (if separate from requests)
+    const closureEvidence = Array.isArray(finding.closureEvidence) ? finding.closureEvidence : [];
+    if (closureEvidence.length > 0) {
+      doc.moveDown(0.3);
+      doc.fillColor(COLORS.success)
+        .fontSize(9)
+        .font('Helvetica-Bold')
+        .text(`Closure Evidence: ${closureEvidence.length} item(s) linked`);
+    }
+
     doc.moveDown(1);
   });
 }
@@ -910,23 +1009,23 @@ function subsectionHeader(doc: PDFKit.PDFDocument, title: string) {
 }
 
 function calculateScores(responses: AuditIndicatorResponse[]) {
-  const conformance = responses.filter(r => r.rating === 'CONFORMANCE').length;
-  const observation = responses.filter(r => r.rating === 'OBSERVATION').length;
+  const bestPractice = responses.filter(r => r.rating === 'CONFORMITY_BEST_PRACTICE').length;
+  const conformity = responses.filter(r => r.rating === 'CONFORMITY').length;
   const minorNc = responses.filter(r => r.rating === 'MINOR_NC').length;
   const majorNc = responses.filter(r => r.rating === 'MAJOR_NC').length;
   
   const total = responses.length;
-  const points = (conformance * 2) + (observation * 1) + (minorNc * 0) + (majorNc * -2);
-  const maxPoints = total * 2;
+  const points = (bestPractice * 3) + (conformity * 2) + (minorNc * 1) + (majorNc * 0);
+  const maxPoints = total * 3;
   const percentage = maxPoints > 0 ? Math.round((points / maxPoints) * 100) : 0;
   
-  return { conformance, observation, minorNc, majorNc, total, points, maxPoints, percentage };
+  return { bestPractice, conformity, minorNc, majorNc, total, points, maxPoints, percentage };
 }
 
 function groupByRating(responses: AuditIndicatorResponse[]) {
   return {
-    CONFORMANCE: responses.filter(r => r.rating === 'CONFORMANCE'),
-    OBSERVATION: responses.filter(r => r.rating === 'OBSERVATION'),
+    CONFORMITY_BEST_PRACTICE: responses.filter(r => r.rating === 'CONFORMITY_BEST_PRACTICE'),
+    CONFORMITY: responses.filter(r => r.rating === 'CONFORMITY'),
     MINOR_NC: responses.filter(r => r.rating === 'MINOR_NC'),
     MAJOR_NC: responses.filter(r => r.rating === 'MAJOR_NC')
   };

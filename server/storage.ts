@@ -1594,12 +1594,24 @@ export class DatabaseStorage implements IStorage {
       this.getAuditSites(auditId)
     ]);
     
-    // Get activities for each finding (for corrective action journey)
+    // Get activities, closure evidence, and evidence requests for each finding
     const findingsWithActivities = await Promise.all(
       findingsData.map(async (finding) => {
-        const activities = await this.getFindingActivitiesWithUsers(finding.id, companyId);
-        const closureEvidence = await this.getFindingClosureEvidence(finding.id, companyId);
-        return { ...finding, activities, closureEvidence };
+        const [activities, closureEvidence, evidenceRequests] = await Promise.all([
+          this.getFindingActivitiesWithUsers(finding.id, companyId),
+          this.getFindingClosureEvidence(finding.id, companyId),
+          this.getEvidenceRequests(companyId, { findingId: finding.id })
+        ]);
+        
+        // Get evidence items for each request
+        const evidenceRequestsWithItems = await Promise.all(
+          evidenceRequests.map(async (request) => {
+            const items = await this.getEvidenceItems(request.id, companyId);
+            return { ...request, items };
+          })
+        );
+        
+        return { ...finding, activities, closureEvidence, evidenceRequests: evidenceRequestsWithItems };
       })
     );
     
