@@ -211,8 +211,10 @@ function generateCoverPage(doc: PDFKit.PDFDocument, data: ReportData, pageWidth:
     .font('Helvetica-Bold')
     .text('Audit Period:', leftColX, doc.y);
   
-  const scopeFrom = audit.scopeTimeFrom ? format(new Date(audit.scopeTimeFrom), 'dd MMM yyyy') : 'Not set';
-  const scopeTo = audit.scopeTimeTo ? format(new Date(audit.scopeTimeTo), 'dd MMM yyyy') : 'Not set';
+  const scopeFromDate = audit.scopeTimeFrom ? new Date(audit.scopeTimeFrom) : null;
+  const scopeToDate = audit.scopeTimeTo ? new Date(audit.scopeTimeTo) : null;
+  const scopeFrom = scopeFromDate && !isNaN(scopeFromDate.getTime()) ? format(scopeFromDate, 'dd MMM yyyy') : 'Not set';
+  const scopeTo = scopeToDate && !isNaN(scopeToDate.getTime()) ? format(scopeToDate, 'dd MMM yyyy') : 'Not set';
   doc.font('Helvetica')
     .text(`${scopeFrom} - ${scopeTo}`, leftColX, doc.y + 12);
 
