@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,33 @@ const statusColors: Record<string, string> = {
 
 export default function ReportsPage() {
   const [, navigate] = useLocation();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownloadPdf = async (auditId: string) => {
+    setDownloadingId(auditId);
+    try {
+      const response = await fetch(`/api/company/audits/${auditId}/download-pdf`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to download PDF");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-report-${auditId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Download failed:", error);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const { data: audits, isLoading } = useQuery({
     queryKey: ["audits"],
@@ -94,11 +122,16 @@ export default function ReportsPage() {
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={() => window.open(`/api/company/audits/${audit.id}/download-pdf`, '_blank')}
+                    onClick={() => handleDownloadPdf(audit.id)}
+                    disabled={downloadingId === audit.id}
                     data-testid={`btn-download-pdf-${audit.id}`}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
+                    {downloadingId === audit.id ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    {downloadingId === audit.id ? "Downloading..." : "Download PDF"}
                   </Button>
                 </div>
               </CardContent>
