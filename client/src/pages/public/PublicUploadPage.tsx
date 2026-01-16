@@ -529,7 +529,7 @@ export default function PublicUploadPage() {
                   <SelectTrigger className="bg-muted/30 border-border/50" data-testid="select-document-type">
                     <SelectValue placeholder="Select document type (optional)" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {DOCUMENT_TYPES.map((type) => (
                       <SelectItem key={type.value} value={type.value} data-testid={`option-doc-type-${type.value}`}>
                         {type.label}
