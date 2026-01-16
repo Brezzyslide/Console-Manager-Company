@@ -156,7 +156,11 @@ export default function AuditReviewPage() {
           )}
         </div>
         <p className="text-muted-foreground">
-          {format(new Date(audit?.scopeTimeFrom || ""), "MMM d, yyyy")} - {format(new Date(audit?.scopeTimeTo || ""), "MMM d, yyyy")}
+          {audit?.scopeTimeFrom && audit?.scopeTimeTo ? (
+            `${format(new Date(audit.scopeTimeFrom), "MMM d, yyyy")} - ${format(new Date(audit.scopeTimeTo), "MMM d, yyyy")}`
+          ) : (
+            "Scope period not set"
+          )}
         </p>
       </div>
 
