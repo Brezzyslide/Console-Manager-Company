@@ -210,8 +210,11 @@ function generateCoverPage(doc: PDFKit.PDFDocument, data: ReportData, pageWidth:
     .fontSize(10)
     .font('Helvetica-Bold')
     .text('Audit Period:', leftColX, doc.y);
+  
+  const scopeFrom = audit.scopeTimeFrom ? format(new Date(audit.scopeTimeFrom), 'dd MMM yyyy') : 'Not set';
+  const scopeTo = audit.scopeTimeTo ? format(new Date(audit.scopeTimeTo), 'dd MMM yyyy') : 'Not set';
   doc.font('Helvetica')
-    .text(`${format(new Date(audit.scopeTimeFrom), 'dd MMM yyyy')} - ${format(new Date(audit.scopeTimeTo), 'dd MMM yyyy')}`, leftColX, doc.y + 12);
+    .text(`${scopeFrom} - ${scopeTo}`, leftColX, doc.y + 12);
 
   doc.font('Helvetica-Bold')
     .text('Methodology:', rightColX, doc.y - 12);
