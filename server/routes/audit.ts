@@ -1235,6 +1235,7 @@ router.post("/findings/:id/comments", requireCompanyAuth, async (req: Authentica
 const closeFindingSchema = z.object({
   closureNote: z.string().min(10, "Closure note must be at least 10 characters"),
   evidenceItemIds: z.array(z.string()).optional(),
+  upgradeToConformity: z.boolean().optional(),
 });
 
 router.post("/findings/:id/close", requireCompanyAuth, requireRole(["CompanyAdmin", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
@@ -1274,13 +1275,30 @@ router.post("/findings/:id/close", requireCompanyAuth, requireRole(["CompanyAdmi
       closedByCompanyUserId: userId,
     });
     
+    // If upgrading to conformity, update the indicator response rating
+    let ratingUpgraded = false;
+    if (input.upgradeToConformity && finding.templateIndicatorId) {
+      const conformityScore = scoreForRating("CONFORMITY");
+      const previousRating = finding.severity || "NC";
+      await storage.upsertAuditIndicatorResponse({
+        auditId: finding.auditId,
+        templateIndicatorId: finding.templateIndicatorId,
+        rating: "CONFORMITY",
+        comment: `Upgraded from ${previousRating} after corrective action. ${input.closureNote}`,
+        scorePoints: conformityScore,
+        scoreVersion: "1.0",
+        createdByCompanyUserId: userId,
+      });
+      ratingUpgraded = true;
+    }
+    
     // Track closure activity
     await storage.createFindingActivity({
       companyId,
       findingId,
       activityType: "CLOSED",
       previousValue: finding.status,
-      newValue: "CLOSED",
+      newValue: ratingUpgraded ? "CLOSED (Upgraded to Conformity)" : "CLOSED",
       comment: input.closureNote,
       performedByCompanyUserId: userId,
     });
@@ -1292,8 +1310,13 @@ router.post("/findings/:id/close", requireCompanyAuth, requireRole(["CompanyAdmi
       action: "FINDING_CLOSED",
       entityType: "finding",
       entityId: findingId,
-      beforeJson: { status: finding.status },
-      afterJson: { status: "CLOSED", closureNote: input.closureNote, evidenceCount: input.evidenceItemIds?.length || 0 },
+      beforeJson: { status: finding.status, severity: finding.severity },
+      afterJson: { 
+        status: "CLOSED", 
+        closureNote: input.closureNote, 
+        evidenceCount: input.evidenceItemIds?.length || 0,
+        upgradedToConformity: input.upgradeToConformity || false,
+      },
     });
     
     return res.json(updated);

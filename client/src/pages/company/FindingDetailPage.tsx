@@ -127,6 +127,7 @@ export default function FindingDetailPage() {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [closureNote, setClosureNote] = useState("");
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<string[]>([]);
+  const [upgradeToConformity, setUpgradeToConformity] = useState(false);
   const [showEvidenceRequestDialog, setShowEvidenceRequestDialog] = useState(false);
   const [evidenceType, setEvidenceType] = useState<EvidenceType | "">("");
   const [evidenceRequestNote, setEvidenceRequestNote] = useState("");
@@ -153,13 +154,15 @@ export default function FindingDetailPage() {
   });
 
   const closeMutation = useMutation({
-    mutationFn: (data: { closureNote: string; evidenceItemIds?: string[] }) => closeFinding(id!, data),
+    mutationFn: (data: { closureNote: string; evidenceItemIds?: string[]; upgradeToConformity?: boolean }) => closeFinding(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["findingDetail", id] });
       queryClient.invalidateQueries({ queryKey: ["findings"] });
+      queryClient.invalidateQueries({ queryKey: ["auditOutcomes"] });
       setShowCloseDialog(false);
       setClosureNote("");
       setSelectedEvidenceIds([]);
+      setUpgradeToConformity(false);
       toast({ title: "Finding closed successfully" });
     },
     onError: (error: Error) => {
@@ -203,7 +206,11 @@ export default function FindingDetailPage() {
       toast({ title: "Closure note too short", description: "Please provide at least 10 characters", variant: "destructive" });
       return;
     }
-    closeMutation.mutate({ closureNote: closureNote.trim(), evidenceItemIds: selectedEvidenceIds.length > 0 ? selectedEvidenceIds : undefined });
+    closeMutation.mutate({ 
+      closureNote: closureNote.trim(), 
+      evidenceItemIds: selectedEvidenceIds.length > 0 ? selectedEvidenceIds : undefined,
+      upgradeToConformity: upgradeToConformity || undefined,
+    });
   };
 
   const handleCreateEvidenceRequest = () => {
@@ -471,66 +478,85 @@ export default function FindingDetailPage() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
                 <FileText className="h-5 w-5" />
                 Evidence Requests
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {finding.evidenceRequests.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No evidence requests yet</p>
+                <div className="text-center py-4">
+                  <FileText className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                  <p className="text-sm text-muted-foreground">No evidence requests yet</p>
+                </div>
               ) : (
-                <div className="space-y-3">
-                  {finding.evidenceRequests.map(request => (
-                    <div key={request.id} className="p-3 border rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline">{request.evidenceType}</Badge>
-                        <Badge className={
-                          request.status === "ACCEPTED" ? "bg-green-500" :
-                          request.status === "SUBMITTED" ? "bg-blue-500" :
-                          request.status === "REJECTED" ? "bg-red-500" :
-                          "bg-yellow-500"
-                        }>
-                          {request.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm mt-2 text-muted-foreground">{request.requestNote}</p>
-                      {request.items.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          <p className="text-xs font-medium">{request.items.length} item(s) submitted:</p>
-                          {request.items.map(item => (
-                            <div key={item.id} className="text-xs flex items-center gap-2 text-muted-foreground">
-                              <FileText className="h-3 w-3" />
-                              {item.fileName}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {request.publicToken && request.status === "REQUESTED" && (
-                        <div className="mt-2 pt-2 border-t">
-                          <p className="text-xs text-muted-foreground mb-1">Public upload link:</p>
-                          <div className="flex items-center gap-2">
-                            <Input 
-                              value={`${window.location.origin}/upload/${request.publicToken}`}
-                              readOnly
-                              className="text-xs h-8"
-                            />
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${window.location.origin}/upload/${request.publicToken}`);
-                                toast({ title: "Link copied" });
-                              }}
+                <div className="space-y-4">
+                  {finding.evidenceRequests.map(request => {
+                    const evidenceLabel = EVIDENCE_TYPES.find(t => t.value === request.evidenceType)?.label || request.evidenceType;
+                    return (
+                      <div key={request.id} className="p-4 border rounded-lg bg-card space-y-3">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-sm font-medium leading-tight">{evidenceLabel}</span>
+                            <Badge 
+                              className={`shrink-0 ${
+                                request.status === "ACCEPTED" ? "bg-green-500" :
+                                request.status === "SUBMITTED" ? "bg-blue-500" :
+                                request.status === "REJECTED" ? "bg-red-500" :
+                                "bg-amber-500"
+                              }`}
                             >
-                              <Copy className="h-3 w-3" />
-                            </Button>
+                              {request.status}
+                            </Badge>
                           </div>
+                          <p className="text-sm text-muted-foreground leading-relaxed">{request.requestNote}</p>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        
+                        {request.items.length > 0 && (
+                          <div className="pt-3 border-t space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              {request.items.length} File{request.items.length > 1 ? 's' : ''} Submitted
+                            </p>
+                            <div className="space-y-1.5">
+                              {request.items.map(item => (
+                                <div key={item.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded text-sm">
+                                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                  <span className="truncate">{item.fileName}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {request.publicToken && request.status === "REQUESTED" && (
+                          <div className="pt-3 border-t space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              Public Upload Link
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <Input 
+                                value={`${window.location.origin}/upload/${request.publicToken}`}
+                                readOnly
+                                className="text-sm h-9 font-mono text-xs"
+                              />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="shrink-0 h-9"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${window.location.origin}/upload/${request.publicToken}`);
+                                  toast({ title: "Link copied to clipboard" });
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               {canRequestEvidence && !hasExistingRequest && finding.status !== "CLOSED" && (
@@ -616,6 +642,24 @@ export default function FindingDetailPage() {
                 </div>
               </div>
             )}
+            
+            <div className="p-4 border rounded-lg bg-muted/30">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={upgradeToConformity}
+                  onChange={(e) => setUpgradeToConformity(e.target.checked)}
+                  className="h-5 w-5 mt-0.5"
+                  data-testid="checkbox-upgrade-conformity"
+                />
+                <div>
+                  <span className="text-sm font-medium">Upgrade to Conformity</span>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Update the audit indicator rating to Conformity. The original finding record will be preserved, but the indicator will now show as conformant in the audit results.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCloseDialog(false)}>Cancel</Button>

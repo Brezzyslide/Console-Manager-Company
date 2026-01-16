@@ -964,7 +964,7 @@ export async function addFindingComment(id: string, comment: string): Promise<Fi
 
 export async function closeFinding(
   id: string,
-  data: { closureNote: string; evidenceItemIds?: string[] }
+  data: { closureNote: string; evidenceItemIds?: string[]; upgradeToConformity?: boolean }
 ): Promise<Finding> {
   const res = await fetch(`/api/company/findings/${id}/close`, {
     method: "POST",
