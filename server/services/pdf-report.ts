@@ -10,6 +10,13 @@ import type {
   AuditSite
 } from '@shared/schema';
 
+function safeFormatDate(dateValue: string | Date | null | undefined, formatStr: string, fallback: string = 'Not set'): string {
+  if (!dateValue) return fallback;
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (isNaN(date.getTime())) return fallback;
+  return format(date, formatStr);
+}
+
 interface ReportData {
   audit: Audit;
   company: Company;
@@ -211,10 +218,8 @@ function generateCoverPage(doc: PDFKit.PDFDocument, data: ReportData, pageWidth:
     .font('Helvetica-Bold')
     .text('Audit Period:', leftColX, doc.y);
   
-  const scopeFromDate = audit.scopeTimeFrom ? new Date(audit.scopeTimeFrom) : null;
-  const scopeToDate = audit.scopeTimeTo ? new Date(audit.scopeTimeTo) : null;
-  const scopeFrom = scopeFromDate && !isNaN(scopeFromDate.getTime()) ? format(scopeFromDate, 'dd MMM yyyy') : 'Not set';
-  const scopeTo = scopeToDate && !isNaN(scopeToDate.getTime()) ? format(scopeToDate, 'dd MMM yyyy') : 'Not set';
+  const scopeFrom = safeFormatDate(audit.scopeTimeFrom, 'dd MMM yyyy');
+  const scopeTo = safeFormatDate(audit.scopeTimeTo, 'dd MMM yyyy');
   doc.font('Helvetica')
     .text(`${scopeFrom} - ${scopeTo}`, leftColX, doc.y + 12);
 
@@ -370,7 +375,7 @@ function generateAuditOverview(doc: PDFKit.PDFDocument, data: ReportData, pageWi
     ['Audit Purpose', formatAuditPurpose(audit.auditPurpose)],
     ['Methodology', formatMethodology(audit.methodology)],
     ['Service Context', audit.serviceContextLabel || audit.serviceContext],
-    ['Audit Period', `${format(new Date(audit.scopeTimeFrom), 'dd MMM yyyy')} - ${format(new Date(audit.scopeTimeTo), 'dd MMM yyyy')}`],
+    ['Audit Period', `${safeFormatDate(audit.scopeTimeFrom, 'dd MMM yyyy')} - ${safeFormatDate(audit.scopeTimeTo, 'dd MMM yyyy')}`],
     ['Status', audit.status]
   ];
 
@@ -635,7 +640,7 @@ function generateFindings(doc: PDFKit.PDFDocument, data: ReportData, pageWidth: 
         .text('Due Date: ', { continued: true });
       doc.fillColor(COLORS.black)
         .font('Helvetica')
-        .text(format(new Date(finding.dueDate), 'dd MMM yyyy'));
+        .text(safeFormatDate(finding.dueDate, 'dd MMM yyyy'));
     }
 
     doc.moveDown(0.3);
@@ -685,7 +690,7 @@ function generateFindings(doc: PDFKit.PDFDocument, data: ReportData, pageWidth: 
           doc.addPage();
         }
         
-        const activityDate = format(new Date(activity.createdAt), 'dd MMM yyyy HH:mm');
+        const activityDate = safeFormatDate(activity.createdAt, 'dd MMM yyyy HH:mm', 'Unknown');
         const activityLabel = activityLabels[activity.activityType] || activity.activityType;
         const performedBy = activity.performedByUser?.fullName || 'System';
         
@@ -856,7 +861,7 @@ function generateInterviews(doc: PDFKit.PDFDocument, data: ReportData, pageWidth
       if (interview.intervieweeRole) details.push(`Role: ${interview.intervieweeRole}`);
       if (interview.interviewMethod) details.push(`Method: ${formatInterviewMethod(interview.interviewMethod)}`);
       if (interview.siteLocation) details.push(`Location: ${interview.siteLocation}`);
-      if (interview.interviewDate) details.push(`Date: ${format(new Date(interview.interviewDate), 'dd MMM yyyy')}`);
+      if (interview.interviewDate) details.push(`Date: ${safeFormatDate(interview.interviewDate, 'dd MMM yyyy')}`);
 
       if (details.length > 0) {
         doc.fillColor(COLORS.muted)
@@ -934,7 +939,7 @@ function generateSiteVisits(doc: PDFKit.PDFDocument, data: ReportData, pageWidth
         .text('Visit Date: ', { continued: true });
       doc.fillColor(COLORS.black)
         .font('Helvetica')
-        .text(format(new Date(visit.visitDate), 'dd MMM yyyy'));
+        .text(safeFormatDate(visit.visitDate, 'dd MMM yyyy'));
     }
 
     const stats = [];
