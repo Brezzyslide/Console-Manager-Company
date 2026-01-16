@@ -140,12 +140,12 @@ export default function AuditReportPage() {
   });
 
   const saveSummaryMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (summaryToSave: string) => {
       const res = await fetch(`/api/company/audits/${id}/executive-summary`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ summary: executiveSummary }),
+        body: JSON.stringify({ summary: summaryToSave }),
       });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ error: "Failed to save summary" }));
@@ -439,7 +439,7 @@ export default function AuditReportPage() {
                       </Button>
                       {hasChanges && (
                         <Button
-                          onClick={() => saveSummaryMutation.mutate()}
+                          onClick={() => saveSummaryMutation.mutate(executiveSummary)}
                           disabled={saveSummaryMutation.isPending}
                           data-testid="save-summary-button"
                         >
