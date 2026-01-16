@@ -842,7 +842,7 @@ export interface AuditOutcome {
   id: string;
   auditId: string;
   templateIndicatorId: string;
-  rating: "CONFORMANCE" | "OBSERVATION" | "MINOR_NC" | "MAJOR_NC";
+  rating: "CONFORMITY_BEST_PRACTICE" | "CONFORMITY" | "MINOR_NC" | "MAJOR_NC";
   comment: string | null;
   scorePoints: number;
   scoreVersion: string;

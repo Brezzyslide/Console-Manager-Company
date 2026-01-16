@@ -73,8 +73,8 @@ const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
 ];
 
 const ratingConfig = {
-  CONFORMANCE: { label: "Conformance", color: "bg-green-500", icon: CheckCircle, points: "+2" },
-  OBSERVATION: { label: "Observation", color: "bg-blue-500", icon: Eye, points: "+1" },
+  CONFORMITY_BEST_PRACTICE: { label: "Best Practice", color: "bg-emerald-500", icon: CheckCircle, points: "+2" },
+  CONFORMITY: { label: "Conformity", color: "bg-green-500", icon: CheckCircle, points: "+2" },
   MINOR_NC: { label: "Minor NC", color: "bg-yellow-500", icon: AlertTriangle, points: "0" },
   MAJOR_NC: { label: "Major NC", color: "bg-red-500", icon: AlertCircle, points: "-2" },
 };
@@ -218,7 +218,7 @@ export default function FindingsRegisterPage() {
 
   const showNcItems = ratingFilter === "all" || ratingFilter === "MINOR_NC" || ratingFilter === "MAJOR_NC";
   const ncOutcomes = outcomes?.filter(o => o.rating === "MINOR_NC" || o.rating === "MAJOR_NC") || [];
-  const positiveOutcomes = outcomes?.filter(o => o.rating === "CONFORMANCE" || o.rating === "OBSERVATION") || [];
+  const positiveOutcomes = outcomes?.filter(o => o.rating === "CONFORMITY" || o.rating === "CONFORMITY_BEST_PRACTICE") || [];
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -274,8 +274,8 @@ export default function FindingsRegisterPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Ratings</SelectItem>
-            <SelectItem value="CONFORMANCE">Conformance</SelectItem>
-            <SelectItem value="OBSERVATION">Observation</SelectItem>
+            <SelectItem value="CONFORMITY_BEST_PRACTICE">Best Practice</SelectItem>
+            <SelectItem value="CONFORMITY">Conformity</SelectItem>
             <SelectItem value="MINOR_NC">Minor NC</SelectItem>
             <SelectItem value="MAJOR_NC">Major NC</SelectItem>
           </SelectContent>
@@ -322,11 +322,11 @@ export default function FindingsRegisterPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          {(ratingFilter === "all" || ratingFilter === "CONFORMANCE" || ratingFilter === "OBSERVATION") && positiveOutcomes.length > 0 && (
+          {(ratingFilter === "all" || ratingFilter === "CONFORMITY" || ratingFilter === "CONFORMITY_BEST_PRACTICE") && positiveOutcomes.length > 0 && (
             <div>
               <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-green-500" />
-                Conformances & Observations
+                Conformities & Best Practices
               </h2>
               <div className="space-y-2">
                 {positiveOutcomes.map((outcome) => {
