@@ -18,14 +18,20 @@ import {
   Loader2,
   History,
   ShieldCheck,
-  Link2
+  Link2,
+  Plus,
+  Copy,
+  Check
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -33,10 +39,48 @@ import {
   addFindingComment, 
   closeFinding,
   updateFinding,
+  createFindingEvidenceRequest,
   type FindingDetail,
-  type FindingActivity
+  type FindingActivity,
+  type EvidenceType
 } from "@/lib/company-api";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
+
+const EVIDENCE_TYPES: { value: EvidenceType; label: string }[] = [
+  { value: "CLIENT_PROFILE", label: "Client Profile / Intake Record" },
+  { value: "NDIS_PLAN", label: "NDIS Plan" },
+  { value: "SERVICE_AGREEMENT", label: "Service Agreement" },
+  { value: "CONSENT_FORM", label: "Consent Form" },
+  { value: "GUARDIAN_DOCUMENTATION", label: "Guardian / Nominee Documentation" },
+  { value: "CARE_PLAN", label: "Care / Support Plan" },
+  { value: "BSP", label: "Behaviour Support Plan (BSP)" },
+  { value: "MMP", label: "Mealtime Management Plan (MMP)" },
+  { value: "HEALTH_PLAN", label: "Health Management Plan" },
+  { value: "COMMUNICATION_PLAN", label: "Communication Plan" },
+  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
+  { value: "EMERGENCY_PLAN", label: "Emergency / Evacuation Plan" },
+  { value: "ROSTER", label: "Roster / Shift Allocation" },
+  { value: "SHIFT_NOTES", label: "Shift Notes / Case Notes" },
+  { value: "DAILY_LOG", label: "Daily Support Log" },
+  { value: "PROGRESS_NOTES", label: "Progress Notes" },
+  { value: "ACTIVITY_RECORD", label: "Activity / Community Access Record" },
+  { value: "QUALIFICATION", label: "Qualification / Credential" },
+  { value: "WWCC", label: "WWCC / Police Check / NDIS Screening" },
+  { value: "TRAINING_RECORD", label: "Training Record / Certificate" },
+  { value: "SUPERVISION_RECORD", label: "Supervision Record" },
+  { value: "MEDICATION_PLAN", label: "Medication Management Plan" },
+  { value: "MAR", label: "Medication Administration Record (MAR)" },
+  { value: "PRN_LOG", label: "PRN Protocol / Usage Log" },
+  { value: "INCIDENT_REPORT", label: "Incident Report" },
+  { value: "COMPLAINT_RECORD", label: "Complaint Record" },
+  { value: "RP_RECORD", label: "Restrictive Practice Record" },
+  { value: "SERVICE_BOOKING", label: "Service Booking / Funding Allocation" },
+  { value: "INVOICE_CLAIM", label: "Invoice / Claim Record" },
+  { value: "POLICY", label: "Policy Document" },
+  { value: "PROCEDURE", label: "Procedure Document" },
+  { value: "REVIEW_RECORD", label: "Review / Monitoring Record" },
+  { value: "OTHER", label: "Other Document" },
+];
 
 const activityIcons: Record<FindingActivity["activityType"], any> = {
   CREATED: AlertCircle,
@@ -83,6 +127,12 @@ export default function FindingDetailPage() {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [closureNote, setClosureNote] = useState("");
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<string[]>([]);
+  const [showEvidenceRequestDialog, setShowEvidenceRequestDialog] = useState(false);
+  const [evidenceType, setEvidenceType] = useState<EvidenceType | "">("");
+  const [evidenceRequestNote, setEvidenceRequestNote] = useState("");
+  const [evidenceDueDate, setEvidenceDueDate] = useState("");
+  const [createdPublicLink, setCreatedPublicLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const { data: finding, isLoading } = useQuery({
     queryKey: ["findingDetail", id],
@@ -129,6 +179,20 @@ export default function FindingDetailPage() {
     },
   });
 
+  const evidenceRequestMutation = useMutation({
+    mutationFn: (data: { evidenceType: EvidenceType; requestNote: string; dueDate?: string | null }) => 
+      createFindingEvidenceRequest(id!, data),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["findingDetail", id] });
+      const publicLink = `${window.location.origin}/upload/${data.publicToken}`;
+      setCreatedPublicLink(publicLink);
+      toast({ title: "Evidence request created successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create evidence request", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleAddComment = () => {
     if (!newComment.trim()) return;
     addCommentMutation.mutate(newComment.trim());
@@ -142,8 +206,40 @@ export default function FindingDetailPage() {
     closeMutation.mutate({ closureNote: closureNote.trim(), evidenceItemIds: selectedEvidenceIds.length > 0 ? selectedEvidenceIds : undefined });
   };
 
+  const handleCreateEvidenceRequest = () => {
+    if (!evidenceType || !evidenceRequestNote.trim()) {
+      toast({ title: "Missing information", description: "Please select evidence type and add a request note", variant: "destructive" });
+      return;
+    }
+    evidenceRequestMutation.mutate({
+      evidenceType: evidenceType as EvidenceType,
+      requestNote: evidenceRequestNote.trim(),
+      dueDate: evidenceDueDate || null,
+    });
+  };
+
+  const handleCopyLink = () => {
+    if (createdPublicLink) {
+      navigator.clipboard.writeText(createdPublicLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: "Link copied to clipboard" });
+    }
+  };
+
+  const closeEvidenceDialog = () => {
+    setShowEvidenceRequestDialog(false);
+    setEvidenceType("");
+    setEvidenceRequestNote("");
+    setEvidenceDueDate("");
+    setCreatedPublicLink(null);
+    setCopied(false);
+  };
+
   const allEvidenceItems = finding?.evidenceRequests?.flatMap(req => req.items) || [];
   const canClose = ["CompanyAdmin", "Reviewer"].includes(user?.role || "");
+  const canRequestEvidence = ["CompanyAdmin", "Auditor", "Reviewer"].includes(user?.role || "");
+  const hasExistingRequest = finding?.evidenceRequests && finding.evidenceRequests.length > 0;
 
   if (isLoading) {
     return (
@@ -381,7 +477,7 @@ export default function FindingDetailPage() {
                 Evidence Requests
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               {finding.evidenceRequests.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No evidence requests yet</p>
               ) : (
@@ -401,13 +497,52 @@ export default function FindingDetailPage() {
                       </div>
                       <p className="text-sm mt-2 text-muted-foreground">{request.requestNote}</p>
                       {request.items.length > 0 && (
-                        <div className="mt-2 text-xs">
-                          {request.items.length} item(s) submitted
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs font-medium">{request.items.length} item(s) submitted:</p>
+                          {request.items.map(item => (
+                            <div key={item.id} className="text-xs flex items-center gap-2 text-muted-foreground">
+                              <FileText className="h-3 w-3" />
+                              {item.fileName}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {request.publicToken && request.status === "REQUESTED" && (
+                        <div className="mt-2 pt-2 border-t">
+                          <p className="text-xs text-muted-foreground mb-1">Public upload link:</p>
+                          <div className="flex items-center gap-2">
+                            <Input 
+                              value={`${window.location.origin}/upload/${request.publicToken}`}
+                              readOnly
+                              className="text-xs h-8"
+                            />
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/upload/${request.publicToken}`);
+                                toast({ title: "Link copied" });
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
+              )}
+              {canRequestEvidence && !hasExistingRequest && finding.status !== "CLOSED" && (
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => setShowEvidenceRequestDialog(true)}
+                  data-testid="button-request-evidence"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Request Evidence
+                </Button>
               )}
             </CardContent>
           </Card>
@@ -497,6 +632,100 @@ export default function FindingDetailPage() {
               Close Finding
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEvidenceRequestDialog} onOpenChange={(open) => !open && closeEvidenceDialog()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Request Evidence</DialogTitle>
+            <DialogDescription>
+              Create a request for evidence to support corrective action for this finding. A shareable link will be generated for external uploads.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {createdPublicLink ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-medium mb-2">
+                  <Check className="h-5 w-5" />
+                  Evidence Request Created
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Share this link with the person who needs to upload the evidence:
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    value={createdPublicLink}
+                    readOnly
+                    className="text-sm"
+                  />
+                  <Button onClick={handleCopyLink} variant="outline">
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={closeEvidenceDialog}>Done</Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Evidence Type *</Label>
+                  <Select value={evidenceType} onValueChange={(v) => setEvidenceType(v as EvidenceType)}>
+                    <SelectTrigger data-testid="select-evidence-type">
+                      <SelectValue placeholder="Select document type" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto">
+                      {EVIDENCE_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Request Note *</Label>
+                  <Textarea
+                    placeholder="Describe what evidence is needed and why..."
+                    value={evidenceRequestNote}
+                    onChange={(e) => setEvidenceRequestNote(e.target.value)}
+                    className="min-h-[80px]"
+                    data-testid="input-evidence-request-note"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Due Date (Optional)</Label>
+                  <Input
+                    type="date"
+                    value={evidenceDueDate}
+                    onChange={(e) => setEvidenceDueDate(e.target.value)}
+                    data-testid="input-evidence-due-date"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeEvidenceDialog}>Cancel</Button>
+                <Button 
+                  onClick={handleCreateEvidenceRequest}
+                  disabled={!evidenceType || !evidenceRequestNote.trim() || evidenceRequestMutation.isPending}
+                  data-testid="button-create-evidence-request"
+                >
+                  {evidenceRequestMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Create Request
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -1185,6 +1185,27 @@ export async function getFindingEvidence(findingId: string): Promise<{ evidenceR
   return res.json();
 }
 
+export async function createFindingEvidenceRequest(
+  findingId: string,
+  data: {
+    evidenceType: EvidenceType;
+    requestNote: string;
+    dueDate?: string | null;
+  }
+): Promise<EvidenceRequest> {
+  const res = await fetch(`/api/company/findings/${findingId}/request-evidence`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to create evidence request");
+  }
+  return res.json();
+}
+
 // Standalone evidence request (not linked to audit or finding)
 export async function createStandaloneEvidenceRequest(data: {
   evidenceType: EvidenceType;
