@@ -1594,16 +1594,22 @@ export class DatabaseStorage implements IStorage {
       this.getAuditSites(auditId)
     ]);
     
-    // Enrich indicator responses with indicator text
+    // Enrich indicator responses with indicator text and NDIS standard info
     const responsesWithText = await Promise.all(
       responses.map(async (response) => {
         const [indicator] = await db
-          .select({ indicatorText: auditTemplateIndicators.indicatorText })
+          .select({ 
+            indicatorText: auditTemplateIndicators.indicatorText,
+            ndisStandardNumber: auditTemplateIndicators.ndisStandardNumber,
+            ndisStandardName: auditTemplateIndicators.ndisStandardName
+          })
           .from(auditTemplateIndicators)
           .where(eq(auditTemplateIndicators.id, response.templateIndicatorId));
         return {
           ...response,
-          indicatorText: indicator?.indicatorText || 'Indicator'
+          indicatorText: indicator?.indicatorText || 'Indicator',
+          ndisStandardNumber: indicator?.ndisStandardNumber || null,
+          ndisStandardName: indicator?.ndisStandardName || null
         };
       })
     );

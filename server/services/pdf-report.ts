@@ -9,6 +9,7 @@ import type {
   Finding,
   AuditSite
 } from '@shared/schema';
+import { getNdisStandard } from './ndis-standards';
 
 function safeFormatDate(dateValue: string | Date | null | undefined, formatStr: string, fallback: string = 'Not set'): string {
   if (!dateValue) return fallback;
@@ -582,9 +583,73 @@ function generateAuditResults(doc: PDFKit.PDFDocument, data: ReportData, pageWid
 
   doc.y = doc.y + 80;
 
+  // NDIS Standards Summary Table (like DNV format)
   if (data.indicatorResponses.length > 0) {
     doc.moveDown(1);
-    subsectionHeader(doc, '3.2 Indicator Responses');
+    subsectionHeader(doc, '3.2 NDIS Practice Standards Coverage');
+    
+    // Group responses by NDIS standard
+    const standardCounts: Record<string, { name: string; count: number }> = {};
+    
+    data.indicatorResponses.forEach((response: any) => {
+      const indicatorText = response.indicatorText || '';
+      let ndisStandard = response.ndisStandardNumber && response.ndisStandardName 
+        ? { number: response.ndisStandardNumber, name: response.ndisStandardName }
+        : getNdisStandard(indicatorText);
+      
+      if (ndisStandard) {
+        const key = ndisStandard.number;
+        if (!standardCounts[key]) {
+          standardCounts[key] = { name: ndisStandard.name, count: 0 };
+        }
+        standardCounts[key].count++;
+      }
+    });
+    
+    // Sort by standard number and render table
+    const sortedStandards = Object.entries(standardCounts)
+      .sort((a, b) => {
+        const numA = parseInt(a[0].replace(/\D/g, '')) || 99;
+        const numB = parseInt(b[0].replace(/\D/g, '')) || 99;
+        return numA - numB;
+      });
+    
+    if (sortedStandards.length > 0) {
+      const stdTableTop = doc.y;
+      const stdRowHeight = 20;
+      const stdCol1Width = pageWidth - 60;
+      const stdCol2Width = 60;
+      
+      // Table header
+      doc.rect(doc.page.margins.left, stdTableTop, pageWidth, stdRowHeight).fill(COLORS.light);
+      doc.fillColor(COLORS.muted)
+        .fontSize(9)
+        .font('Helvetica-Bold')
+        .text('NDIS Practice Standard', doc.page.margins.left + 5, stdTableTop + 5)
+        .text('Indicators', doc.page.margins.left + stdCol1Width + 5, stdTableTop + 5);
+      
+      sortedStandards.forEach(([number, data], idx) => {
+        const y = stdTableTop + stdRowHeight + (idx * stdRowHeight);
+        const bgColor = idx % 2 === 0 ? COLORS.white : COLORS.light;
+        
+        if (y > doc.page.height - 100) {
+          doc.addPage();
+        }
+        
+        doc.rect(doc.page.margins.left, y, pageWidth, stdRowHeight).fill(bgColor);
+        
+        doc.fillColor(COLORS.black)
+          .fontSize(9)
+          .font('Helvetica')
+          .text(`${number} ${data.name}`, doc.page.margins.left + 5, y + 5, { width: stdCol1Width - 10 })
+          .text(data.count.toString(), doc.page.margins.left + stdCol1Width + 15, y + 5, { align: 'center', width: 30 });
+      });
+      
+      doc.y = stdTableTop + stdRowHeight + (sortedStandards.length * stdRowHeight) + 15;
+    }
+    
+    doc.moveDown(1);
+    subsectionHeader(doc, '3.3 Indicator Responses');
     
     const groupedResponses = groupByRating(data.indicatorResponses);
     
@@ -606,15 +671,29 @@ function generateAuditResults(doc: PDFKit.PDFDocument, data: ReportData, pageWid
         const indicatorText = response.indicatorText || 'Indicator';
         const cleanedComment = cleanComment(response.comment);
         
+        // Get NDIS standard - from database or fallback to mapping
+        let ndisStandard = response.ndisStandardNumber && response.ndisStandardName 
+          ? { number: response.ndisStandardNumber, name: response.ndisStandardName }
+          : getNdisStandard(indicatorText);
+        
         doc.fillColor(COLORS.black)
           .fontSize(9)
           .font('Helvetica-Bold')
-          .text(`• ${indicatorText}`, { continued: cleanedComment ? true : false });
+          .text(`• ${indicatorText}`, { continued: true });
+        
+        // Show NDIS standard reference
+        if (ndisStandard) {
+          doc.fillColor(COLORS.secondary)
+            .font('Helvetica')
+            .fontSize(8)
+            .text(` [Std ${ndisStandard.number}]`, { continued: cleanedComment ? true : false });
+        }
         
         if (cleanedComment) {
           doc.font('Helvetica')
+            .fontSize(9)
             .fillColor(COLORS.muted)
-            .text(` - ${cleanedComment}`);
+            .text(ndisStandard ? ` - ${cleanedComment}` : ` - ${cleanedComment}`);
         } else {
           doc.text('');
         }
