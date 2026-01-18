@@ -32,6 +32,13 @@ import {
 import { AuditNavTabs } from "@/components/AuditNavTabs";
 import { getAudit, type IndicatorRating } from "@/lib/company-api";
 import { format } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  SITE_VISIT_DOCUMENT_CHECKLIST, 
+  PARTICIPANT_FEEDBACK_CHECKLIST,
+  type ChecklistItem,
+  initializeChecklist 
+} from "@shared/audit-checklists";
 
 const ratingColors: Record<IndicatorRating, string> = {
   CONFORMITY_BEST_PRACTICE: "text-emerald-500 bg-emerald-500/10",
@@ -74,6 +81,11 @@ export default function AuditReportPage() {
   const [intervieweeRole, setIntervieweeRole] = useState("");
   const [keyObservations, setKeyObservations] = useState("");
   
+  // Interview feedback checklist state
+  const [feedbackChecklist, setFeedbackChecklist] = useState<ChecklistItem[]>(
+    initializeChecklist(PARTICIPANT_FEEDBACK_CHECKLIST)
+  );
+  
   // Site visit form state
   const [showAddSiteVisitDialog, setShowAddSiteVisitDialog] = useState(false);
   const [siteName, setSiteName] = useState("");
@@ -82,6 +94,10 @@ export default function AuditReportPage() {
   const [filesReviewedCount, setFilesReviewedCount] = useState("");
   const [observationsPositive, setObservationsPositive] = useState("");
   const [observationsConcerns, setObservationsConcerns] = useState("");
+  // Site visit document checklist state
+  const [documentChecklist, setDocumentChecklist] = useState<ChecklistItem[]>(
+    initializeChecklist(SITE_VISIT_DOCUMENT_CHECKLIST)
+  );
 
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
@@ -183,6 +199,7 @@ export default function AuditReportPage() {
       intervieweeName?: string;
       intervieweeRole?: string;
       keyObservations?: string;
+      feedbackChecklist?: ChecklistItem[];
     }) => {
       const res = await fetch(`/api/company/audits/${id}/interviews`, {
         method: "POST",
@@ -236,6 +253,7 @@ export default function AuditReportPage() {
       filesReviewedCount?: number;
       observationsPositive?: string;
       observationsConcerns?: string;
+      documentChecklist?: ChecklistItem[];
     }) => {
       const res = await fetch(`/api/company/audits/${id}/site-visits`, {
         method: "POST",
@@ -287,6 +305,7 @@ export default function AuditReportPage() {
     setIntervieweeName("");
     setIntervieweeRole("");
     setKeyObservations("");
+    setFeedbackChecklist(initializeChecklist(PARTICIPANT_FEEDBACK_CHECKLIST));
   };
 
   const resetSiteVisitForm = () => {
@@ -296,21 +315,42 @@ export default function AuditReportPage() {
     setFilesReviewedCount("");
     setObservationsPositive("");
     setObservationsConcerns("");
+    setDocumentChecklist(initializeChecklist(SITE_VISIT_DOCUMENT_CHECKLIST));
+  };
+  
+  const toggleChecklistItem = (
+    checklist: ChecklistItem[], 
+    setChecklist: React.Dispatch<React.SetStateAction<ChecklistItem[]>>,
+    index: number,
+    field: 'checked' | 'partial'
+  ) => {
+    const updated = [...checklist];
+    if (field === 'checked') {
+      updated[index].checked = !updated[index].checked;
+      if (updated[index].checked) updated[index].partial = false;
+    } else {
+      updated[index].partial = !updated[index].partial;
+      if (updated[index].partial) updated[index].checked = false;
+    }
+    setChecklist(updated);
   };
 
   const handleAddInterview = () => {
     if (!interviewType || !interviewMethod) return;
+    const checkedItems = feedbackChecklist.filter(item => item.checked || item.partial);
     addInterviewMutation.mutate({
       interviewType,
       interviewMethod,
       intervieweeName: intervieweeName || undefined,
       intervieweeRole: intervieweeRole || undefined,
       keyObservations: keyObservations || undefined,
+      feedbackChecklist: checkedItems.length > 0 ? feedbackChecklist : undefined,
     });
   };
 
   const handleAddSiteVisit = () => {
     if (!siteName) return;
+    const checkedItems = documentChecklist.filter(item => item.checked || item.partial);
     addSiteVisitMutation.mutate({
       siteName,
       siteAddress: siteAddress || undefined,
@@ -318,6 +358,7 @@ export default function AuditReportPage() {
       filesReviewedCount: filesReviewedCount ? parseInt(filesReviewedCount) : undefined,
       observationsPositive: observationsPositive || undefined,
       observationsConcerns: observationsConcerns || undefined,
+      documentChecklist: checkedItems.length > 0 ? documentChecklist : undefined,
     });
   };
 
@@ -799,56 +840,88 @@ export default function AuditReportPage() {
 
       {/* Add Interview Dialog */}
       <Dialog open={showAddInterviewDialog} onOpenChange={setShowAddInterviewDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Interview</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Interview Type *</Label>
-              <Select value={interviewType} onValueChange={setInterviewType}>
-                <SelectTrigger data-testid="select-interview-type">
-                  <SelectValue placeholder="Select type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PARTICIPANT">Participant</SelectItem>
-                  <SelectItem value="STAFF">Staff</SelectItem>
-                  <SelectItem value="STAKEHOLDER">Stakeholder</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Interview Type *</Label>
+                <Select value={interviewType} onValueChange={setInterviewType}>
+                  <SelectTrigger data-testid="select-interview-type">
+                    <SelectValue placeholder="Select type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PARTICIPANT">Participant</SelectItem>
+                    <SelectItem value="STAFF">Staff</SelectItem>
+                    <SelectItem value="STAKEHOLDER">Stakeholder</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Method *</Label>
+                <Select value={interviewMethod} onValueChange={setInterviewMethod}>
+                  <SelectTrigger data-testid="select-interview-method">
+                    <SelectValue placeholder="Select method..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FACE_TO_FACE">Face to Face</SelectItem>
+                    <SelectItem value="PHONE">Phone</SelectItem>
+                    <SelectItem value="VIDEO">Video Call</SelectItem>
+                    <SelectItem value="FOCUS_GROUP">Focus Group</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Method *</Label>
-              <Select value={interviewMethod} onValueChange={setInterviewMethod}>
-                <SelectTrigger data-testid="select-interview-method">
-                  <SelectValue placeholder="Select method..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FACE_TO_FACE">Face to Face</SelectItem>
-                  <SelectItem value="PHONE">Phone</SelectItem>
-                  <SelectItem value="VIDEO">Video Call</SelectItem>
-                  <SelectItem value="FOCUS_GROUP">Focus Group</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Interviewee Name</Label>
+                <Input
+                  value={intervieweeName}
+                  onChange={(e) => setIntervieweeName(e.target.value)}
+                  placeholder="Name of person interviewed"
+                  data-testid="input-interviewee-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Interviewee Role</Label>
+                <Input
+                  value={intervieweeRole}
+                  onChange={(e) => setIntervieweeRole(e.target.value)}
+                  placeholder="Role or position"
+                  data-testid="input-interviewee-role"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Interviewee Name</Label>
-              <Input
-                value={intervieweeName}
-                onChange={(e) => setIntervieweeName(e.target.value)}
-                placeholder="Name of person interviewed"
-                data-testid="input-interviewee-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Interviewee Role</Label>
-              <Input
-                value={intervieweeRole}
-                onChange={(e) => setIntervieweeRole(e.target.value)}
-                placeholder="Role or position"
-                data-testid="input-interviewee-role"
-              />
-            </div>
+            
+            {interviewType === "PARTICIPANT" && (
+              <div className="space-y-2">
+                <Label className="text-primary font-semibold">Participant Feedback Checklist</Label>
+                <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto bg-muted/30">
+                  {feedbackChecklist.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <Checkbox
+                        checked={item.checked}
+                        onCheckedChange={() => toggleChecklistItem(feedbackChecklist, setFeedbackChecklist, idx, 'checked')}
+                        data-testid={`checkbox-feedback-${idx}`}
+                      />
+                      <span className={`text-sm flex-1 ${item.checked ? 'text-foreground' : item.partial ? 'text-yellow-600' : 'text-muted-foreground'}`}>
+                        {item.item}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleChecklistItem(feedbackChecklist, setFeedbackChecklist, idx, 'partial')}
+                        className={`text-xs px-2 py-0.5 rounded ${item.partial ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      >
+                        Partial
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label>Key Observations</Label>
               <Textarea
@@ -877,28 +950,30 @@ export default function AuditReportPage() {
 
       {/* Add Site Visit Dialog */}
       <Dialog open={showAddSiteVisitDialog} onOpenChange={setShowAddSiteVisitDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Site Visit</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Site Name *</Label>
-              <Input
-                value={siteName}
-                onChange={(e) => setSiteName(e.target.value)}
-                placeholder="Name of the site visited"
-                data-testid="input-site-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Site Address</Label>
-              <Input
-                value={siteAddress}
-                onChange={(e) => setSiteAddress(e.target.value)}
-                placeholder="Address of the site"
-                data-testid="input-site-address"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Site Name *</Label>
+                <Input
+                  value={siteName}
+                  onChange={(e) => setSiteName(e.target.value)}
+                  placeholder="Name of the site visited"
+                  data-testid="input-site-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Site Address</Label>
+                <Input
+                  value={siteAddress}
+                  onChange={(e) => setSiteAddress(e.target.value)}
+                  placeholder="Address of the site"
+                  data-testid="input-site-address"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -922,6 +997,32 @@ export default function AuditReportPage() {
                 />
               </div>
             </div>
+            
+            <div className="space-y-2">
+              <Label className="text-primary font-semibold">Document Checklist</Label>
+              <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto bg-muted/30">
+                {documentChecklist.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <Checkbox
+                      checked={item.checked}
+                      onCheckedChange={() => toggleChecklistItem(documentChecklist, setDocumentChecklist, idx, 'checked')}
+                      data-testid={`checkbox-document-${idx}`}
+                    />
+                    <span className={`text-sm flex-1 ${item.checked ? 'text-foreground' : item.partial ? 'text-yellow-600' : 'text-muted-foreground'}`}>
+                      {item.item}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleChecklistItem(documentChecklist, setDocumentChecklist, idx, 'partial')}
+                      className={`text-xs px-2 py-0.5 rounded ${item.partial ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
+                      Partial
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
             <div className="space-y-2">
               <Label>Positive Observations</Label>
               <Textarea

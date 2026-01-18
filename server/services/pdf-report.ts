@@ -1014,6 +1014,28 @@ function generateInterviews(doc: PDFKit.PDFDocument, data: ReportData, pageWidth
           .text(interview.feedbackConcerns);
       }
 
+      // Participant Feedback Checklist
+      const feedbackChecklist = Array.isArray(interview.feedbackChecklist) ? interview.feedbackChecklist : [];
+      const checkedItems = feedbackChecklist.filter((item: any) => item.checked || item.partial);
+      if (checkedItems.length > 0) {
+        doc.moveDown(0.3);
+        doc.fillColor(COLORS.primary)
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .text('Participant Feedback:');
+        
+        checkedItems.forEach((item: any) => {
+          if (doc.y > doc.page.height - 40) {
+            doc.addPage();
+          }
+          const status = item.partial ? '(Partial)' : '';
+          doc.fillColor(COLORS.black)
+            .fontSize(8)
+            .font('Helvetica')
+            .text(`  ☑ ${item.item} ${status}`);
+        });
+      }
+
       doc.moveDown(0.5);
     });
   });
@@ -1095,6 +1117,28 @@ function generateSiteVisits(doc: PDFKit.PDFDocument, data: ReportData, pageWidth
       doc.fillColor(COLORS.black)
         .font('Helvetica')
         .text(visit.observationsConcerns, { align: 'justify' });
+    }
+
+    // Document Checklist
+    const documentChecklist = Array.isArray(visit.documentChecklist) ? visit.documentChecklist : [];
+    const checkedDocs = documentChecklist.filter((item: any) => item.checked || item.partial);
+    if (checkedDocs.length > 0) {
+      doc.moveDown(0.3);
+      doc.fillColor(COLORS.primary)
+        .fontSize(9)
+        .font('Helvetica-Bold')
+        .text('Document Checklist:');
+      
+      checkedDocs.forEach((item: any) => {
+        if (doc.y > doc.page.height - 40) {
+          doc.addPage();
+        }
+        const status = item.partial ? '(Partially)' : '';
+        doc.fillColor(COLORS.black)
+          .fontSize(8)
+          .font('Helvetica')
+          .text(`  ☑ ${item.item} ${status}`);
+      });
     }
 
     if (visit.safetyItemsChecked && visit.safetyItemsChecked.length > 0) {

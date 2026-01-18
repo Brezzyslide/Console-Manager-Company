@@ -859,6 +859,8 @@ export const auditInterviews = pgTable("audit_interviews", {
   notes: text("notes"),
   feedbackPositive: text("feedback_positive"),
   feedbackConcerns: text("feedback_concerns"),
+  // Participant Feedback Checklist (what was confirmed during interview)
+  feedbackChecklist: json("feedback_checklist").$type<{ item: string; checked: boolean; partial?: boolean }[]>(),
   conductedByCompanyUserId: varchar("conducted_by_company_user_id").references(() => companyUsers.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -885,6 +887,8 @@ export const auditSiteVisits = pgTable("audit_site_visits", {
   observationsPositive: text("observations_positive"),
   observationsConcerns: text("observations_concerns"),
   safetyItemsChecked: json("safety_items_checked").$type<{ item: string; checked: boolean }[]>(),
+  // Document Checklist (what documents were reviewed during visit)
+  documentChecklist: json("document_checklist").$type<{ item: string; checked: boolean; partial?: boolean }[]>(),
   notes: text("notes"),
   conductedByCompanyUserId: varchar("conducted_by_company_user_id").references(() => companyUsers.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
