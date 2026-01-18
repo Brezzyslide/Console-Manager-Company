@@ -858,7 +858,10 @@ function generateFindings(doc: PDFKit.PDFDocument, data: ReportData, pageWidth: 
         .text(`Closure Evidence: ${closureEvidence.length} item(s) linked`);
     }
 
-    doc.moveDown(1);
+    // Only add spacing if not the last finding
+    if (idx < data.findings.length - 1) {
+      doc.moveDown(1);
+    }
   });
 }
 
@@ -930,8 +933,6 @@ function generateInterviews(doc: PDFKit.PDFDocument, data: ReportData, pageWidth
 
       doc.moveDown(0.5);
     });
-
-    doc.moveDown(0.5);
   });
 }
 
@@ -1029,7 +1030,10 @@ function generateSiteVisits(doc: PDFKit.PDFDocument, data: ReportData, pageWidth
       });
     }
 
-    doc.moveDown(1);
+    // Only add spacing if not the last visit
+    if (idx < data.siteVisits.length - 1) {
+      doc.moveDown(1);
+    }
   });
 }
 
