@@ -17,6 +17,30 @@ function safeFormatDate(dateValue: string | Date | null | undefined, formatStr: 
   return format(date, formatStr);
 }
 
+function cleanComment(comment: string | null | undefined): string | null {
+  if (!comment) return null;
+  const urlPattern = /https?:\/\/[^\s]+/g;
+  const cleaned = comment.replace(urlPattern, '').trim();
+  if (!cleaned || cleaned.length < 3) {
+    return 'Evidence attached';
+  }
+  return cleaned;
+}
+
+function formatStatus(status: string | null | undefined): string {
+  if (!status) return 'Not specified';
+  const labels: Record<string, string> = {
+    DRAFT: 'Draft',
+    IN_PROGRESS: 'In Progress',
+    IN_REVIEW: 'In Review',
+    COMPLETED: 'Completed',
+    ARCHIVED: 'Archived',
+    OPEN: 'Open',
+    CLOSED: 'Closed'
+  };
+  return labels[status] || status.replace(/_/g, ' ');
+}
+
 interface ReportData {
   audit: Audit;
   company: Company;
@@ -388,7 +412,7 @@ function generateAuditOverview(doc: PDFKit.PDFDocument, data: ReportData, pageWi
     ['Methodology', formatMethodology(audit.methodology)],
     ['Service Context', audit.serviceContextLabel || audit.serviceContext],
     ['Audit Period', `${safeFormatDate(audit.scopeTimeFrom, 'dd MMM yyyy')} - ${safeFormatDate(audit.scopeTimeTo, 'dd MMM yyyy')}`],
-    ['Status', audit.status]
+    ['Status', formatStatus(audit.status)]
   ];
 
   details.forEach(([label, value]) => {
@@ -574,18 +598,23 @@ function generateAuditResults(doc: PDFKit.PDFDocument, data: ReportData, pageWid
       
       doc.moveDown(0.3);
       
-      responses.forEach((response) => {
+      responses.forEach((response: any) => {
         if (doc.y > doc.page.height - 80) {
           doc.addPage();
         }
         
+        const indicatorText = response.indicatorText || 'Indicator';
+        const cleanedComment = cleanComment(response.comment);
+        
         doc.fillColor(COLORS.black)
           .fontSize(9)
-          .font('Helvetica')
-          .text(`• ID: ${response.templateIndicatorId.substring(0, 12)}...`, { continued: true });
+          .font('Helvetica-Bold')
+          .text(`• ${indicatorText}`, { continued: cleanedComment ? true : false });
         
-        if (response.comment) {
-          doc.text(`: ${response.comment}`);
+        if (cleanedComment) {
+          doc.font('Helvetica')
+            .fillColor(COLORS.muted)
+            .text(` - ${cleanedComment}`);
         } else {
           doc.text('');
         }
@@ -641,7 +670,7 @@ function generateFindings(doc: PDFKit.PDFDocument, data: ReportData, pageWidth: 
       .text('Status: ', { continued: true });
     doc.fillColor(COLORS.black)
       .font('Helvetica')
-      .text(finding.status);
+      .text(formatStatus(finding.status));
 
     if (finding.dueDate) {
       doc.fillColor(COLORS.muted)

@@ -1594,6 +1594,20 @@ export class DatabaseStorage implements IStorage {
       this.getAuditSites(auditId)
     ]);
     
+    // Enrich indicator responses with indicator text
+    const responsesWithText = await Promise.all(
+      responses.map(async (response) => {
+        const [indicator] = await db
+          .select({ indicatorText: auditTemplateIndicators.indicatorText })
+          .from(auditTemplateIndicators)
+          .where(eq(auditTemplateIndicators.id, response.templateIndicatorId));
+        return {
+          ...response,
+          indicatorText: indicator?.indicatorText || 'Indicator'
+        };
+      })
+    );
+    
     // Get activities, closure evidence, and evidence requests for each finding
     const findingsWithActivities = await Promise.all(
       findingsData.map(async (finding) => {
@@ -1620,7 +1634,7 @@ export class DatabaseStorage implements IStorage {
       company,
       interviews,
       siteVisits,
-      indicatorResponses: responses,
+      indicatorResponses: responsesWithText,
       findings: findingsWithActivities,
       sites
     };
