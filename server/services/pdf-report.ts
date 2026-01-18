@@ -640,14 +640,18 @@ function generateAuditResults(doc: PDFKit.PDFDocument, data: ReportData, pageWid
         
         doc.fillColor(COLORS.black)
           .fontSize(9)
-          .font('Helvetica')
-          .text(`${number} ${data.name}`, doc.page.margins.left + 5, y + 5, { width: stdCol1Width - 10 })
-          .text(data.count.toString(), doc.page.margins.left + stdCol1Width + 15, y + 5, { align: 'center', width: 30 });
+          .font('Helvetica');
+        doc.text(`${number} ${data.name}`, doc.page.margins.left + 5, y + 5, { width: stdCol1Width - 10 });
+        doc.text(data.count.toString(), doc.page.margins.left + stdCol1Width + 15, y + 5, { width: 30, align: 'center' });
       });
       
-      doc.y = stdTableTop + stdRowHeight + (sortedStandards.length * stdRowHeight) + 15;
+      // Reset cursor position properly after table
+      doc.x = doc.page.margins.left;
+      doc.y = stdTableTop + stdRowHeight + (sortedStandards.length * stdRowHeight) + 20;
     }
     
+    // Ensure we're at left margin before continuing
+    doc.x = doc.page.margins.left;
     doc.moveDown(1);
     subsectionHeader(doc, '3.3 Indicator Responses');
     
