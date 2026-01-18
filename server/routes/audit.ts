@@ -2386,6 +2386,11 @@ const createInterviewSchema = z.object({
   topicsCovered: z.array(z.string()).optional(),
   keyObservations: z.string().optional(),
   notes: z.string().optional(),
+  feedbackChecklist: z.array(z.object({
+    item: z.string(),
+    checked: z.boolean(),
+    partial: z.boolean().optional(),
+  })).optional(),
 });
 
 router.get("/audits/:auditId/interviews", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
@@ -2490,6 +2495,11 @@ const createSiteVisitSchema = z.object({
   observationsPositive: z.string().optional(),
   observationsConcerns: z.string().optional(),
   safetyItemsChecked: z.array(z.object({ item: z.string(), checked: z.boolean() })).optional(),
+  documentChecklist: z.array(z.object({
+    item: z.string(),
+    checked: z.boolean(),
+    partial: z.boolean().optional(),
+  })).optional(),
   notes: z.string().optional(),
 });
 
