@@ -693,7 +693,7 @@ function generateAuditResults(doc: PDFKit.PDFDocument, data: ReportData, pageWid
           doc.font('Helvetica')
             .fontSize(9)
             .fillColor(COLORS.muted)
-            .text(ndisStandard ? ` - ${cleanedComment}` : ` - ${cleanedComment}`);
+            .text(` - ${cleanedComment}`);
         } else {
           doc.text('');
         }

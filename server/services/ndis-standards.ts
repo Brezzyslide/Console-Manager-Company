@@ -10,68 +10,94 @@ export const NDIS_STANDARDS = {
   "18A": { number: "18A", name: "Emergency and Disaster Management" },
 } as const;
 
-export const INDICATOR_STANDARD_MAPPING: Record<string, string> = {
-  "Governance framework or governance charter is documented and current": "11",
-  "Organisational structure chart is documented and reflects current structure": "11",
-  "Delegations of authority are documented and current": "11",
-  "Roles and responsibilities matrix is documented": "11",
-  "Fit and Proper Person declarations are completed for directors and key management": "11",
-  "Conflict of interest register is maintained and current": "11",
-  "Board or management meeting minutes are documented": "11",
+const KEYWORD_STANDARD_MAPPING: { keywords: string[]; standard: string }[] = [
+  // Standard 11 - Governance and Operational Management
+  { keywords: ["governance framework", "governance charter"], standard: "11" },
+  { keywords: ["organisational structure", "organizational structure", "org chart"], standard: "11" },
+  { keywords: ["delegations of authority", "delegations register"], standard: "11" },
+  { keywords: ["roles and responsibilities", "raci"], standard: "11" },
+  { keywords: ["fit and proper person"], standard: "11" },
+  { keywords: ["conflict of interest"], standard: "11" },
+  { keywords: ["board", "management meeting minutes"], standard: "11" },
+  { keywords: ["policy register"], standard: "11" },
+  { keywords: ["policies are communicated"], standard: "11" },
+  { keywords: ["whistleblower", "reportable conduct"], standard: "11" },
   
-  "Incident management policy is documented, current and approved": "16",
-  "Complaints management policy is documented, current and approved": "15",
-  "Risk management policy is documented, current and approved": "12",
-  "Continuous improvement policy is documented, current and approved": "13",
-  "Feedback and feedback handling policy is documented, current and approved": "15",
-  "Privacy and confidentiality policy is documented, current and approved": "14",
-  "Information management and record keeping policy is documented": "14",
-  "Code of conduct is documented and staff have acknowledged": "17",
-  "Child safe standards policy is documented (where applicable)": "17",
-  "Whistleblower or reportable conduct policy is documented (if applicable)": "11",
+  // Standard 12 - Risk Management
+  { keywords: ["risk management policy"], standard: "12" },
+  { keywords: ["risk register"], standard: "12" },
+  { keywords: ["client-specific risk", "individual risk assessment"], standard: "12" },
   
-  "Organisation-level risk register is maintained and current": "12",
-  "Continuous improvement register or quality improvement plan is maintained": "13",
-  "Internal audit reports are documented": "13",
-  "Previous external audit reports and responses are available": "13",
-  "Management review records are documented": "13",
-  "Policy register showing review dates is maintained": "11",
-  "Evidence that policies are communicated to staff": "11",
-  "Training or induction records reference governance policies": "17",
+  // Standard 13 - Quality Management
+  { keywords: ["continuous improvement policy"], standard: "13" },
+  { keywords: ["continuous improvement register", "quality improvement"], standard: "13" },
+  { keywords: ["internal audit"], standard: "13" },
+  { keywords: ["external audit report"], standard: "13" },
+  { keywords: ["management review"], standard: "13" },
   
-  "Police check records are current for all staff": "17",
-  "Working With Children Check records are current (where required)": "17",
-  "NDIS Worker Screening clearance is current for all workers": "17",
-  "Right to work documentation is verified and on file": "17",
-  "Reference checks are completed (where applicable)": "17",
-  "Qualification certificates relevant to role are on file": "17",
-  "Scope of practice or role descriptions are documented": "17",
-  "Evidence that qualifications are appropriate to supports delivered": "17",
-  "Training matrix or training register is maintained": "17",
-  "Mandatory training records are current (incident management, medication, restrictive practices)": "17",
-  "Induction records are documented for all staff": "17",
-  "Ongoing professional development records are maintained": "17",
-  "Supervision schedules are documented": "17",
-  "Supervision session records are maintained": "17",
-  "Performance reviews or appraisals are completed": "17",
-  "Corrective action or performance improvement plans are documented (if applicable)": "17",
-  "Staff register with roles, employment type and start dates is maintained": "17",
-  "Contractor agreements are in place (if contractors used)": "17",
-  "Rostering policies relating to skill mix and ratios are documented": "17",
+  // Standard 14 - Information Management
+  { keywords: ["privacy", "confidentiality policy"], standard: "14" },
+  { keywords: ["information management", "record keeping"], standard: "14" },
   
-  "Client-specific emergency/disaster response is documented": "18A",
+  // Standard 15 - Feedback and Complaints Management
+  { keywords: ["complaints management policy"], standard: "15" },
+  { keywords: ["feedback", "feedback handling"], standard: "15" },
+  { keywords: ["complaint outcomes", "complaint resolution"], standard: "15" },
+  { keywords: ["complaints made by", "complaints recorded"], standard: "15" },
   
-  "Incident reports involving the client are documented": "16",
-  "Incident follow-up actions are documented": "16",
-  "Behavioural incidents and de-escalation records are maintained": "16",
-  "Restrictive practice records and authorisations are maintained (if applicable)": "16",
+  // Standard 16 - Incident Management
+  { keywords: ["incident management policy"], standard: "16" },
+  { keywords: ["incident report"], standard: "16" },
+  { keywords: ["incident follow-up"], standard: "16" },
+  { keywords: ["behavioural incident", "de-escalation"], standard: "16" },
+  { keywords: ["restrictive practice"], standard: "16" },
   
-  "Complaints made by or on behalf of the client are recorded": "15",
-  "Complaint outcomes and resolution records are documented": "15",
-};
+  // Standard 17 - Human Resource Management
+  { keywords: ["police check"], standard: "17" },
+  { keywords: ["working with children", "wwcc"], standard: "17" },
+  { keywords: ["ndis worker screening"], standard: "17" },
+  { keywords: ["right to work"], standard: "17" },
+  { keywords: ["reference check"], standard: "17" },
+  { keywords: ["qualification", "qualifications"], standard: "17" },
+  { keywords: ["scope of practice", "role description", "position description"], standard: "17" },
+  { keywords: ["training matrix", "training register"], standard: "17" },
+  { keywords: ["mandatory training"], standard: "17" },
+  { keywords: ["induction record"], standard: "17" },
+  { keywords: ["professional development"], standard: "17" },
+  { keywords: ["supervision schedule", "supervision session", "supervision record"], standard: "17" },
+  { keywords: ["performance review", "appraisal"], standard: "17" },
+  { keywords: ["corrective action", "performance improvement plan"], standard: "17" },
+  { keywords: ["staff register"], standard: "17" },
+  { keywords: ["contractor agreement"], standard: "17" },
+  { keywords: ["rostering polic"], standard: "17" },
+  { keywords: ["code of conduct"], standard: "17" },
+  { keywords: ["child safe standards", "child safe policy"], standard: "17" },
+  { keywords: ["medication competency", "medication support training"], standard: "17" },
+  
+  // Standard 18 - Continuity of Supports
+  { keywords: ["continuity of support", "service continuity"], standard: "18" },
+  { keywords: ["transition plan", "transition record"], standard: "18" },
+  
+  // Standard 18A - Emergency and Disaster Management
+  { keywords: ["emergency drill", "evacuation"], standard: "18A" },
+  { keywords: ["emergency plan", "disaster response"], standard: "18A" },
+  { keywords: ["client-specific emergency", "individual emergency"], standard: "18A" },
+  { keywords: ["emergency contact"], standard: "18A" },
+  { keywords: ["fire safety"], standard: "18A" },
+];
 
 export function getNdisStandard(indicatorText: string): { number: string; name: string } | null {
-  const standardNumber = INDICATOR_STANDARD_MAPPING[indicatorText];
-  if (!standardNumber) return null;
-  return NDIS_STANDARDS[standardNumber as keyof typeof NDIS_STANDARDS] || null;
+  if (!indicatorText) return null;
+  
+  const normalizedText = indicatorText.toLowerCase();
+  
+  for (const mapping of KEYWORD_STANDARD_MAPPING) {
+    for (const keyword of mapping.keywords) {
+      if (normalizedText.includes(keyword.toLowerCase())) {
+        return NDIS_STANDARDS[mapping.standard as keyof typeof NDIS_STANDARDS] || null;
+      }
+    }
+  }
+  
+  return null;
 }
