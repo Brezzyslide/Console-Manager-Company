@@ -119,17 +119,29 @@ export function generateAuditReportPDF(data: ReportData): PDFKit.PDFDocument {
   generateAuditResults(doc, data, pageWidth);
   
   if (data.findings.length > 0) {
-    doc.addPage();
+    if (doc.y > doc.page.height - 200) {
+      doc.addPage();
+    } else {
+      doc.moveDown(2);
+    }
     generateFindings(doc, data, pageWidth);
   }
   
   if (data.interviews.length > 0) {
-    doc.addPage();
+    if (doc.y > doc.page.height - 200) {
+      doc.addPage();
+    } else {
+      doc.moveDown(2);
+    }
     generateInterviews(doc, data, pageWidth);
   }
   
   if (data.siteVisits.length > 0) {
-    doc.addPage();
+    if (doc.y > doc.page.height - 200) {
+      doc.addPage();
+    } else {
+      doc.moveDown(2);
+    }
     generateSiteVisits(doc, data, pageWidth);
   }
 
@@ -573,10 +585,7 @@ function generateAuditResults(doc: PDFKit.PDFDocument, data: ReportData, pageWid
           .text(`• ID: ${response.templateIndicatorId.substring(0, 12)}...`, { continued: true });
         
         if (response.comment) {
-          const commentText = response.comment.length > 150 
-            ? response.comment.substring(0, 150) + '...' 
-            : response.comment;
-          doc.text(`: ${commentText}`);
+          doc.text(`: ${response.comment}`);
         } else {
           doc.text('');
         }
