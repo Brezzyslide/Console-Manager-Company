@@ -170,6 +170,28 @@ export function generateAuditReportPDF(data: ReportData): PDFKit.PDFDocument {
     generateSiteVisits(doc, data, pageWidth);
   }
 
+  // Registration Groups & Witnessing section
+  const regGroups = (data.audit as any).registrationGroupsWitnessing;
+  if (regGroups && Array.isArray(regGroups) && regGroups.length > 0) {
+    if (doc.y > doc.page.height - 200) {
+      doc.addPage();
+    } else {
+      doc.moveDown(2);
+    }
+    generateRegistrationGroups(doc, regGroups, pageWidth);
+  }
+
+  // Conclusion & Sign-off section
+  const conclusionData = (data.audit as any).conclusionData;
+  if (conclusionData) {
+    if (doc.y > doc.page.height - 200) {
+      doc.addPage();
+    } else {
+      doc.moveDown(2);
+    }
+    generateConclusionSection(doc, data, conclusionData, pageWidth);
+  }
+
   addPageNumbers(doc);
 
   return doc;
@@ -312,6 +334,16 @@ function generateTableOfContents(doc: PDFKit.PDFDocument, data: ReportData, page
   
   if (data.siteVisits.length > 0) {
     tocItems.push({ title: `${sectionNum++}. Site Visit Observations` });
+  }
+  
+  const regGroups = (data.audit as any).registrationGroupsWitnessing;
+  if (regGroups && Array.isArray(regGroups) && regGroups.length > 0) {
+    tocItems.push({ title: `${sectionNum++}. Registration Groups & Witnessing` });
+  }
+  
+  const conclusionData = (data.audit as any).conclusionData;
+  if (conclusionData) {
+    tocItems.push({ title: `${sectionNum++}. Conclusion & Sign-off` });
   }
 
   tocItems.forEach((item) => {
@@ -1286,6 +1318,208 @@ function groupByRating(responses: AuditIndicatorResponse[]) {
     MINOR_NC: responses.filter(r => r.rating === 'MINOR_NC'),
     MAJOR_NC: responses.filter(r => r.rating === 'MAJOR_NC')
   };
+}
+
+function generateRegistrationGroups(doc: PDFKit.PDFDocument, regGroups: any[], pageWidth: number) {
+  sectionHeader(doc, 'Registration Groups & Witnessing');
+  
+  doc.moveDown(0.5);
+  
+  const colWidths = [80, pageWidth - 220, 70, 70];
+  
+  // Helper to draw table header
+  function drawTableHeader() {
+    const headerY = doc.y;
+    doc.rect(doc.page.margins.left, headerY - 5, pageWidth, 25).fill(COLORS.primary);
+    
+    doc.fillColor(COLORS.white)
+      .fontSize(9)
+      .font('Helvetica-Bold');
+    
+    let xPos = doc.page.margins.left + 5;
+    doc.text('NDIS Code', xPos, headerY, { width: colWidths[0] });
+    xPos += colWidths[0];
+    doc.text('Registration Group', xPos, headerY, { width: colWidths[1] });
+    xPos += colWidths[1];
+    doc.text('Status', xPos, headerY, { width: colWidths[2], align: 'center' });
+    xPos += colWidths[2];
+    doc.text('Witnessed', xPos, headerY, { width: colWidths[3], align: 'center' });
+    
+    doc.y = headerY + 25;
+  }
+  
+  // Draw initial header
+  drawTableHeader();
+  
+  // Table rows
+  regGroups.forEach((group, idx) => {
+    // Check if we need a new page and redraw header
+    if (doc.y > doc.page.height - 60) {
+      doc.addPage();
+      drawTableHeader();
+    }
+    
+    const rowY = doc.y;
+    const bgColor = idx % 2 === 0 ? COLORS.light : COLORS.white;
+    doc.rect(doc.page.margins.left, rowY - 3, pageWidth, 20).fill(bgColor);
+    
+    doc.fillColor(COLORS.black)
+      .fontSize(8)
+      .font('Helvetica');
+    
+    let xPos = doc.page.margins.left + 5;
+    doc.text(group.itemCode || '', xPos, rowY, { width: colWidths[0] });
+    xPos += colWidths[0];
+    doc.text(group.itemLabel || '', xPos, rowY, { width: colWidths[1] });
+    xPos += colWidths[1];
+    
+    const statusColor = group.status === 'ADD' ? COLORS.success : group.status === 'REMOVE' ? COLORS.danger : COLORS.black;
+    doc.fillColor(statusColor)
+      .text(group.status || 'Keep', xPos, rowY, { width: colWidths[2], align: 'center' });
+    xPos += colWidths[2];
+    
+    doc.fillColor(COLORS.black)
+      .text(group.witnessed || 'N/A', xPos, rowY, { width: colWidths[3], align: 'center' });
+    
+    doc.y = rowY + 20;
+  });
+  
+  doc.moveDown(0.5);
+}
+
+function generateConclusionSection(doc: PDFKit.PDFDocument, data: ReportData, conclusionData: any, pageWidth: number) {
+  sectionHeader(doc, 'Conclusion & Sign-off');
+  
+  doc.moveDown(0.5);
+  
+  // Conclusion text in a box
+  if (conclusionData.conclusionText) {
+    drawTextBox(doc, 'Audit Conclusion', conclusionData.conclusionText, pageWidth, COLORS.light, COLORS.primary);
+    doc.moveDown(1);
+  }
+  
+  // Auditor Endorsements
+  if (conclusionData.endorsement1 || conclusionData.endorsement2 || conclusionData.endorsement3) {
+    if (doc.y > doc.page.height - 150) doc.addPage();
+    
+    subsectionHeader(doc, 'Auditor Endorsements');
+    
+    const endorsements = [
+      { checked: conclusionData.endorsement1, text: 'Audit conducted in accordance with NDIS Quality and Safeguards Commission requirements' },
+      { checked: conclusionData.endorsement2, text: 'Findings based on objective evidence gathered during the audit' },
+      { checked: conclusionData.endorsement3, text: 'All non-conformances accurately documented and communicated' }
+    ];
+    
+    const boxStartY = doc.y;
+    doc.rect(doc.page.margins.left, boxStartY - 5, pageWidth, 70).fill(COLORS.light);
+    
+    endorsements.forEach((e) => {
+      const checkmark = e.checked ? '✓' : '○';
+      const color = e.checked ? COLORS.success : COLORS.muted;
+      doc.fillColor(color)
+        .fontSize(9)
+        .font('Helvetica')
+        .text(`  ${checkmark} ${e.text}`, doc.page.margins.left + 10, doc.y + 2);
+      doc.moveDown(0.5);
+    });
+    
+    doc.y = boxStartY + 75;
+  }
+  
+  // Follow-up Required
+  if (conclusionData.followUpRequired) {
+    doc.moveDown(0.5);
+    doc.rect(doc.page.margins.left, doc.y - 5, pageWidth, 25).fill('#fef3c7');
+    doc.fillColor('#92400e')
+      .fontSize(10)
+      .font('Helvetica-Bold')
+      .text('  ⚠ Follow-up Audit Required', doc.page.margins.left + 10, doc.y);
+    doc.moveDown(1.5);
+  }
+  
+  // Lead Auditor Sign-off
+  if (conclusionData.leadAuditorName || conclusionData.leadAuditorSignature) {
+    if (doc.y > doc.page.height - 120) doc.addPage();
+    
+    subsectionHeader(doc, 'Lead Auditor Sign-off');
+    
+    const signBoxY = doc.y;
+    doc.rect(doc.page.margins.left, signBoxY - 5, pageWidth, 80)
+      .strokeColor(COLORS.primary)
+      .lineWidth(2)
+      .stroke();
+    
+    doc.fillColor(COLORS.muted)
+      .fontSize(9)
+      .font('Helvetica-Bold')
+      .text('Lead Auditor:', doc.page.margins.left + 15, signBoxY + 10);
+    doc.fillColor(COLORS.black)
+      .font('Helvetica')
+      .text(conclusionData.leadAuditorName || '', doc.page.margins.left + 100, signBoxY + 10);
+    
+    doc.fillColor(COLORS.muted)
+      .font('Helvetica-Bold')
+      .text('Signature:', doc.page.margins.left + 15, signBoxY + 30);
+    doc.fillColor(COLORS.black)
+      .font('Helvetica-Oblique')
+      .fontSize(14)
+      .text(conclusionData.leadAuditorSignature || '', doc.page.margins.left + 100, signBoxY + 28);
+    
+    doc.fillColor(COLORS.muted)
+      .fontSize(9)
+      .font('Helvetica-Bold')
+      .text('Date:', doc.page.margins.left + 15, signBoxY + 55);
+    doc.fillColor(COLORS.black)
+      .font('Helvetica')
+      .text(conclusionData.signatureDate ? safeFormatDate(conclusionData.signatureDate, 'dd MMMM yyyy') : '', doc.page.margins.left + 100, signBoxY + 55);
+    
+    doc.y = signBoxY + 90;
+  }
+  
+  // Confidentiality Statement
+  doc.moveDown(1);
+  if (doc.y > doc.page.height - 100) doc.addPage();
+  
+  drawTextBox(doc, 'Confidentiality Statement', 
+    'This audit report contains confidential information intended solely for the use of the organisation named in this report. Any distribution, copying, or disclosure of this report to third parties without the prior written consent of the certifying body is strictly prohibited.',
+    pageWidth, '#dbeafe', '#1e40af');
+  
+  doc.moveDown(0.5);
+  
+  drawTextBox(doc, 'Disclaimer',
+    'This audit report represents the findings at the time of the audit based on the evidence available. The audit does not guarantee compliance at any other time. The organisation remains responsible for ongoing compliance with all applicable requirements.',
+    pageWidth, '#fef3c7', '#92400e');
+}
+
+function drawTextBox(doc: PDFKit.PDFDocument, title: string, content: string, pageWidth: number, bgColor: string, titleColor: string) {
+  const textHeight = doc.heightOfString(content, { width: pageWidth - 30 });
+  const boxHeight = textHeight + 45;
+  const remainingSpace = doc.page.height - doc.y - doc.page.margins.bottom;
+  
+  // Check if box fits on current page, if not start new page
+  if (boxHeight > remainingSpace) {
+    doc.addPage();
+  }
+  
+  const boxStartY = doc.y;
+  
+  doc.rect(doc.page.margins.left, boxStartY, pageWidth, boxHeight).fill(bgColor);
+  doc.rect(doc.page.margins.left, boxStartY, pageWidth, boxHeight)
+    .strokeColor(titleColor)
+    .lineWidth(1)
+    .stroke();
+  
+  doc.fillColor(titleColor)
+    .fontSize(10)
+    .font('Helvetica-Bold')
+    .text(title, doc.page.margins.left + 15, boxStartY + 10);
+  
+  doc.fillColor(COLORS.black)
+    .fontSize(9)
+    .font('Helvetica')
+    .text(content, doc.page.margins.left + 15, boxStartY + 28, { width: pageWidth - 30, align: 'justify' });
+  
+  doc.y = boxStartY + boxHeight + 5;
 }
 
 function addPageNumbers(doc: PDFKit.PDFDocument) {
