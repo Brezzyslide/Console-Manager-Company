@@ -9,7 +9,7 @@ import {
   CheckCircle2, 
   Clock, 
   User, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   FileText,
   MessageSquare,
   Send,
@@ -33,6 +33,8 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { 
   getFindingDetail, 
@@ -744,13 +746,28 @@ export default function FindingDetailPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Due Date (Optional)</Label>
-                  <Input
-                    type="date"
-                    value={evidenceDueDate}
-                    onChange={(e) => setEvidenceDueDate(e.target.value)}
-                    data-testid="input-evidence-due-date"
-                  />
+                  <Label>Submission Deadline (Optional)</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                        data-testid="input-evidence-due-date"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {evidenceDueDate ? format(new Date(evidenceDueDate), "PPP") : <span className="text-muted-foreground">Select deadline date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={evidenceDueDate ? new Date(evidenceDueDate) : undefined}
+                        onSelect={(date) => setEvidenceDueDate(date ? format(date, "yyyy-MM-dd") : "")}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
               <DialogFooter>
