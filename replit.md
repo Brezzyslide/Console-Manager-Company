@@ -48,6 +48,7 @@ The application is structured as a multi-tenant SaaS with strong data isolation.
 - **Suggested Finding System**: Non-binding suggestions generated post-document review based on DQS and critical failures (OBSERVATION, MINOR_NC, MAJOR_NC). Suggestions can be confirmed, overridden, or dismissed.
 - **Audit Report Generation**: Professional PDF reports conforming to DNV standards, including AI-generated (and editable) executive summaries, scoring summaries, detailed responses, interview logs, and site visit observations.
 - **Corrective Action Management**: Complete lifecycle tracking for non-conformance findings from identification through resolution. Activity timeline captures status changes, comments, evidence submissions, owner assignments, due dates, and closure details. PDF reports include full corrective action journey for each finding.
+- **Lead Auditor Approval Workflow**: Quality control gate requiring lead auditor review before audit closure. Workflow: DRAFT → IN_PROGRESS → IN_REVIEW → CLOSED. Auditors submit for review, lead auditors (CompanyAdmin role) can approve or request changes with feedback notes. Tracks submission and approval timestamps with user attribution.
 
 ## External Dependencies
 

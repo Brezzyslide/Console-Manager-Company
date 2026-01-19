@@ -432,6 +432,11 @@ export interface Audit {
   scorePercent?: number | null;
   completedCount?: number;
   indicatorCount?: number;
+  submittedForReviewAt: string | null;
+  submittedForReviewByUserId: string | null;
+  approvedAt: string | null;
+  approvedByUserId: string | null;
+  reviewNotes: string | null;
 }
 
 export interface AuditTemplate {

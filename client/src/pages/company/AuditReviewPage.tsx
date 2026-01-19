@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus, Send, ThumbsUp, RotateCcw } from "lucide-react";
 import { AuditNavTabs } from "@/components/AuditNavTabs";
-import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
+import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, submitAuditForReview, approveAudit, requestAuditChanges, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
+import { useCompanyAuth } from "@/hooks/use-company-auth";
 
 const evidenceStatusConfig: Record<EvidenceStatus, { label: string; color: string; icon: any }> = {
   REQUESTED: { label: "Requested", color: "bg-blue-500", icon: Clock },
@@ -46,6 +47,7 @@ export default function AuditReviewPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useCompanyAuth();
   
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [closeReason, setCloseReason] = useState("");
@@ -53,6 +55,10 @@ export default function AuditReviewPage() {
   const [selectedIndicatorId, setSelectedIndicatorId] = useState<string | null>(null);
   const [newRating, setNewRating] = useState<IndicatorRating | null>(null);
   const [newComment, setNewComment] = useState("");
+  const [showSubmitForReviewDialog, setShowSubmitForReviewDialog] = useState(false);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showRequestChangesDialog, setShowRequestChangesDialog] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState("");
 
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
@@ -99,7 +105,33 @@ export default function AuditReviewPage() {
     },
   });
 
+  const submitForReviewMutation = useMutation({
+    mutationFn: () => submitAuditForReview(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit", id] });
+      setShowSubmitForReviewDialog(false);
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: () => approveAudit(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit", id] });
+      setShowApproveDialog(false);
+    },
+  });
+
+  const requestChangesMutation = useMutation({
+    mutationFn: () => requestAuditChanges(id!, reviewNotes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit", id] });
+      setShowRequestChangesDialog(false);
+      setReviewNotes("");
+    },
+  });
+
   const isLoading = auditLoading || runnerLoading;
+  const isLeadAuditor = user?.role === "CompanyAdmin";
 
   if (isLoading) {
     return (
@@ -317,24 +349,80 @@ export default function AuditReviewPage() {
         </CardContent>
       </Card>
 
-      {audit?.status === "IN_REVIEW" && (
-        <Card className="border-primary/30 bg-primary/5">
+      {/* Submit for Review - Auditors when audit is IN_PROGRESS */}
+      {audit?.status === "IN_PROGRESS" && (
+        <Card className="border-blue-500/30 bg-blue-500/5">
           <CardContent className="py-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">Ready to Close Audit</h3>
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Send className="h-5 w-5 text-blue-500" />
+                  Ready to Submit for Review
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  {requiresCloseReason 
-                    ? `${openMajorFindings.length} open major finding(s) - a reason is required to close`
-                    : "All findings can be addressed after closing"}
+                  Submit this audit for lead auditor review and approval before closing.
                 </p>
+                {audit.reviewNotes && (
+                  <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <p className="text-sm font-medium text-yellow-700">Changes Requested</p>
+                    <p className="text-sm text-muted-foreground mt-1">{audit.reviewNotes}</p>
+                  </div>
+                )}
               </div>
               <Button 
-                onClick={() => setShowCloseDialog(true)}
-                data-testid="button-close-audit"
+                onClick={() => setShowSubmitForReviewDialog(true)}
+                data-testid="button-submit-for-review"
               >
-                Close Audit
+                <Send className="h-4 w-4 mr-2" />
+                Submit for Review
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lead Auditor Approval Panel - When audit is IN_REVIEW */}
+      {audit?.status === "IN_REVIEW" && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="py-6">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Eye className="h-5 w-5 text-primary" />
+                  Pending Lead Auditor Approval
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {isLeadAuditor 
+                    ? "Review the audit findings and evidence, then approve or request changes."
+                    : "This audit is waiting for lead auditor review and approval."}
+                </p>
+                {audit.submittedForReviewAt && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Submitted for review: {format(new Date(audit.submittedForReviewAt), "PPpp")}
+                  </p>
+                )}
+              </div>
+              
+              {isLeadAuditor && (
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => setShowApproveDialog(true)}
+                    className="bg-green-600 hover:bg-green-700"
+                    data-testid="button-approve-audit"
+                  >
+                    <ThumbsUp className="h-4 w-4 mr-2" />
+                    Approve & Close
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowRequestChangesDialog(true)}
+                    data-testid="button-request-changes"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Request Changes
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -464,6 +552,116 @@ export default function AuditReviewPage() {
             >
               {addResponseMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save Response
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Submit for Review Dialog */}
+      <Dialog open={showSubmitForReviewDialog} onOpenChange={setShowSubmitForReviewDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit Audit for Review</DialogTitle>
+            <DialogDescription>
+              This will submit the audit to the lead auditor for review and approval.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Once submitted, the lead auditor will review all findings, evidence, and your assessments 
+              before approving the audit for closure.
+            </p>
+          </div>
+          {submitForReviewMutation.error && (
+            <p className="text-sm text-destructive">{(submitForReviewMutation.error as Error).message}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSubmitForReviewDialog(false)}>Cancel</Button>
+            <Button 
+              onClick={() => submitForReviewMutation.mutate()}
+              disabled={submitForReviewMutation.isPending}
+              data-testid="button-confirm-submit-review"
+            >
+              {submitForReviewMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Submit for Review
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Audit Dialog */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve & Close Audit</DialogTitle>
+            <DialogDescription>
+              Confirm that you have reviewed the audit and approve it for closure.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              By approving, you confirm that you have reviewed all indicator assessments, 
+              findings, and evidence. The audit will be marked as closed.
+            </p>
+            {requiresCloseReason && (
+              <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-sm text-yellow-700">
+                  Note: There are {openMajorFindings.length} open major finding(s).
+                </p>
+              </div>
+            )}
+          </div>
+          {approveMutation.error && (
+            <p className="text-sm text-destructive">{(approveMutation.error as Error).message}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApproveDialog(false)}>Cancel</Button>
+            <Button 
+              onClick={() => approveMutation.mutate()}
+              disabled={approveMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="button-confirm-approve"
+            >
+              {approveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Approve & Close Audit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request Changes Dialog */}
+      <Dialog open={showRequestChangesDialog} onOpenChange={setShowRequestChangesDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Changes</DialogTitle>
+            <DialogDescription>
+              Provide feedback on what needs to be addressed before the audit can be approved.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Review Notes <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="Describe what changes are needed..."
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+                rows={4}
+                data-testid="input-review-notes"
+              />
+            </div>
+          </div>
+          {requestChangesMutation.error && (
+            <p className="text-sm text-destructive">{(requestChangesMutation.error as Error).message}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRequestChangesDialog(false)}>Cancel</Button>
+            <Button 
+              onClick={() => requestChangesMutation.mutate()}
+              disabled={!reviewNotes.trim() || requestChangesMutation.isPending}
+              data-testid="button-confirm-request-changes"
+            >
+              {requestChangesMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Send Feedback
             </Button>
           </DialogFooter>
         </DialogContent>
