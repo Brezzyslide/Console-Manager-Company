@@ -15,6 +15,7 @@ import {
   getEvidenceRequests, 
   getCompanyUsers, 
   createStandaloneEvidenceRequest,
+  getAudits,
   type EvidenceRequest, 
   type EvidenceStatus,
   type EvidenceType 
@@ -133,6 +134,7 @@ export default function EvidenceLockerPage() {
   const { user } = useCompanyAuth();
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [auditFilter, setAuditFilter] = useState<string>("all");
   const [showNewRequestDialog, setShowNewRequestDialog] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
@@ -162,10 +164,16 @@ export default function EvidenceLockerPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const { data: audits } = useQuery({
+    queryKey: ["audits"],
+    queryFn: () => getAudits(),
+  });
+
   const { data: requests, isLoading } = useQuery({
-    queryKey: ["evidenceRequests", statusFilter],
+    queryKey: ["evidenceRequests", statusFilter, auditFilter],
     queryFn: () => getEvidenceRequests({
       status: statusFilter !== "all" ? statusFilter as EvidenceStatus : undefined,
+      auditId: auditFilter !== "all" ? auditFilter : undefined,
     }),
   });
 
@@ -274,6 +282,20 @@ export default function EvidenceLockerPage() {
             <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
             <SelectItem value="ACCEPTED">Accepted</SelectItem>
             <SelectItem value="REJECTED">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        <Select value={auditFilter} onValueChange={setAuditFilter}>
+          <SelectTrigger className="w-64" data-testid="select-audit-filter">
+            <SelectValue placeholder="Filter by audit" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Audits</SelectItem>
+            {audits?.map(audit => (
+              <SelectItem key={audit.id} value={audit.id}>
+                {audit.title}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
