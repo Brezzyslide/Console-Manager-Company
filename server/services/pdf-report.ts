@@ -1535,18 +1535,23 @@ function drawTextBox(doc: PDFKit.PDFDocument, title: string, content: string, pa
     .font('Helvetica')
     .text(content, doc.page.margins.left + 15, boxStartY + 28, { width: pageWidth - 30, align: 'justify' });
   
-  doc.y = boxStartY + boxHeight + 5;
+  doc.y = boxStartY + boxHeight;
 }
 
 function addPageNumbers(doc: PDFKit.PDFDocument) {
   const pages = doc.bufferedPageRange();
+  const totalContentPages = pages.count - 1; // Exclude cover page from count
+  
+  // Start from page 1 (skip cover page at index 0)
   for (let i = 1; i < pages.count; i++) {
     doc.switchToPage(i);
+    const pageNumber = i; // Page 1, 2, 3, etc. (cover is page 0, not numbered)
+    
     doc.fillColor(COLORS.muted)
       .fontSize(9)
       .font('Helvetica')
       .text(
-        `Page ${i + 1} of ${pages.count}`,
+        `Page ${pageNumber} of ${totalContentPages}`,
         doc.page.margins.left,
         doc.page.height - 40,
         { width: doc.page.width - doc.page.margins.left - doc.page.margins.right, align: 'center' }
