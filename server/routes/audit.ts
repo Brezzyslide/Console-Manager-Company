@@ -334,6 +334,54 @@ const updateScopeSchema = z.object({
   lineItemIds: z.array(z.string().uuid()).min(1, "At least one line item is required"),
 });
 
+const updateAuditDetailsSchema = z.object({
+  methodology: z.enum(["REMOTE", "ONSITE", "HYBRID"]).optional(),
+  auditPurpose: z.enum(["INITIAL_CERTIFICATION", "RECERTIFICATION", "SURVEILLANCE", "SCOPE_EXTENSION", "TRANSFER_AUDIT", "SPECIAL_AUDIT"]).optional(),
+});
+
+router.patch("/audits/:id", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const auditId = req.params.id;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const input = updateAuditDetailsSchema.parse(req.body);
+    
+    const updates: any = {};
+    if (input.methodology !== undefined) updates.methodology = input.methodology;
+    if (input.auditPurpose !== undefined) updates.auditPurpose = input.auditPurpose;
+    
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
+    
+    const updatedAudit = await storage.updateAudit(auditId, companyId, updates);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "AUDIT_DETAILS_UPDATED",
+      entityType: "audit",
+      entityId: auditId,
+      afterJson: updates,
+    });
+    
+    return res.json(updatedAudit);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Update audit details error:", error);
+    return res.status(500).json({ error: "Failed to update audit details" });
+  }
+});
+
 router.put("/audits/:id/scope", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;

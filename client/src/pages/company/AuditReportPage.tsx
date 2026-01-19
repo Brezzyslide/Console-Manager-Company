@@ -27,7 +27,8 @@ import {
   MapPin,
   Wand2,
   Plus,
-  Trash2
+  Trash2,
+  Pencil
 } from "lucide-react";
 import { AuditNavTabs } from "@/components/AuditNavTabs";
 import { getAudit, type IndicatorRating } from "@/lib/company-api";
@@ -98,6 +99,10 @@ export default function AuditReportPage() {
   const [documentChecklist, setDocumentChecklist] = useState<ChecklistItem[]>(
     initializeChecklist(SITE_VISIT_DOCUMENT_CHECKLIST)
   );
+
+  // Methodology edit state
+  const [showMethodologyDialog, setShowMethodologyDialog] = useState(false);
+  const [selectedMethodology, setSelectedMethodology] = useState<string>("");
 
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
@@ -293,6 +298,31 @@ export default function AuditReportPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["auditReportData", id] });
       toast({ title: "Site visit deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    },
+  });
+
+  const updateMethodologyMutation = useMutation({
+    mutationFn: async (methodology: string) => {
+      const res = await fetch(`/api/company/audits/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ methodology }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to update methodology" }));
+        throw new Error(error.error || "Failed to update methodology");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit", id] });
+      queryClient.invalidateQueries({ queryKey: ["auditReportData", id] });
+      setShowMethodologyDialog(false);
+      toast({ title: "Methodology updated", description: "The audit methodology has been updated." });
     },
     onError: (error: Error) => {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -546,6 +576,25 @@ export default function AuditReportPage() {
                     </span>
                   </div>
                 )}
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Methodology</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">
+                      {audit.methodology === "ONSITE" ? "On-site" :
+                       audit.methodology === "REMOTE" ? "Remote" :
+                       audit.methodology === "HYBRID" ? "Hybrid" : "Not set"}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => setShowMethodologyDialog(true)}
+                      data-testid="edit-methodology-button"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Service Context</span>
                   <span className="font-medium">{audit.serviceContextLabel}</span>
@@ -1053,6 +1102,47 @@ export default function AuditReportPage() {
             >
               {addSiteVisitMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save Site Visit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showMethodologyDialog} onOpenChange={(open) => {
+        setShowMethodologyDialog(open);
+        if (open && audit) {
+          setSelectedMethodology(audit.methodology || "");
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Audit Methodology</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Methodology</Label>
+              <Select value={selectedMethodology} onValueChange={setSelectedMethodology}>
+                <SelectTrigger data-testid="select-methodology-edit">
+                  <SelectValue placeholder="Select methodology" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ONSITE">On-site - Physical presence at provider locations</SelectItem>
+                  <SelectItem value="REMOTE">Remote - Virtual audit via video conferencing</SelectItem>
+                  <SelectItem value="HYBRID">Hybrid - Combination of on-site and remote</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMethodologyDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => selectedMethodology && updateMethodologyMutation.mutate(selectedMethodology)}
+              disabled={!selectedMethodology || updateMethodologyMutation.isPending}
+              data-testid="button-save-methodology"
+            >
+              {updateMethodologyMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
