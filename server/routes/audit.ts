@@ -106,6 +106,7 @@ const createAuditSchema = z.object({
   entityAbn: z.string().optional(),
   entityAddress: z.string().optional(),
   auditPurpose: z.enum(["INITIAL_CERTIFICATION", "RECERTIFICATION", "SURVEILLANCE", "SCOPE_EXTENSION", "TRANSFER_AUDIT", "SPECIAL_AUDIT"]).optional(),
+  methodology: z.enum(["REMOTE", "ONSITE", "HYBRID"]).optional(),
   selectedLineItemIds: z.array(z.string().uuid()).min(1, "At least one line item must be selected"),
   selectedDomainIds: z.array(z.string()).optional(),
 }).refine(data => {
@@ -166,6 +167,7 @@ router.post("/audits", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor
       entityAbn: input.entityAbn || null,
       entityAddress: input.entityAddress || null,
       auditPurpose: input.auditPurpose || null,
+      methodology: input.methodology || null,
       scopeLocked: false,
     });
     

@@ -23,6 +23,12 @@ const auditPurposeOptions = [
   { value: "SPECIAL_AUDIT", label: "Special Audit" },
 ] as const;
 
+const auditMethodologyOptions = [
+  { value: "ONSITE", label: "On-site", description: "Physical presence at provider locations" },
+  { value: "REMOTE", label: "Remote", description: "Virtual audit via video conferencing and document review" },
+  { value: "HYBRID", label: "Hybrid", description: "Combination of on-site and remote methods" },
+] as const;
+
 export default function CreateAuditPage() {
   const [, navigate] = useLocation();
   const [step, setStep] = useState(0);
@@ -44,6 +50,7 @@ export default function CreateAuditPage() {
     entityAbn: "",
     entityAddress: "",
     auditPurpose: "",
+    methodology: "",
   });
 
   const { data: auditOptions, isLoading: optionsLoading } = useQuery({
@@ -100,6 +107,7 @@ export default function CreateAuditPage() {
       entityAbn: formData.entityAbn || undefined,
       entityAddress: formData.entityAddress || undefined,
       auditPurpose: formData.auditPurpose || undefined,
+      methodology: formData.methodology || undefined,
       selectedLineItemIds: Array.from(selectedLineItems),
       selectedDomainIds: Array.from(selectedDomains),
     });
@@ -482,6 +490,27 @@ export default function CreateAuditPage() {
                           <SelectContent>
                             {auditPurposeOptions.map(opt => (
                               <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="methodology">Audit Methodology</Label>
+                        <Select 
+                          value={formData.methodology} 
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, methodology: value }))}
+                        >
+                          <SelectTrigger data-testid="select-methodology">
+                            <SelectValue placeholder="Select methodology" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {auditMethodologyOptions.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                <div>
+                                  <span className="font-medium">{opt.label}</span>
+                                  <span className="text-muted-foreground text-xs ml-2">- {opt.description}</span>
+                                </div>
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
