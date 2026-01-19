@@ -882,6 +882,20 @@ export async function requestAuditChanges(auditId: string, reviewNotes: string):
   return res.json();
 }
 
+export async function reopenAudit(auditId: string, reopenReason: string): Promise<Audit> {
+  const res = await fetch(`/api/company/audits/${auditId}/reopen`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ reopenReason }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to reopen audit");
+  }
+  return res.json();
+}
+
 export interface AuditOutcome {
   id: string;
   auditId: string;

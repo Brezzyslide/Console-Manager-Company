@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus, Send, ThumbsUp, RotateCcw } from "lucide-react";
 import { AuditNavTabs } from "@/components/AuditNavTabs";
-import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, submitAuditForReview, approveAudit, requestAuditChanges, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
+import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, submitAuditForReview, approveAudit, requestAuditChanges, reopenAudit, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
@@ -59,6 +59,8 @@ export default function AuditReviewPage() {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRequestChangesDialog, setShowRequestChangesDialog] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [showReopenDialog, setShowReopenDialog] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
 
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
@@ -127,6 +129,15 @@ export default function AuditReviewPage() {
       queryClient.invalidateQueries({ queryKey: ["audit", id] });
       setShowRequestChangesDialog(false);
       setReviewNotes("");
+    },
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: () => reopenAudit(id!, reopenReason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit", id] });
+      setShowReopenDialog(false);
+      setReopenReason("");
     },
   });
 
@@ -431,13 +442,32 @@ export default function AuditReviewPage() {
       {audit?.status === "CLOSED" && (
         <Card className="border-green-500/30 bg-green-500/5">
           <CardContent className="py-6">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-              <span className="font-semibold">Audit Closed</span>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <span className="font-semibold">Audit Closed</span>
+                </div>
+                {audit.closeReason && (
+                  <p className="text-sm text-muted-foreground mt-2">Reason: {audit.closeReason}</p>
+                )}
+                {audit.approvedAt && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Approved: {format(new Date(audit.approvedAt), "PPpp")}
+                  </p>
+                )}
+              </div>
+              {isLeadAuditor && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setShowReopenDialog(true)}
+                  data-testid="button-reopen-audit"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reopen Audit
+                </Button>
+              )}
             </div>
-            {audit.closeReason && (
-              <p className="text-sm text-muted-foreground mt-2">Reason: {audit.closeReason}</p>
-            )}
           </CardContent>
         </Card>
       )}
@@ -704,6 +734,44 @@ export default function AuditReviewPage() {
             >
               {closeMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Confirm Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reopen Audit Dialog */}
+      <Dialog open={showReopenDialog} onOpenChange={setShowReopenDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reopen Audit</DialogTitle>
+            <DialogDescription>
+              Provide a reason for reopening this closed audit.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Reason for Reopening <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="Why does this audit need to be reopened?"
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                rows={4}
+                data-testid="input-reopen-reason"
+              />
+            </div>
+          </div>
+          {reopenMutation.error && (
+            <p className="text-sm text-destructive">{(reopenMutation.error as Error).message}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReopenDialog(false)}>Cancel</Button>
+            <Button 
+              onClick={() => reopenMutation.mutate()}
+              disabled={!reopenReason.trim() || reopenMutation.isPending}
+              data-testid="button-confirm-reopen"
+            >
+              {reopenMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Reopen Audit
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -3332,4 +3332,49 @@ router.post("/audits/:auditId/request-changes", requireCompanyAuth, requireRole(
   }
 });
 
+const reopenAuditSchema = z.object({
+  reopenReason: z.string().min(1, "Reason for reopening is required"),
+});
+
+router.post("/audits/:auditId/reopen", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const input = reopenAuditSchema.parse(req.body);
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    if (audit.status !== "CLOSED") {
+      return res.status(400).json({ error: "Only closed audits can be reopened" });
+    }
+    
+    const updatedAudit = await storage.updateAudit(auditId, companyId, {
+      status: "IN_PROGRESS",
+      reviewNotes: `Reopened: ${input.reopenReason}`,
+      approvedAt: null,
+      approvedByUserId: null,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "AUDIT_REOPENED",
+      entityType: "audit",
+      entityId: auditId,
+      afterJson: { status: "IN_PROGRESS", reopenReason: input.reopenReason },
+    });
+    
+    return res.json(updatedAudit);
+  } catch (error) {
+    console.error("Reopen audit error:", error);
+    return res.status(500).json({ error: "Failed to reopen audit" });
+  }
+});
+
 export default router;
