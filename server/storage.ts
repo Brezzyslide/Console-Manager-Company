@@ -125,6 +125,7 @@ export interface IStorage {
   getSupportCategories(): Promise<SupportCategory[]>;
   createSupportCategory(category: InsertSupportCategory): Promise<SupportCategory>;
   getSupportLineItems(): Promise<SupportLineItem[]>;
+  getSupportLineItem(id: string): Promise<SupportLineItem | undefined>;
   getActiveLineItems(): Promise<SupportLineItem[]>;
   getLineItemsByCategory(categoryId: string): Promise<SupportLineItem[]>;
   getLineItemsByCategoryIds(categoryIds: string[]): Promise<SupportLineItem[]>;
@@ -429,6 +430,11 @@ export class DatabaseStorage implements IStorage {
 
   async getSupportLineItems(): Promise<SupportLineItem[]> {
     return await db.select().from(supportLineItems).orderBy(asc(supportLineItems.sortOrder));
+  }
+
+  async getSupportLineItem(id: string): Promise<SupportLineItem | undefined> {
+    const [item] = await db.select().from(supportLineItems).where(eq(supportLineItems.id, id));
+    return item || undefined;
   }
 
   async getActiveLineItems(): Promise<SupportLineItem[]> {

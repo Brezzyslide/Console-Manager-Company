@@ -412,6 +412,37 @@ router.patch("/audits/:id", requireCompanyAuth, requireRole(["CompanyAdmin", "Au
   }
 });
 
+router.get("/audits/:id/scope", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const auditId = req.params.id;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const scopeLineItems = await storage.getAuditScopeLineItems(auditId);
+    
+    const lineItemsWithDetails = await Promise.all(
+      scopeLineItems.map(async (item) => {
+        const lineItem = await storage.getSupportLineItem(item.lineItemId);
+        return {
+          id: item.id,
+          lineItemId: item.lineItemId,
+          itemCode: lineItem?.itemCode || "",
+          itemLabel: lineItem?.itemLabel || "",
+        };
+      })
+    );
+    
+    return res.json(lineItemsWithDetails);
+  } catch (error: any) {
+    console.error("Get audit scope error:", error);
+    return res.status(500).json({ error: "Failed to get audit scope" });
+  }
+});
+
 router.put("/audits/:id/scope", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
