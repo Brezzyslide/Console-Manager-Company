@@ -839,6 +839,44 @@ export async function closeAudit(auditId: string, closeReason?: string): Promise
   return res.json();
 }
 
+export async function submitAuditForReview(auditId: string): Promise<Audit> {
+  const res = await fetch(`/api/company/audits/${auditId}/submit-for-review`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to submit audit for review");
+  }
+  return res.json();
+}
+
+export async function approveAudit(auditId: string): Promise<Audit> {
+  const res = await fetch(`/api/company/audits/${auditId}/approve`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to approve audit");
+  }
+  return res.json();
+}
+
+export async function requestAuditChanges(auditId: string, reviewNotes: string): Promise<Audit> {
+  const res = await fetch(`/api/company/audits/${auditId}/request-changes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ reviewNotes }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to request changes");
+  }
+  return res.json();
+}
+
 export interface AuditOutcome {
   id: string;
   auditId: string;

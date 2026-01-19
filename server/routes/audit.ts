@@ -3209,4 +3209,127 @@ router.delete("/audits/:auditId/sites/:siteId", requireCompanyAuth, requireRole(
   }
 });
 
+// Lead Auditor Approval Workflow
+router.post("/audits/:auditId/submit-for-review", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    if (audit.status !== "IN_PROGRESS") {
+      return res.status(400).json({ error: "Audit must be in progress to submit for review" });
+    }
+    
+    const updatedAudit = await storage.updateAudit(auditId, companyId, {
+      status: "IN_REVIEW",
+      submittedForReviewAt: new Date(),
+      submittedForReviewByUserId: userId,
+      reviewNotes: null,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "AUDIT_SUBMITTED_FOR_REVIEW",
+      entityType: "audit",
+      entityId: auditId,
+      afterJson: { status: "IN_REVIEW", submittedAt: new Date().toISOString() },
+    });
+    
+    return res.json(updatedAudit);
+  } catch (error) {
+    console.error("Submit audit for review error:", error);
+    return res.status(500).json({ error: "Failed to submit audit for review" });
+  }
+});
+
+router.post("/audits/:auditId/approve", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    if (audit.status !== "IN_REVIEW") {
+      return res.status(400).json({ error: "Audit must be in review to approve" });
+    }
+    
+    const updatedAudit = await storage.updateAudit(auditId, companyId, {
+      status: "CLOSED",
+      approvedAt: new Date(),
+      approvedByUserId: userId,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "AUDIT_APPROVED",
+      entityType: "audit",
+      entityId: auditId,
+      afterJson: { status: "CLOSED", approvedAt: new Date().toISOString() },
+    });
+    
+    return res.json(updatedAudit);
+  } catch (error) {
+    console.error("Approve audit error:", error);
+    return res.status(500).json({ error: "Failed to approve audit" });
+  }
+});
+
+const requestChangesSchema = z.object({
+  reviewNotes: z.string().min(1, "Review notes are required when requesting changes"),
+});
+
+router.post("/audits/:auditId/request-changes", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const input = requestChangesSchema.parse(req.body);
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    if (audit.status !== "IN_REVIEW") {
+      return res.status(400).json({ error: "Audit must be in review to request changes" });
+    }
+    
+    const updatedAudit = await storage.updateAudit(auditId, companyId, {
+      status: "IN_PROGRESS",
+      reviewNotes: input.reviewNotes,
+      submittedForReviewAt: null,
+      submittedForReviewByUserId: null,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "AUDIT_CHANGES_REQUESTED",
+      entityType: "audit",
+      entityId: auditId,
+      afterJson: { status: "IN_PROGRESS", reviewNotes: input.reviewNotes },
+    });
+    
+    return res.json(updatedAudit);
+  } catch (error) {
+    console.error("Request audit changes error:", error);
+    return res.status(500).json({ error: "Failed to request audit changes" });
+  }
+});
+
 export default router;
