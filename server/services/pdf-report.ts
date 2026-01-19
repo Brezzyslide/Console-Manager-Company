@@ -1274,11 +1274,18 @@ function generateSiteVisits(doc: PDFKit.PDFDocument, data: ReportData, pageWidth
   });
 }
 
-function sectionHeader(doc: PDFKit.PDFDocument, title: string) {
+function sectionHeader(doc: PDFKit.PDFDocument, title: string, pageWidth?: number) {
+  // Check if we need a new page for section header + minimum content
+  if (doc.y > doc.page.height - 120) {
+    doc.addPage();
+  }
+  
+  const contentWidth = pageWidth || (doc.page.width - doc.page.margins.left - doc.page.margins.right);
+  
   doc.fillColor(COLORS.primary)
     .fontSize(18)
     .font('Helvetica-Bold')
-    .text(title);
+    .text(title, doc.page.margins.left, doc.y, { width: contentWidth });
   
   doc.moveTo(doc.page.margins.left, doc.y + 2)
     .lineTo(doc.page.width - doc.page.margins.right, doc.y + 2)
@@ -1480,15 +1487,24 @@ function generateConclusionSection(doc: PDFKit.PDFDocument, data: ReportData, co
   doc.moveDown(1);
   if (doc.y > doc.page.height - 100) doc.addPage();
   
-  drawTextBox(doc, 'Confidentiality Statement', 
-    'This audit report contains confidential information intended solely for the use of the organisation named in this report. Any distribution, copying, or disclosure of this report to third parties without the prior written consent of the certifying body is strictly prohibited.',
-    pageWidth, '#dbeafe', '#1e40af');
+  // Calculate space needed for both boxes to keep them together
+  const confText = 'This audit report contains confidential information intended solely for the use of the organisation named in this report. Any distribution, copying, or disclosure of this report to third parties without the prior written consent of the certifying body is strictly prohibited.';
+  const discText = 'This audit report represents the findings at the time of the audit based on the evidence available. The audit does not guarantee compliance at any other time. The organisation remains responsible for ongoing compliance with all applicable requirements.';
   
-  doc.moveDown(0.5);
+  const confHeight = doc.heightOfString(confText, { width: pageWidth - 30 }) + 50;
+  const discHeight = doc.heightOfString(discText, { width: pageWidth - 30 }) + 50;
+  const totalHeight = confHeight + discHeight + 20;
+  const remainingSpace = doc.page.height - doc.y - doc.page.margins.bottom;
   
-  drawTextBox(doc, 'Disclaimer',
-    'This audit report represents the findings at the time of the audit based on the evidence available. The audit does not guarantee compliance at any other time. The organisation remains responsible for ongoing compliance with all applicable requirements.',
-    pageWidth, '#fef3c7', '#92400e');
+  // If both boxes don't fit, start new page
+  if (totalHeight > remainingSpace) {
+    doc.addPage();
+  }
+  
+  drawTextBox(doc, 'Confidentiality Statement', confText, pageWidth, '#dbeafe', '#1e40af');
+  doc.moveDown(0.3);
+  drawTextBox(doc, 'Disclaimer', discText, pageWidth, '#fef3c7', '#92400e');
+  // No moveDown after disclaimer to prevent extra blank page
 }
 
 function drawTextBox(doc: PDFKit.PDFDocument, title: string, content: string, pageWidth: number, bgColor: string, titleColor: string) {
