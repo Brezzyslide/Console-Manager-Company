@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, json, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, json, jsonb, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -417,6 +417,10 @@ export const audits = pgTable("audits", {
   staffInterviewCommentary: text("staff_interview_commentary"),
   clientInterviewCommentary: text("client_interview_commentary"),
   siteVisitCommentary: text("site_visit_commentary"),
+  // Registration groups witnessing data (JSON array)
+  registrationGroupsWitnessing: jsonb("registration_groups_witnessing"),
+  // Conclusion and sign-off data (JSON object)
+  conclusionData: jsonb("conclusion_data"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
 });

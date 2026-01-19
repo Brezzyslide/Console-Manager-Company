@@ -341,6 +341,26 @@ const updateAuditDetailsSchema = z.object({
   staffInterviewCommentary: z.string().optional(),
   clientInterviewCommentary: z.string().optional(),
   siteVisitCommentary: z.string().optional(),
+  registrationGroupsWitnessing: z.array(z.object({
+    lineItemId: z.string(),
+    itemCode: z.string(),
+    itemLabel: z.string(),
+    recommended: z.boolean().optional(),
+    status: z.enum(["KEEP", "ADD", "REMOVE"]).optional(),
+    witnessed: z.enum(["YES", "NO", "NA"]).optional(),
+  })).optional(),
+  conclusionData: z.object({
+    conclusionText: z.string().optional(),
+    reviewersNote: z.string().optional(),
+    reviewersRecommendationDate: z.string().optional(),
+    endorsement1: z.boolean().optional(),
+    endorsement2: z.boolean().optional(),
+    endorsement3: z.boolean().optional(),
+    followUpRequired: z.boolean().optional(),
+    leadAuditorName: z.string().optional(),
+    leadAuditorSignature: z.string().optional(),
+    signatureDate: z.string().optional(),
+  }).optional(),
 });
 
 router.patch("/audits/:id", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
@@ -363,6 +383,8 @@ router.patch("/audits/:id", requireCompanyAuth, requireRole(["CompanyAdmin", "Au
     if (input.staffInterviewCommentary !== undefined) updates.staffInterviewCommentary = input.staffInterviewCommentary;
     if (input.clientInterviewCommentary !== undefined) updates.clientInterviewCommentary = input.clientInterviewCommentary;
     if (input.siteVisitCommentary !== undefined) updates.siteVisitCommentary = input.siteVisitCommentary;
+    if (input.registrationGroupsWitnessing !== undefined) updates.registrationGroupsWitnessing = input.registrationGroupsWitnessing;
+    if (input.conclusionData !== undefined) updates.conclusionData = input.conclusionData;
     
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: "No fields to update" });

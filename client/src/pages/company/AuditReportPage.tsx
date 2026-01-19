@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,8 @@ import {
   Trash2,
   Pencil,
   FileSignature,
-  MessageSquare
+  MessageSquare,
+  ClipboardList
 } from "lucide-react";
 import { AuditNavTabs } from "@/components/AuditNavTabs";
 import { getAudit, type IndicatorRating } from "@/lib/company-api";
@@ -118,6 +119,44 @@ export default function AuditReportPage() {
   const [siteVisitCommentary, setSiteVisitCommentary] = useState("");
   const [commentaryHasChanges, setCommentaryHasChanges] = useState(false);
 
+  // Registration groups witnessing state
+  type RegistrationGroupItem = {
+    lineItemId: string;
+    itemCode: string;
+    itemLabel: string;
+    recommended: boolean;
+    status: "KEEP" | "ADD" | "REMOVE";
+    witnessed: "YES" | "NO" | "NA";
+  };
+  const [registrationGroups, setRegistrationGroups] = useState<RegistrationGroupItem[]>([]);
+  const [registrationGroupsInitialized, setRegistrationGroupsInitialized] = useState(false);
+
+  // Conclusion data state
+  type ConclusionData = {
+    conclusionText: string;
+    reviewersNote: string;
+    reviewersRecommendationDate: string;
+    endorsement1: boolean;
+    endorsement2: boolean;
+    endorsement3: boolean;
+    followUpRequired: boolean;
+    leadAuditorName: string;
+    leadAuditorSignature: string;
+    signatureDate: string;
+  };
+  const [conclusionData, setConclusionData] = useState<ConclusionData>({
+    conclusionText: "",
+    reviewersNote: "",
+    reviewersRecommendationDate: "",
+    endorsement1: false,
+    endorsement2: false,
+    endorsement3: false,
+    followUpRequired: false,
+    leadAuditorName: "",
+    leadAuditorSignature: "",
+    signatureDate: "",
+  });
+
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
     queryFn: () => getAudit(id!),
@@ -150,8 +189,51 @@ export default function AuditReportPage() {
       if (audit.staffInterviewCommentary) setStaffInterviewCommentary(audit.staffInterviewCommentary);
       if (audit.clientInterviewCommentary) setClientInterviewCommentary(audit.clientInterviewCommentary);
       if (audit.siteVisitCommentary) setSiteVisitCommentary(audit.siteVisitCommentary);
+      
+      // Load registration groups witnessing data
+      if (audit.registrationGroupsWitnessing && !registrationGroupsInitialized) {
+        setRegistrationGroups(audit.registrationGroupsWitnessing);
+        setRegistrationGroupsInitialized(true);
+      }
+      
+      // Load conclusion data
+      if (audit.conclusionData) {
+        setConclusionData(prev => ({ ...prev, ...audit.conclusionData }));
+      }
     }
-  }, [reportData]);
+  }, [reportData, registrationGroupsInitialized]);
+
+  // Fetch scope line items to initialize registration groups
+  const { data: scopeLineItems } = useQuery({
+    queryKey: ["auditScopeLineItems", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/company/audits/${id}/scope`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!id,
+  });
+
+  // Initialize registration groups from scope line items
+  useEffect(() => {
+    if (scopeLineItems && scopeLineItems.length > 0 && !registrationGroupsInitialized) {
+      const existingData = (reportData?.audit as any)?.registrationGroupsWitnessing;
+      if (existingData && existingData.length > 0) {
+        setRegistrationGroups(existingData);
+      } else {
+        const groups = scopeLineItems.map((item: any) => ({
+          lineItemId: item.lineItemId || item.id,
+          itemCode: item.itemCode || item.lineItem?.itemCode || "",
+          itemLabel: item.itemLabel || item.lineItem?.itemLabel || "",
+          recommended: false,
+          status: "KEEP" as const,
+          witnessed: "NA" as const,
+        }));
+        setRegistrationGroups(groups);
+      }
+      setRegistrationGroupsInitialized(true);
+    }
+  }, [scopeLineItems, registrationGroupsInitialized, reportData]);
 
   const generateSummaryMutation = useMutation({
     mutationFn: async (regenerate: boolean = false) => {
@@ -365,11 +447,13 @@ export default function AuditReportPage() {
           staffInterviewCommentary,
           clientInterviewCommentary,
           siteVisitCommentary,
+          registrationGroupsWitnessing: registrationGroups,
+          conclusionData,
         }),
       });
       if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: "Failed to save commentary" }));
-        throw new Error(error.error || "Failed to save commentary");
+        const error = await res.json().catch(() => ({ error: "Failed to save" }));
+        throw new Error(error.error || "Failed to save");
       }
       return res.json();
     },
@@ -377,7 +461,7 @@ export default function AuditReportPage() {
       queryClient.invalidateQueries({ queryKey: ["audit", id] });
       queryClient.invalidateQueries({ queryKey: ["auditReportData", id] });
       setCommentaryHasChanges(false);
-      toast({ title: "Commentary saved", description: "Your commentary has been saved successfully." });
+      toast({ title: "Changes saved", description: "Your changes have been saved successfully." });
     },
     onError: (error: Error) => {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -1056,8 +1140,8 @@ export default function AuditReportPage() {
                       </thead>
                       <tbody>
                         {Object.entries(byDivision).map(([division, standards]) => (
-                          <>
-                            <tr key={division} className="bg-slate-100">
+                          <React.Fragment key={division}>
+                            <tr className="bg-slate-100">
                               <td colSpan={3} className="px-4 py-2 font-semibold text-slate-700">
                                 {division}
                               </td>
@@ -1076,7 +1160,7 @@ export default function AuditReportPage() {
                                 </td>
                               </tr>
                             ))}
-                          </>
+                          </React.Fragment>
                         ))}
                       </tbody>
                     </table>
@@ -1210,7 +1294,319 @@ export default function AuditReportPage() {
                 >
                   {saveCommentaryMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   <Save className="h-4 w-4 mr-2" />
-                  Save Commentary
+                  Save All Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Registration Groups & Witnessing */}
+          <Card data-testid="registration-groups-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Registration Groups & Witnessing
+              </CardTitle>
+              <CardDescription>
+                Review scope line items and record witnessing status for each registration group.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {registrationGroups.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No scope line items found. Add registration groups in the audit scope to see them here.
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="text-left px-4 py-3 font-medium w-32">NDIS Code</th>
+                        <th className="text-left px-4 py-3 font-medium">Registration Group</th>
+                        <th className="text-center px-4 py-3 font-medium w-28">Recommended</th>
+                        <th className="text-center px-4 py-3 font-medium w-32">Status</th>
+                        <th className="text-center px-4 py-3 font-medium w-28">Witnessed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {registrationGroups.map((group, idx) => (
+                        <tr key={group.lineItemId} className="border-t hover:bg-slate-50">
+                          <td className="px-4 py-3 font-mono text-sm">{group.itemCode}</td>
+                          <td className="px-4 py-3">{group.itemLabel}</td>
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={group.recommended}
+                              onChange={(e) => {
+                                const updated = [...registrationGroups];
+                                updated[idx] = { ...updated[idx], recommended: e.target.checked };
+                                setRegistrationGroups(updated);
+                                setCommentaryHasChanges(true);
+                              }}
+                              className="h-4 w-4"
+                              data-testid={`checkbox-recommended-${idx}`}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Select
+                              value={group.status}
+                              onValueChange={(value: "KEEP" | "ADD" | "REMOVE") => {
+                                const updated = [...registrationGroups];
+                                updated[idx] = { ...updated[idx], status: value };
+                                setRegistrationGroups(updated);
+                                setCommentaryHasChanges(true);
+                              }}
+                            >
+                              <SelectTrigger className="w-24" data-testid={`select-status-${idx}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="KEEP">Keep</SelectItem>
+                                <SelectItem value="ADD">Add</SelectItem>
+                                <SelectItem value="REMOVE">Remove</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Select
+                              value={group.witnessed}
+                              onValueChange={(value: "YES" | "NO" | "NA") => {
+                                const updated = [...registrationGroups];
+                                updated[idx] = { ...updated[idx], witnessed: value };
+                                setRegistrationGroups(updated);
+                                setCommentaryHasChanges(true);
+                              }}
+                            >
+                              <SelectTrigger className="w-20" data-testid={`select-witnessed-${idx}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="YES">Yes</SelectItem>
+                                <SelectItem value="NO">No</SelectItem>
+                                <SelectItem value="NA">N/A</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="pt-4 flex justify-end">
+                <Button
+                  onClick={() => saveCommentaryMutation.mutate()}
+                  disabled={!commentaryHasChanges || saveCommentaryMutation.isPending}
+                  data-testid="button-save-registration-groups"
+                >
+                  {saveCommentaryMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Conclusion & Sign-off */}
+          <Card data-testid="conclusion-signoff-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSignature className="h-5 w-5" />
+                Conclusion & Sign-off
+              </CardTitle>
+              <CardDescription>
+                Complete the audit conclusion, endorsements, and lead auditor sign-off.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Conclusion Text */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Audit Conclusion</Label>
+                <Textarea
+                  value={conclusionData.conclusionText}
+                  onChange={(e) => {
+                    setConclusionData(prev => ({ ...prev, conclusionText: e.target.value }));
+                    setCommentaryHasChanges(true);
+                  }}
+                  placeholder="Based on the evidence gathered during this audit, the organisation has demonstrated..."
+                  className="min-h-[120px]"
+                  data-testid="input-conclusion-text"
+                />
+              </div>
+
+              {/* Reviewer's Note */}
+              <div className="space-y-3 pt-4 border-t">
+                <Label className="text-base font-semibold">Reviewer's Note</Label>
+                <p className="text-sm text-muted-foreground">
+                  Internal notes from the review process (not included in public report).
+                </p>
+                <Textarea
+                  value={conclusionData.reviewersNote}
+                  onChange={(e) => {
+                    setConclusionData(prev => ({ ...prev, reviewersNote: e.target.value }));
+                    setCommentaryHasChanges(true);
+                  }}
+                  placeholder="Reviewer notes and comments..."
+                  className="min-h-[80px]"
+                  data-testid="input-reviewers-note"
+                />
+                <div className="flex items-center gap-4">
+                  <Label>Recommendation Date:</Label>
+                  <Input
+                    type="date"
+                    value={conclusionData.reviewersRecommendationDate}
+                    onChange={(e) => {
+                      setConclusionData(prev => ({ ...prev, reviewersRecommendationDate: e.target.value }));
+                      setCommentaryHasChanges(true);
+                    }}
+                    className="w-48"
+                    data-testid="input-recommendation-date"
+                  />
+                </div>
+              </div>
+
+              {/* Auditor Endorsements */}
+              <div className="space-y-4 pt-4 border-t">
+                <Label className="text-base font-semibold">Auditor Endorsements</Label>
+                <p className="text-sm text-muted-foreground">
+                  Confirm the following statements before signing off on this audit.
+                </p>
+                <div className="space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={conclusionData.endorsement1}
+                      onChange={(e) => {
+                        setConclusionData(prev => ({ ...prev, endorsement1: e.target.checked }));
+                        setCommentaryHasChanges(true);
+                      }}
+                      className="h-5 w-5 mt-0.5"
+                      data-testid="checkbox-endorsement-1"
+                    />
+                    <span>I confirm that the audit was conducted in accordance with the NDIS Quality and Safeguards Commission requirements and applicable standards.</span>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={conclusionData.endorsement2}
+                      onChange={(e) => {
+                        setConclusionData(prev => ({ ...prev, endorsement2: e.target.checked }));
+                        setCommentaryHasChanges(true);
+                      }}
+                      className="h-5 w-5 mt-0.5"
+                      data-testid="checkbox-endorsement-2"
+                    />
+                    <span>I confirm that the findings and conclusions in this report are based on objective evidence gathered during the audit.</span>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={conclusionData.endorsement3}
+                      onChange={(e) => {
+                        setConclusionData(prev => ({ ...prev, endorsement3: e.target.checked }));
+                        setCommentaryHasChanges(true);
+                      }}
+                      className="h-5 w-5 mt-0.5"
+                      data-testid="checkbox-endorsement-3"
+                    />
+                    <span>I confirm that all non-conformances have been accurately documented and communicated to the organisation.</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Follow-up Requirements */}
+              <div className="space-y-3 pt-4 border-t">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={conclusionData.followUpRequired}
+                    onChange={(e) => {
+                      setConclusionData(prev => ({ ...prev, followUpRequired: e.target.checked }));
+                      setCommentaryHasChanges(true);
+                    }}
+                    className="h-5 w-5"
+                    data-testid="checkbox-followup-required"
+                  />
+                  <span className="font-semibold">Follow-up audit required</span>
+                </label>
+                <p className="text-sm text-muted-foreground ml-8">
+                  Check this box if a follow-up audit is required to verify corrective actions.
+                </p>
+              </div>
+
+              {/* Lead Auditor Signature */}
+              <div className="space-y-4 pt-4 border-t">
+                <Label className="text-base font-semibold">Lead Auditor Sign-off</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Lead Auditor Name</Label>
+                    <Input
+                      value={conclusionData.leadAuditorName}
+                      onChange={(e) => {
+                        setConclusionData(prev => ({ ...prev, leadAuditorName: e.target.value }));
+                        setCommentaryHasChanges(true);
+                      }}
+                      placeholder="Full name"
+                      data-testid="input-lead-auditor-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Signature Date</Label>
+                    <Input
+                      type="date"
+                      value={conclusionData.signatureDate}
+                      onChange={(e) => {
+                        setConclusionData(prev => ({ ...prev, signatureDate: e.target.value }));
+                        setCommentaryHasChanges(true);
+                      }}
+                      className="w-48"
+                      data-testid="input-signature-date"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Digital Signature</Label>
+                  <Input
+                    value={conclusionData.leadAuditorSignature}
+                    onChange={(e) => {
+                      setConclusionData(prev => ({ ...prev, leadAuditorSignature: e.target.value }));
+                      setCommentaryHasChanges(true);
+                    }}
+                    placeholder="Type your name to sign digitally"
+                    className="font-cursive italic"
+                    data-testid="input-lead-auditor-signature"
+                  />
+                </div>
+              </div>
+
+              {/* Confidentiality & Disclaimer */}
+              <div className="pt-4 border-t space-y-4">
+                <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                  <h4 className="font-semibold text-sm">Confidentiality Statement</h4>
+                  <p className="text-xs text-muted-foreground">
+                    This audit report contains confidential information intended solely for the use of the organisation named in this report. 
+                    Any distribution, copying, or disclosure of this report to third parties without the prior written consent of the certifying body is strictly prohibited.
+                  </p>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-lg space-y-3">
+                  <h4 className="font-semibold text-sm">Disclaimer</h4>
+                  <p className="text-xs text-muted-foreground">
+                    This audit report represents the findings at the time of the audit based on the evidence available. 
+                    The audit does not guarantee compliance at any other time. The organisation remains responsible for ongoing compliance with all applicable requirements.
+                  </p>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-4 flex justify-end">
+                <Button
+                  onClick={() => saveCommentaryMutation.mutate()}
+                  disabled={!commentaryHasChanges || saveCommentaryMutation.isPending}
+                  data-testid="button-save-conclusion"
+                >
+                  {saveCommentaryMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Conclusion & Sign-off
                 </Button>
               </div>
             </CardContent>
