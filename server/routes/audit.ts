@@ -1930,9 +1930,9 @@ router.post("/evidence/requests/:id/review", requireCompanyAuth, requireRole(["C
     
     const input = reviewEvidenceSchema.parse(req.body);
     
-    // Require review note when rejecting evidence
-    if (input.decision === "REJECTED" && (!input.reviewNote || !input.reviewNote.trim())) {
-      return res.status(400).json({ error: "A review note is required when rejecting evidence" });
+    // Require review note (minimum 10 characters) when rejecting evidence
+    if (input.decision === "REJECTED" && (!input.reviewNote || input.reviewNote.trim().length < 10)) {
+      return res.status(400).json({ error: "A review note is required when rejecting evidence (minimum 10 characters)" });
     }
     
     const newStatus = input.decision === "ACCEPTED" ? "ACCEPTED" : "REJECTED";
@@ -2155,9 +2155,9 @@ router.post("/document-reviews", requireCompanyAuth, requireRole(["CompanyAdmin"
     
     const { evidenceRequestId, evidenceItemId, auditId, responses, decision, comments } = parsed.data;
     
-    // Require comments when rejecting a document
-    if (decision === "REJECT" && (!comments || !comments.trim())) {
-      return res.status(400).json({ error: "Comments are required when rejecting a document" });
+    // Require comments (minimum 10 characters) when rejecting a document
+    if (decision === "REJECT" && (!comments || comments.trim().length < 10)) {
+      return res.status(400).json({ error: "Comments are required when rejecting a document (minimum 10 characters)" });
     }
     
     const evidenceRequest = await storage.getEvidenceRequest(evidenceRequestId, companyId);

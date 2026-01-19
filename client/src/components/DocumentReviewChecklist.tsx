@@ -318,13 +318,15 @@ export default function DocumentReviewChecklist({
               value={comments}
               onChange={(e) => setComments(e.target.value)}
               placeholder={decision === "REJECT" 
-                ? "Explain why this document is being rejected (required)..." 
+                ? "Explain why this document is being rejected (minimum 10 characters)..." 
                 : "Add any comments about this document review (optional)"}
               rows={3}
               data-testid="input-review-comments"
             />
-            {decision === "REJECT" && !comments.trim() && (
-              <p className="text-xs text-muted-foreground">A comment is required when rejecting a document</p>
+            {decision === "REJECT" && (
+              <p className={`text-xs ${comments.trim().length >= 10 ? "text-muted-foreground" : "text-destructive"}`}>
+                {comments.trim().length}/10 min characters required
+              </p>
             )}
           </div>
 
@@ -340,7 +342,7 @@ export default function DocumentReviewChecklist({
 
           <Button
             onClick={handleSubmit}
-            disabled={submitMutation.isPending || (decision === "REJECT" && !comments.trim())}
+            disabled={submitMutation.isPending || (decision === "REJECT" && comments.trim().length < 10)}
             className="w-full"
             data-testid="button-submit-review"
           >

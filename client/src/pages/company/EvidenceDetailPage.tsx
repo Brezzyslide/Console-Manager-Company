@@ -637,12 +637,14 @@ export default function EvidenceDetailPage() {
                 value={reviewForm.reviewNote}
                 onChange={(e) => setReviewForm(prev => ({ ...prev, reviewNote: e.target.value }))}
                 placeholder={reviewForm.decision === "REJECTED" 
-                  ? "Explain why the evidence is being rejected (required)..." 
+                  ? "Explain why the evidence is being rejected (minimum 10 characters)..." 
                   : "Optional feedback on the evidence..."}
                 data-testid="input-review-note"
               />
-              {reviewForm.decision === "REJECTED" && !reviewForm.reviewNote.trim() && (
-                <p className="text-xs text-muted-foreground">A note is required when rejecting evidence</p>
+              {reviewForm.decision === "REJECTED" && (
+                <p className={`text-xs ${reviewForm.reviewNote.trim().length >= 10 ? "text-muted-foreground" : "text-destructive"}`}>
+                  {reviewForm.reviewNote.trim().length}/10 min characters required
+                </p>
               )}
             </div>
           </div>
@@ -650,7 +652,7 @@ export default function EvidenceDetailPage() {
             <Button variant="outline" onClick={() => setShowReviewDialog(false)}>Cancel</Button>
             <Button 
               onClick={handleReview}
-              disabled={reviewMutation.isPending || (reviewForm.decision === "REJECTED" && !reviewForm.reviewNote.trim())}
+              disabled={reviewMutation.isPending || (reviewForm.decision === "REJECTED" && reviewForm.reviewNote.trim().length < 10)}
               variant={reviewForm.decision === "REJECTED" ? "destructive" : "default"}
               data-testid="button-confirm-review"
             >
