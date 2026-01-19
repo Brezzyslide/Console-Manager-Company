@@ -469,6 +469,9 @@ export interface AuditIndicatorResponse {
   comment: string | null;
   status: "OPEN" | "CLOSED";
   createdByCompanyUserId: string;
+  leadAuditorReviewComment?: string | null;
+  leadAuditorReviewedByUserId?: string | null;
+  leadAuditorReviewedAt?: string | null;
 }
 
 export interface Finding {
@@ -892,6 +895,24 @@ export async function reopenAudit(auditId: string, reopenReason: string): Promis
   if (!res.ok) {
     const data = await res.json();
     throw new Error(data.error || "Failed to reopen audit");
+  }
+  return res.json();
+}
+
+export async function saveLeadAuditorReviewComment(
+  auditId: string, 
+  responseId: string, 
+  comment: string
+): Promise<AuditIndicatorResponse> {
+  const res = await fetch(`/api/company/audits/${auditId}/responses/${responseId}/lead-auditor-review`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ comment }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to save lead auditor review comment");
   }
   return res.json();
 }

@@ -908,6 +908,59 @@ router.put("/audits/:id/responses/:indicatorId", requireCompanyAuth, requireRole
   }
 });
 
+// Lead auditor review comment for non-conformance indicators
+const leadAuditorReviewSchema = z.object({
+  comment: z.string().min(1, "Review comment is required"),
+});
+
+router.put("/audits/:auditId/responses/:responseId/lead-auditor-review", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId, responseId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    if (audit.status !== "IN_REVIEW") {
+      return res.status(400).json({ error: "Audit must be in review to add lead auditor comments" });
+    }
+    
+    const input = leadAuditorReviewSchema.parse(req.body);
+    
+    // Update the response with lead auditor review comment
+    const updated = await storage.updateIndicatorResponseLeadAuditorReview(responseId, auditId, {
+      leadAuditorReviewComment: input.comment,
+      leadAuditorReviewedByUserId: userId,
+      leadAuditorReviewedAt: new Date(),
+    });
+    
+    if (!updated) {
+      return res.status(404).json({ error: "Response not found" });
+    }
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "LEAD_AUDITOR_REVIEW_COMMENT_ADDED",
+      entityType: "audit_response",
+      entityId: responseId,
+      afterJson: { comment: input.comment },
+    });
+    
+    return res.json(updated);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
+    console.error("Lead auditor review comment error:", error);
+    return res.status(500).json({ error: "Failed to save lead auditor review comment" });
+  }
+});
+
 router.post("/audits/:id/in-review/responses", requireCompanyAuth, requireRole(["CompanyAdmin", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;

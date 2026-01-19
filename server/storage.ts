@@ -184,6 +184,7 @@ export interface IStorage {
   getAuditIndicatorResponses(auditId: string): Promise<AuditIndicatorResponse[]>;
   getAuditIndicatorResponse(auditId: string, indicatorId: string): Promise<AuditIndicatorResponse | undefined>;
   upsertAuditIndicatorResponse(response: InsertAuditIndicatorResponse): Promise<AuditIndicatorResponse>;
+  updateIndicatorResponseLeadAuditorReview(responseId: string, auditId: string, updates: { leadAuditorReviewComment: string; leadAuditorReviewedByUserId: string; leadAuditorReviewedAt: Date }): Promise<AuditIndicatorResponse | undefined>;
   getAuditOutcomes(companyId: string, filters?: { rating?: string; auditId?: string }): Promise<any[]>;
   
   // Findings
@@ -764,6 +765,27 @@ export class DatabaseStorage implements IStorage {
       const [created] = await db.insert(auditIndicatorResponses).values(response).returning();
       return created;
     }
+  }
+
+  async updateIndicatorResponseLeadAuditorReview(
+    responseId: string, 
+    auditId: string, 
+    updates: { leadAuditorReviewComment: string; leadAuditorReviewedByUserId: string; leadAuditorReviewedAt: Date }
+  ): Promise<AuditIndicatorResponse | undefined> {
+    const [updated] = await db
+      .update(auditIndicatorResponses)
+      .set({
+        leadAuditorReviewComment: updates.leadAuditorReviewComment,
+        leadAuditorReviewedByUserId: updates.leadAuditorReviewedByUserId,
+        leadAuditorReviewedAt: updates.leadAuditorReviewedAt,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(auditIndicatorResponses.id, responseId),
+        eq(auditIndicatorResponses.auditId, auditId)
+      ))
+      .returning();
+    return updated || undefined;
   }
 
   async getAuditOutcomes(companyId: string, filters?: { rating?: string; auditId?: string }): Promise<any[]> {

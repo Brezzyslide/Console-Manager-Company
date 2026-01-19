@@ -606,6 +606,10 @@ export const auditIndicatorResponses = pgTable("audit_indicator_responses", {
   templateIndicatorId: varchar("template_indicator_id").notNull().references(() => auditTemplateIndicators.id, { onDelete: "cascade" }),
   rating: text("rating", { enum: indicatorRatingEnum }).notNull(),
   comment: text("comment"),
+  // Lead auditor review comment (for non-conformances)
+  leadAuditorReviewComment: text("lead_auditor_review_comment"),
+  leadAuditorReviewedByUserId: varchar("lead_auditor_reviewed_by_user_id").references(() => companyUsers.id),
+  leadAuditorReviewedAt: timestamp("lead_auditor_reviewed_at"),
   // Narrative findings for report (long-form observation details)
   narrativeFindings: text("narrative_findings"),
   scorePoints: integer("score_points").notNull().default(0),

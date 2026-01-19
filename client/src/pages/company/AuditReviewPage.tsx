@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus, Send, ThumbsUp, RotateCcw } from "lucide-react";
 import { AuditNavTabs } from "@/components/AuditNavTabs";
-import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, submitAuditForReview, approveAudit, requestAuditChanges, reopenAudit, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
+import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, submitAuditForReview, approveAudit, requestAuditChanges, reopenAudit, saveLeadAuditorReviewComment, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
@@ -61,6 +61,8 @@ export default function AuditReviewPage() {
   const [reviewNotes, setReviewNotes] = useState("");
   const [showReopenDialog, setShowReopenDialog] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
+  const [leadAuditorComments, setLeadAuditorComments] = useState<Record<string, string>>({});
+  const [savingCommentId, setSavingCommentId] = useState<string | null>(null);
 
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
@@ -140,6 +142,26 @@ export default function AuditReviewPage() {
       setReopenReason("");
     },
   });
+
+  const saveLeadAuditorCommentMutation = useMutation({
+    mutationFn: ({ responseId, comment }: { responseId: string; comment: string }) => 
+      saveLeadAuditorReviewComment(id!, responseId, comment),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditRunner", id] });
+      setSavingCommentId(null);
+    },
+    onError: () => {
+      setSavingCommentId(null);
+    },
+  });
+
+  const handleSaveLeadAuditorComment = (responseId: string) => {
+    const comment = leadAuditorComments[responseId];
+    if (comment && comment.trim()) {
+      setSavingCommentId(responseId);
+      saveLeadAuditorCommentMutation.mutate({ responseId, comment: comment.trim() });
+    }
+  };
 
   const isLoading = auditLoading || runnerLoading;
   const isLeadAuditor = user?.role === "CompanyAdmin";
@@ -337,6 +359,8 @@ export default function AuditReviewPage() {
               const response = responses.find(r => r.templateIndicatorId === indicator.id);
               const Icon = response ? ratingIcons[response.rating] : null;
               const colorClass = response ? ratingColors[response.rating] : "";
+              const isNonConformance = response && (response.rating === "MINOR_NC" || response.rating === "MAJOR_NC");
+              const canEditReviewComment = isLeadAuditor && audit?.status === "IN_REVIEW" && isNonConformance;
               
               return (
                 <div key={indicator.id} className="p-4 border rounded-lg">
@@ -352,6 +376,51 @@ export default function AuditReviewPage() {
                   <p className="font-medium">{indicator.indicatorText}</p>
                   {response?.comment && (
                     <p className="text-sm text-muted-foreground mt-2 italic">"{response.comment}"</p>
+                  )}
+                  
+                  {isNonConformance && response && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Eye className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">Lead Auditor Review Comment</span>
+                      </div>
+                      
+                      {canEditReviewComment ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            placeholder="Add review comments for this non-conformance..."
+                            value={leadAuditorComments[response.id] ?? response.leadAuditorReviewComment ?? ""}
+                            onChange={(e) => setLeadAuditorComments(prev => ({
+                              ...prev,
+                              [response.id]: e.target.value
+                            }))}
+                            className="min-h-[80px]"
+                            data-testid={`textarea-lead-auditor-comment-${response.id}`}
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveLeadAuditorComment(response.id)}
+                            disabled={savingCommentId === response.id || !(leadAuditorComments[response.id]?.trim())}
+                            data-testid={`button-save-review-comment-${response.id}`}
+                          >
+                            {savingCommentId === response.id ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              "Save Comment"
+                            )}
+                          </Button>
+                        </div>
+                      ) : response.leadAuditorReviewComment ? (
+                        <p className="text-sm text-muted-foreground italic bg-primary/5 p-2 rounded">
+                          "{response.leadAuditorReviewComment}"
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">No review comment added</p>
+                      )}
+                    </div>
                   )}
                 </div>
               );
