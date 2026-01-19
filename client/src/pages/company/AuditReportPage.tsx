@@ -1581,16 +1581,16 @@ export default function AuditReportPage() {
 
               {/* Confidentiality & Disclaimer */}
               <div className="pt-4 border-t space-y-4">
-                <div className="bg-slate-50 p-4 rounded-lg space-y-3">
-                  <h4 className="font-semibold text-sm">Confidentiality Statement</h4>
-                  <p className="text-xs text-muted-foreground">
+                <div className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-lg space-y-3 border border-blue-200 dark:border-blue-800">
+                  <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100">Confidentiality Statement</h4>
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
                     This audit report contains confidential information intended solely for the use of the organisation named in this report. 
                     Any distribution, copying, or disclosure of this report to third parties without the prior written consent of the certifying body is strictly prohibited.
                   </p>
                 </div>
-                <div className="bg-amber-50 p-4 rounded-lg space-y-3">
-                  <h4 className="font-semibold text-sm">Disclaimer</h4>
-                  <p className="text-xs text-muted-foreground">
+                <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-lg space-y-3 border border-amber-200 dark:border-amber-800">
+                  <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">Disclaimer</h4>
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
                     This audit report represents the findings at the time of the audit based on the evidence available. 
                     The audit does not guarantee compliance at any other time. The organisation remains responsible for ongoing compliance with all applicable requirements.
                   </p>
