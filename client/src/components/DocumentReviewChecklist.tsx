@@ -310,15 +310,22 @@ export default function DocumentReviewChecklist({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="comments">Comments (optional)</Label>
+            <Label htmlFor="comments">
+              Comments {decision === "REJECT" && <span className="text-destructive">*</span>}
+            </Label>
             <Textarea
               id="comments"
               value={comments}
               onChange={(e) => setComments(e.target.value)}
-              placeholder="Add any comments about this document review"
+              placeholder={decision === "REJECT" 
+                ? "Explain why this document is being rejected (required)..." 
+                : "Add any comments about this document review (optional)"}
               rows={3}
               data-testid="input-review-comments"
             />
+            {decision === "REJECT" && !comments.trim() && (
+              <p className="text-xs text-muted-foreground">A comment is required when rejecting a document</p>
+            )}
           </div>
 
           {criticalFailures > 0 && decision === "ACCEPT" && (
@@ -333,7 +340,7 @@ export default function DocumentReviewChecklist({
 
           <Button
             onClick={handleSubmit}
-            disabled={submitMutation.isPending}
+            disabled={submitMutation.isPending || (decision === "REJECT" && !comments.trim())}
             className="w-full"
             data-testid="button-submit-review"
           >

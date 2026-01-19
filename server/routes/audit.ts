@@ -2155,6 +2155,11 @@ router.post("/document-reviews", requireCompanyAuth, requireRole(["CompanyAdmin"
     
     const { evidenceRequestId, evidenceItemId, auditId, responses, decision, comments } = parsed.data;
     
+    // Require comments when rejecting a document
+    if (decision === "REJECT" && (!comments || !comments.trim())) {
+      return res.status(400).json({ error: "Comments are required when rejecting a document" });
+    }
+    
     const evidenceRequest = await storage.getEvidenceRequest(evidenceRequestId, companyId);
     if (!evidenceRequest) {
       return res.status(404).json({ error: "Evidence request not found" });
