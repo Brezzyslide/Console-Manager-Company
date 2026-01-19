@@ -583,13 +583,33 @@ function generateAuditResults(doc: PDFKit.PDFDocument, data: ReportData, pageWid
 
   doc.y = doc.y + 80;
 
-  // NDIS Standards Summary Table (like DNV format)
+  // Overall Compliance Status Table (Box format like DNV)
   if (data.indicatorResponses.length > 0) {
     doc.moveDown(1);
-    subsectionHeader(doc, '3.2 NDIS Practice Standards Coverage');
+    subsectionHeader(doc, '3.2 Overall Compliance Status');
     
-    // Group responses by NDIS standard
-    const standardCounts: Record<string, { name: string; count: number }> = {};
+    // NDIS Standards with divisions
+    const NDIS_STANDARDS_INFO: Record<string, { name: string; division: string }> = {
+      "11": { name: "Governance and Operational Management", division: "Division 2 – Governance and Operational Management" },
+      "12": { name: "Risk Management", division: "Division 2 – Governance and Operational Management" },
+      "13": { name: "Quality Management", division: "Division 2 – Governance and Operational Management" },
+      "14": { name: "Information Management", division: "Division 2 – Governance and Operational Management" },
+      "15": { name: "Feedback and Complaints Management", division: "Division 2 – Governance and Operational Management" },
+      "16": { name: "Incident Management", division: "Division 2 – Governance and Operational Management" },
+      "17": { name: "Human Resource Management", division: "Division 3 – Provision of Supports" },
+      "18": { name: "Continuity of Supports", division: "Division 3 – Provision of Supports" },
+      "18A": { name: "Emergency and Disaster Management", division: "Division 3 – Provision of Supports" },
+    };
+
+    const ratingToScore: Record<string, number> = {
+      "CONFORMITY_BEST_PRACTICE": 3,
+      "CONFORMITY": 2,
+      "MINOR_NC": 1,
+      "MAJOR_NC": 0,
+    };
+
+    // Group responses by NDIS standard with scores
+    const standardScores: Record<string, { total: number; count: number }> = {};
     
     data.indicatorResponses.forEach((response: any) => {
       const indicatorText = response.indicatorText || '';
@@ -597,57 +617,115 @@ function generateAuditResults(doc: PDFKit.PDFDocument, data: ReportData, pageWid
         ? { number: response.ndisStandardNumber, name: response.ndisStandardName }
         : getNdisStandard(indicatorText);
       
-      if (ndisStandard) {
+      if (ndisStandard && response.rating) {
         const key = ndisStandard.number;
-        if (!standardCounts[key]) {
-          standardCounts[key] = { name: ndisStandard.name, count: 0 };
+        if (!standardScores[key]) {
+          standardScores[key] = { total: 0, count: 0 };
         }
-        standardCounts[key].count++;
+        standardScores[key].total += ratingToScore[response.rating] || 0;
+        standardScores[key].count++;
       }
     });
     
-    // Sort by standard number and render table
-    const sortedStandards = Object.entries(standardCounts)
-      .sort((a, b) => {
-        const numA = parseInt(a[0].replace(/\D/g, '')) || 99;
-        const numB = parseInt(b[0].replace(/\D/g, '')) || 99;
-        return numA - numB;
-      });
+    // Calculate averages and group by division
+    const standardResults = Object.entries(standardScores).map(([key, scores]) => ({
+      number: key,
+      name: NDIS_STANDARDS_INFO[key]?.name || `Standard ${key}`,
+      division: NDIS_STANDARDS_INFO[key]?.division || 'Other',
+      avgRating: scores.count > 0 ? Math.round((scores.total / scores.count) * 10) / 10 : 0,
+      indicatorCount: scores.count,
+    })).sort((a, b) => {
+      const numA = parseInt(a.number.replace(/\D/g, '')) || 99;
+      const numB = parseInt(b.number.replace(/\D/g, '')) || 99;
+      return numA - numB;
+    });
+
+    // Group by division
+    const byDivision: Record<string, typeof standardResults> = {};
+    standardResults.forEach(result => {
+      if (!byDivision[result.division]) {
+        byDivision[result.division] = [];
+      }
+      byDivision[result.division].push(result);
+    });
     
-    if (sortedStandards.length > 0) {
+    if (standardResults.length > 0) {
       const stdTableTop = doc.y;
-      const stdRowHeight = 20;
-      const stdCol1Width = pageWidth - 60;
-      const stdCol2Width = 60;
+      const stdRowHeight = 22;
+      const divisionRowHeight = 24;
+      const stdCol1Width = 80;
+      const stdCol2Width = pageWidth - stdCol1Width - 60;
+      const stdCol3Width = 60;
       
-      // Table header
-      doc.rect(doc.page.margins.left, stdTableTop, pageWidth, stdRowHeight).fill(COLORS.light);
-      doc.fillColor(COLORS.muted)
-        .fontSize(9)
+      // Table header with primary color
+      doc.rect(doc.page.margins.left, stdTableTop, pageWidth, stdRowHeight).fill(COLORS.secondary);
+      doc.fillColor(COLORS.white)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .text('NDIS Practice Standard', doc.page.margins.left + 5, stdTableTop + 5)
-        .text('Indicators', doc.page.margins.left + stdCol1Width + 5, stdTableTop + 5);
+        .text('Standard', doc.page.margins.left + 8, stdTableTop + 6)
+        .text('Name', doc.page.margins.left + stdCol1Width + 8, stdTableTop + 6)
+        .text('Rating', doc.page.margins.left + stdCol1Width + stdCol2Width + 8, stdTableTop + 6);
       
-      sortedStandards.forEach(([number, data], idx) => {
-        const y = stdTableTop + stdRowHeight + (idx * stdRowHeight);
-        const bgColor = idx % 2 === 0 ? COLORS.white : COLORS.light;
-        
-        if (y > doc.page.height - 100) {
+      let currentY = stdTableTop + stdRowHeight;
+      
+      Object.entries(byDivision).forEach(([division, standards]) => {
+        // Check if we need a new page
+        if (currentY > doc.page.height - 100) {
           doc.addPage();
+          currentY = doc.page.margins.top;
         }
         
-        doc.rect(doc.page.margins.left, y, pageWidth, stdRowHeight).fill(bgColor);
+        // Division header row
+        doc.rect(doc.page.margins.left, currentY, pageWidth, divisionRowHeight).fill('#e0f2fe');
+        doc.fillColor(COLORS.primary)
+          .fontSize(10)
+          .font('Helvetica-Bold')
+          .text(division, doc.page.margins.left + 8, currentY + 7);
+        currentY += divisionRowHeight;
         
-        doc.fillColor(COLORS.black)
-          .fontSize(9)
-          .font('Helvetica');
-        doc.text(`${number} ${data.name}`, doc.page.margins.left + 5, y + 5, { width: stdCol1Width - 10 });
-        doc.text(data.count.toString(), doc.page.margins.left + stdCol1Width + 15, y + 5, { width: 30, align: 'center' });
+        // Standard rows
+        standards.forEach((std, idx) => {
+          if (currentY > doc.page.height - 80) {
+            doc.addPage();
+            currentY = doc.page.margins.top;
+          }
+          
+          const bgColor = idx % 2 === 0 ? COLORS.white : '#f8fafc';
+          doc.rect(doc.page.margins.left, currentY, pageWidth, stdRowHeight).fill(bgColor);
+          
+          // Draw cell borders
+          doc.strokeColor('#e2e8f0').lineWidth(0.5);
+          doc.rect(doc.page.margins.left, currentY, pageWidth, stdRowHeight).stroke();
+          
+          doc.fillColor(COLORS.black)
+            .fontSize(9)
+            .font('Helvetica');
+          
+          // Empty standard column (nested under division)
+          doc.text('', doc.page.margins.left + 8, currentY + 6);
+          
+          // Name column
+          doc.text(`${std.number} ${std.name}`, doc.page.margins.left + stdCol1Width + 8, currentY + 6, { width: stdCol2Width - 16 });
+          
+          // Rating column with color coding
+          const ratingColor = std.avgRating >= 2.5 ? COLORS.success : 
+                             std.avgRating >= 1.5 ? COLORS.warning : COLORS.danger;
+          doc.fillColor(ratingColor)
+            .font('Helvetica-Bold')
+            .fontSize(11)
+            .text(std.avgRating.toString(), doc.page.margins.left + stdCol1Width + stdCol2Width + 8, currentY + 5, { width: stdCol3Width - 16, align: 'center' });
+          
+          currentY += stdRowHeight;
+        });
       });
+      
+      // Draw outer border
+      doc.strokeColor(COLORS.secondary).lineWidth(1);
+      doc.rect(doc.page.margins.left, stdTableTop, pageWidth, currentY - stdTableTop).stroke();
       
       // Reset cursor position properly after table
       doc.x = doc.page.margins.left;
-      doc.y = stdTableTop + stdRowHeight + (sortedStandards.length * stdRowHeight) + 20;
+      doc.y = currentY + 20;
     }
     
     // Ensure we're at left margin before continuing
