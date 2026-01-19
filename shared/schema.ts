@@ -421,6 +421,12 @@ export const audits = pgTable("audits", {
   registrationGroupsWitnessing: jsonb("registration_groups_witnessing"),
   // Conclusion and sign-off data (JSON object)
   conclusionData: jsonb("conclusion_data"),
+  // Lead auditor approval workflow
+  submittedForReviewAt: timestamp("submitted_for_review_at"),
+  submittedForReviewByUserId: varchar("submitted_for_review_by_user_id").references(() => companyUsers.id),
+  approvedAt: timestamp("approved_at"),
+  approvedByUserId: varchar("approved_by_user_id").references(() => companyUsers.id),
+  reviewNotes: text("review_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
 });
