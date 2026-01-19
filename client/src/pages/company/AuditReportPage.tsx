@@ -28,7 +28,9 @@ import {
   Wand2,
   Plus,
   Trash2,
-  Pencil
+  Pencil,
+  FileSignature,
+  MessageSquare
 } from "lucide-react";
 import { AuditNavTabs } from "@/components/AuditNavTabs";
 import { getAudit, type IndicatorRating } from "@/lib/company-api";
@@ -104,6 +106,13 @@ export default function AuditReportPage() {
   const [showMethodologyDialog, setShowMethodologyDialog] = useState(false);
   const [selectedMethodology, setSelectedMethodology] = useState<string>("");
 
+  // Document checklist commentary state
+  const [leadAuditorComment, setLeadAuditorComment] = useState("");
+  const [staffInterviewCommentary, setStaffInterviewCommentary] = useState("");
+  const [clientInterviewCommentary, setClientInterviewCommentary] = useState("");
+  const [siteVisitCommentary, setSiteVisitCommentary] = useState("");
+  const [commentaryHasChanges, setCommentaryHasChanges] = useState(false);
+
   const { data: audit, isLoading: auditLoading } = useQuery({
     queryKey: ["audit", id],
     queryFn: () => getAudit(id!),
@@ -125,6 +134,17 @@ export default function AuditReportPage() {
   useEffect(() => {
     if (reportData?.audit?.executiveSummary) {
       setExecutiveSummary(reportData.audit.executiveSummary);
+    }
+  }, [reportData]);
+
+  // Load commentary fields from audit data
+  useEffect(() => {
+    if (reportData?.audit) {
+      const audit = reportData.audit as any;
+      if (audit.leadAuditorComment) setLeadAuditorComment(audit.leadAuditorComment);
+      if (audit.staffInterviewCommentary) setStaffInterviewCommentary(audit.staffInterviewCommentary);
+      if (audit.clientInterviewCommentary) setClientInterviewCommentary(audit.clientInterviewCommentary);
+      if (audit.siteVisitCommentary) setSiteVisitCommentary(audit.siteVisitCommentary);
     }
   }, [reportData]);
 
@@ -329,6 +349,36 @@ export default function AuditReportPage() {
     },
   });
 
+  const saveCommentaryMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/company/audits/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          leadAuditorComment,
+          staffInterviewCommentary,
+          clientInterviewCommentary,
+          siteVisitCommentary,
+        }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to save commentary" }));
+        throw new Error(error.error || "Failed to save commentary");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit", id] });
+      queryClient.invalidateQueries({ queryKey: ["auditReportData", id] });
+      setCommentaryHasChanges(false);
+      toast({ title: "Commentary saved", description: "Your commentary has been saved successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    },
+  });
+
   const resetInterviewForm = () => {
     setInterviewType("");
     setInterviewMethod("");
@@ -461,6 +511,10 @@ export default function AuditReportPage() {
           <TabsTrigger value="sites" data-testid="tab-sites">
             <MapPin className="h-4 w-4 mr-2" />
             Site Visits ({siteVisits.length})
+          </TabsTrigger>
+          <TabsTrigger value="document-checklist" data-testid="tab-document-checklist">
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            Document Checklist
           </TabsTrigger>
         </TabsList>
 
@@ -882,6 +936,139 @@ export default function AuditReportPage() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Document Checklist Tab */}
+        <TabsContent value="document-checklist" className="space-y-4">
+          <Card data-testid="document-checklist-card">
+            <CardHeader>
+              <CardTitle>Document Checklist & Auditor Commentary</CardTitle>
+              <CardDescription>
+                Consolidate your observations and commentary from all audit activities. These commentary sections will appear in the final audit report.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Lead Auditor Comment */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileSignature className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold text-lg">Lead Auditor Comment</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Overall observations and summary from the lead auditor regarding the audit process and findings.
+                </p>
+                <Textarea
+                  value={leadAuditorComment}
+                  onChange={(e) => {
+                    setLeadAuditorComment(e.target.value);
+                    setCommentaryHasChanges(true);
+                  }}
+                  placeholder="Enter lead auditor's overall observations and summary..."
+                  className="min-h-[120px]"
+                  data-testid="input-lead-auditor-comment"
+                />
+              </div>
+
+              {/* Staff Interview Commentary */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  <h3 className="font-semibold text-lg">Staff Interview Commentary</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Consolidated observations from staff interviews. Include key themes, compliance awareness, and procedural understanding noted during staff interviews.
+                </p>
+                <Textarea
+                  value={staffInterviewCommentary}
+                  onChange={(e) => {
+                    setStaffInterviewCommentary(e.target.value);
+                    setCommentaryHasChanges(true);
+                  }}
+                  placeholder="Staff demonstrated good understanding of procedures... Key themes included..."
+                  className="min-h-[150px]"
+                  data-testid="input-staff-interview-commentary"
+                />
+              </div>
+
+              {/* Client/Participant Interview Commentary */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-green-600" />
+                  <h3 className="font-semibold text-lg">Client/Participant Interview Commentary</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Consolidated observations from participant and client interviews. Include feedback themes, satisfaction levels, and any concerns raised by participants.
+                </p>
+                <Textarea
+                  value={clientInterviewCommentary}
+                  onChange={(e) => {
+                    setClientInterviewCommentary(e.target.value);
+                    setCommentaryHasChanges(true);
+                  }}
+                  placeholder="Participants expressed satisfaction with... Common themes included..."
+                  className="min-h-[150px]"
+                  data-testid="input-client-interview-commentary"
+                />
+              </div>
+
+              {/* Site Visit Commentary */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-orange-600" />
+                  <h3 className="font-semibold text-lg">Site Visit Commentary</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Consolidated observations from site visits. Include environmental observations, facility conditions, documentation practices, and operational processes observed.
+                </p>
+                <Textarea
+                  value={siteVisitCommentary}
+                  onChange={(e) => {
+                    setSiteVisitCommentary(e.target.value);
+                    setCommentaryHasChanges(true);
+                  }}
+                  placeholder="Site facilities were well-maintained... Documentation was organized and accessible..."
+                  className="min-h-[150px]"
+                  data-testid="input-site-visit-commentary"
+                />
+              </div>
+
+              {/* Summary Statistics */}
+              <div className="pt-4 border-t">
+                <h3 className="font-semibold mb-3">Audit Activities Summary</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{interviews.filter(i => i.interviewType === 'STAFF').length}</div>
+                    <div className="text-sm text-muted-foreground">Staff Interviews</div>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{interviews.filter(i => i.interviewType === 'PARTICIPANT').length}</div>
+                    <div className="text-sm text-muted-foreground">Participant Interviews</div>
+                  </div>
+                  <div className="text-center p-3 bg-orange-50 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-600">{siteVisits.length}</div>
+                    <div className="text-sm text-muted-foreground">Site Visits</div>
+                  </div>
+                  <div className="text-center p-3 bg-purple-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">{evidenceRequests?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Evidence Requests</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-4 flex justify-end">
+                <Button
+                  onClick={() => saveCommentaryMutation.mutate()}
+                  disabled={!commentaryHasChanges || saveCommentaryMutation.isPending}
+                  data-testid="button-save-commentary"
+                >
+                  {saveCommentaryMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Commentary
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

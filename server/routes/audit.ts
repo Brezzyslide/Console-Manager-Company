@@ -337,6 +337,10 @@ const updateScopeSchema = z.object({
 const updateAuditDetailsSchema = z.object({
   methodology: z.enum(["REMOTE", "ONSITE", "HYBRID"]).optional(),
   auditPurpose: z.enum(["INITIAL_CERTIFICATION", "RECERTIFICATION", "SURVEILLANCE", "SCOPE_EXTENSION", "TRANSFER_AUDIT", "SPECIAL_AUDIT"]).optional(),
+  leadAuditorComment: z.string().optional(),
+  staffInterviewCommentary: z.string().optional(),
+  clientInterviewCommentary: z.string().optional(),
+  siteVisitCommentary: z.string().optional(),
 });
 
 router.patch("/audits/:id", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
@@ -355,6 +359,10 @@ router.patch("/audits/:id", requireCompanyAuth, requireRole(["CompanyAdmin", "Au
     const updates: any = {};
     if (input.methodology !== undefined) updates.methodology = input.methodology;
     if (input.auditPurpose !== undefined) updates.auditPurpose = input.auditPurpose;
+    if (input.leadAuditorComment !== undefined) updates.leadAuditorComment = input.leadAuditorComment;
+    if (input.staffInterviewCommentary !== undefined) updates.staffInterviewCommentary = input.staffInterviewCommentary;
+    if (input.clientInterviewCommentary !== undefined) updates.clientInterviewCommentary = input.clientInterviewCommentary;
+    if (input.siteVisitCommentary !== undefined) updates.siteVisitCommentary = input.siteVisitCommentary;
     
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: "No fields to update" });

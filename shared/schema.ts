@@ -412,6 +412,11 @@ export const audits = pgTable("audits", {
   executiveSummary: text("executive_summary"),
   executiveSummaryEditedAt: timestamp("executive_summary_edited_at"),
   executiveSummaryEditedByUserId: varchar("executive_summary_edited_by_user_id").references(() => companyUsers.id),
+  // Document checklist auditor comments (structured by category)
+  leadAuditorComment: text("lead_auditor_comment"),
+  staffInterviewCommentary: text("staff_interview_commentary"),
+  clientInterviewCommentary: text("client_interview_commentary"),
+  siteVisitCommentary: text("site_visit_commentary"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
 });
