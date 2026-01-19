@@ -1930,6 +1930,11 @@ router.post("/evidence/requests/:id/review", requireCompanyAuth, requireRole(["C
     
     const input = reviewEvidenceSchema.parse(req.body);
     
+    // Require review note when rejecting evidence
+    if (input.decision === "REJECTED" && (!input.reviewNote || !input.reviewNote.trim())) {
+      return res.status(400).json({ error: "A review note is required when rejecting evidence" });
+    }
+    
     const newStatus = input.decision === "ACCEPTED" ? "ACCEPTED" : "REJECTED";
     
     const updated = await storage.updateEvidenceRequest(requestId, companyId, {

@@ -311,8 +311,16 @@ export default function EvidenceDetailPage() {
                 )}
               </div>
               {evidenceRequest.reviewNote && (
-                <div className="mt-4 p-3 bg-muted rounded-md">
-                  <span className="text-sm text-muted-foreground">Review note:</span>
+                <div className={`mt-4 p-3 rounded-md border ${
+                  evidenceRequest.status === "REJECTED" 
+                    ? "bg-red-500/10 border-red-500/30" 
+                    : "bg-muted border-transparent"
+                }`}>
+                  <span className={`text-sm font-medium ${
+                    evidenceRequest.status === "REJECTED" ? "text-red-600" : "text-muted-foreground"
+                  }`}>
+                    {evidenceRequest.status === "REJECTED" ? "Rejection reason:" : "Review note:"}
+                  </span>
                   <p className="text-sm mt-1">{evidenceRequest.reviewNote}</p>
                 </div>
               )}
@@ -621,21 +629,28 @@ export default function EvidenceDetailPage() {
               </RadioGroup>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="reviewNote">Review Note</Label>
+              <Label htmlFor="reviewNote">
+                Review Note {reviewForm.decision === "REJECTED" && <span className="text-destructive">*</span>}
+              </Label>
               <Textarea
                 id="reviewNote"
                 value={reviewForm.reviewNote}
                 onChange={(e) => setReviewForm(prev => ({ ...prev, reviewNote: e.target.value }))}
-                placeholder="Provide feedback on the evidence..."
+                placeholder={reviewForm.decision === "REJECTED" 
+                  ? "Explain why the evidence is being rejected (required)..." 
+                  : "Optional feedback on the evidence..."}
                 data-testid="input-review-note"
               />
+              {reviewForm.decision === "REJECTED" && !reviewForm.reviewNote.trim() && (
+                <p className="text-xs text-muted-foreground">A note is required when rejecting evidence</p>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowReviewDialog(false)}>Cancel</Button>
             <Button 
               onClick={handleReview}
-              disabled={reviewMutation.isPending}
+              disabled={reviewMutation.isPending || (reviewForm.decision === "REJECTED" && !reviewForm.reviewNote.trim())}
               variant={reviewForm.decision === "REJECTED" ? "destructive" : "default"}
               data-testid="button-confirm-review"
             >
