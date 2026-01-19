@@ -30,6 +30,26 @@ export const PARTICIPANT_FEEDBACK_CHECKLIST = [
   "Goals and preferences understood",
 ];
 
+// Staff HR Documentation Checklist for Staff Interviews
+export const STAFF_HR_DOCUMENTATION_CHECKLIST = [
+  "Qualifications verified",
+  "Name of Institution confirmed",
+  "Date Issued recorded",
+  "Memberships (e.g., APHRA) details verified",
+  "Passport sighted",
+  "100-point ID-2: Driver Licence verified",
+  "NDIS Worker Orientation Module completed",
+  "NDIS Worker Screening Check current",
+  "WWCC (Working With Children Check) current",
+  "Police Check current",
+  "COVID-19 Infection Control training completed",
+  "First Aid-CPR certificate current",
+  "Role/Position description on file",
+  "Employment contract signed",
+  "Code of Conduct acknowledged",
+  "Induction completed",
+];
+
 // Safety Items Checklist (already exists but providing standard items)
 export const SAFETY_ITEMS_CHECKLIST = [
   "Fire extinguisher present and in date",

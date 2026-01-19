@@ -39,6 +39,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { 
   SITE_VISIT_DOCUMENT_CHECKLIST, 
   PARTICIPANT_FEEDBACK_CHECKLIST,
+  STAFF_HR_DOCUMENTATION_CHECKLIST,
   type ChecklistItem,
   initializeChecklist 
 } from "@shared/audit-checklists";
@@ -84,9 +85,13 @@ export default function AuditReportPage() {
   const [intervieweeRole, setIntervieweeRole] = useState("");
   const [keyObservations, setKeyObservations] = useState("");
   
-  // Interview feedback checklist state
+  // Interview feedback checklist state (for participants)
   const [feedbackChecklist, setFeedbackChecklist] = useState<ChecklistItem[]>(
     initializeChecklist(PARTICIPANT_FEEDBACK_CHECKLIST)
+  );
+  // Staff HR documentation checklist state (for staff interviews)
+  const [staffHRChecklist, setStaffHRChecklist] = useState<ChecklistItem[]>(
+    initializeChecklist(STAFF_HR_DOCUMENTATION_CHECKLIST)
   );
   
   // Site visit form state
@@ -386,6 +391,7 @@ export default function AuditReportPage() {
     setIntervieweeRole("");
     setKeyObservations("");
     setFeedbackChecklist(initializeChecklist(PARTICIPANT_FEEDBACK_CHECKLIST));
+    setStaffHRChecklist(initializeChecklist(STAFF_HR_DOCUMENTATION_CHECKLIST));
   };
 
   const resetSiteVisitForm = () => {
@@ -417,14 +423,16 @@ export default function AuditReportPage() {
 
   const handleAddInterview = () => {
     if (!interviewType || !interviewMethod) return;
-    const checkedItems = feedbackChecklist.filter(item => item.checked || item.partial);
+    // Use appropriate checklist based on interview type
+    const activeChecklist = interviewType === 'STAFF' ? staffHRChecklist : feedbackChecklist;
+    const checkedItems = activeChecklist.filter(item => item.checked || item.partial);
     addInterviewMutation.mutate({
       interviewType,
       interviewMethod,
       intervieweeName: intervieweeName || undefined,
       intervieweeRole: intervieweeRole || undefined,
       keyObservations: keyObservations || undefined,
-      feedbackChecklist: checkedItems.length > 0 ? feedbackChecklist : undefined,
+      feedbackChecklist: checkedItems.length > 0 ? activeChecklist : undefined,
     });
   };
 
@@ -1284,6 +1292,33 @@ export default function AuditReportPage() {
                       <button
                         type="button"
                         onClick={() => toggleChecklistItem(feedbackChecklist, setFeedbackChecklist, idx, 'partial')}
+                        className={`text-xs px-2 py-0.5 rounded ${item.partial ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      >
+                        Partial
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {interviewType === "STAFF" && (
+              <div className="space-y-2">
+                <Label className="text-primary font-semibold">HR Documentation Checklist</Label>
+                <div className="border rounded-lg p-3 space-y-2 max-h-64 overflow-y-auto bg-muted/30">
+                  {staffHRChecklist.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <Checkbox
+                        checked={item.checked}
+                        onCheckedChange={() => toggleChecklistItem(staffHRChecklist, setStaffHRChecklist, idx, 'checked')}
+                        data-testid={`checkbox-staff-hr-${idx}`}
+                      />
+                      <span className={`text-sm flex-1 ${item.checked ? 'text-foreground' : item.partial ? 'text-yellow-600' : 'text-muted-foreground'}`}>
+                        {item.item}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleChecklistItem(staffHRChecklist, setStaffHRChecklist, idx, 'partial')}
                         className={`text-xs px-2 py-0.5 rounded ${item.partial ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                       >
                         Partial
