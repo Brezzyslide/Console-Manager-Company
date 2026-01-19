@@ -2562,6 +2562,55 @@ router.post("/audits/:auditId/interviews", requireCompanyAuth, requireRole(["Com
   }
 });
 
+const updateInterviewSchema = createInterviewSchema.partial().extend({
+  status: z.enum(["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+});
+
+router.put("/audits/:auditId/interviews/:interviewId", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId, interviewId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const parsed = updateInterviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const updateData: any = { ...parsed.data };
+    
+    // Auto-set completedAt when status changes to COMPLETED
+    const newStatus = parsed.data.status;
+    if (newStatus === "COMPLETED") {
+      updateData.completedAt = new Date();
+    } else if (newStatus) {
+      updateData.completedAt = null;
+    }
+    
+    const interview = await storage.updateAuditInterview(interviewId, companyId, updateData);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "INTERVIEW_UPDATED",
+      entityType: "audit_interview",
+      entityId: interviewId,
+      afterJson: { status: updateData.status },
+    });
+    
+    return res.json(interview);
+  } catch (error) {
+    console.error("Update interview error:", error);
+    return res.status(500).json({ error: "Failed to update interview" });
+  }
+});
+
 router.delete("/audits/:auditId/interviews/:interviewId", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
@@ -2669,6 +2718,55 @@ router.post("/audits/:auditId/site-visits", requireCompanyAuth, requireRole(["Co
   } catch (error) {
     console.error("Create site visit error:", error);
     return res.status(500).json({ error: "Failed to create site visit" });
+  }
+});
+
+const updateSiteVisitSchema = createSiteVisitSchema.partial().extend({
+  status: z.enum(["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+});
+
+router.put("/audits/:auditId/site-visits/:visitId", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId, visitId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const parsed = updateSiteVisitSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+    }
+    
+    const updateData: any = { ...parsed.data };
+    
+    // Auto-set completedAt when status changes to COMPLETED
+    const newStatus = parsed.data.status;
+    if (newStatus === "COMPLETED") {
+      updateData.completedAt = new Date();
+    } else if (newStatus) {
+      updateData.completedAt = null;
+    }
+    
+    const siteVisit = await storage.updateAuditSiteVisit(visitId, companyId, updateData);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "SITE_VISIT_UPDATED",
+      entityType: "audit_site_visit",
+      entityId: visitId,
+      afterJson: { status: updateData.status },
+    });
+    
+    return res.json(siteVisit);
+  } catch (error) {
+    console.error("Update site visit error:", error);
+    return res.status(500).json({ error: "Failed to update site visit" });
   }
 });
 

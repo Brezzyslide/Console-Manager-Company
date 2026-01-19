@@ -871,6 +871,8 @@ export const auditInterviews = pgTable("audit_interviews", {
   // Participant Feedback Checklist (what was confirmed during interview)
   feedbackChecklist: json("feedback_checklist").$type<{ item: string; checked: boolean; partial?: boolean }[]>(),
   conductedByCompanyUserId: varchar("conducted_by_company_user_id").references(() => companyUsers.id),
+  status: text("status", { enum: ["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] }).notNull().default("SCHEDULED"),
+  completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -900,6 +902,8 @@ export const auditSiteVisits = pgTable("audit_site_visits", {
   documentChecklist: json("document_checklist").$type<{ item: string; checked: boolean; partial?: boolean }[]>(),
   notes: text("notes"),
   conductedByCompanyUserId: varchar("conducted_by_company_user_id").references(() => companyUsers.id),
+  status: text("status", { enum: ["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] }).notNull().default("SCHEDULED"),
+  completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
