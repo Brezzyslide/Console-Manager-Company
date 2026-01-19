@@ -1051,7 +1051,7 @@ export default function AuditReportPage() {
                     <div className="text-sm text-muted-foreground">Site Visits</div>
                   </div>
                   <div className="text-center p-3 bg-purple-50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">{evidenceRequests?.length || 0}</div>
+                    <div className="text-2xl font-bold text-purple-600">{findings.reduce((acc: number, f: any) => acc + (f.evidenceRequests?.length || 0), 0)}</div>
                     <div className="text-sm text-muted-foreground">Evidence Requests</div>
                   </div>
                 </div>
