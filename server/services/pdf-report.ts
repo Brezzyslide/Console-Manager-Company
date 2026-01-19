@@ -354,12 +354,6 @@ function generateTableOfContents(doc: PDFKit.PDFDocument, data: ReportData, page
     
     doc.moveDown(0.6);
   });
-  
-  doc.moveDown(1);
-  doc.fillColor(COLORS.muted)
-    .fontSize(9)
-    .font('Helvetica-Oblique')
-    .text('Note: Page numbers are dynamically generated. Please refer to the section headings for navigation.');
 }
 
 function generateExecutiveSummary(doc: PDFKit.PDFDocument, data: ReportData, pageWidth: number) {
@@ -1546,15 +1540,30 @@ function addPageNumbers(doc: PDFKit.PDFDocument) {
   for (let i = 1; i < pages.count; i++) {
     doc.switchToPage(i);
     const pageNumber = i; // Page 1, 2, 3, etc. (cover is page 0, not numbered)
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
     
-    doc.fillColor(COLORS.muted)
+    // Save current position
+    const savedY = doc.y;
+    
+    // Draw footer line
+    doc.moveTo(doc.page.margins.left, doc.page.height - 50)
+      .lineTo(doc.page.width - doc.page.margins.right, doc.page.height - 50)
+      .strokeColor(COLORS.light)
+      .lineWidth(0.5)
+      .stroke();
+    
+    // Add page number
+    doc.font('Helvetica')
       .fontSize(9)
-      .font('Helvetica')
+      .fillColor(COLORS.muted)
       .text(
         `Page ${pageNumber} of ${totalContentPages}`,
         doc.page.margins.left,
-        doc.page.height - 40,
-        { width: doc.page.width - doc.page.margins.left - doc.page.margins.right, align: 'center' }
+        doc.page.height - 38,
+        { width: pageWidth, align: 'center' }
       );
+    
+    // Restore position
+    doc.y = savedY;
   }
 }
