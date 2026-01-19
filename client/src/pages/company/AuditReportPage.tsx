@@ -942,9 +942,145 @@ export default function AuditReportPage() {
 
         {/* Document Checklist Tab */}
         <TabsContent value="document-checklist" className="space-y-4">
+          {/* Overall Compliance Status Card */}
+          <Card data-testid="compliance-status-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-primary">Overall Compliance Status</CardTitle>
+              <CardDescription>
+                NDIS Practice Standards compliance summary based on indicator responses
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                // NDIS Standards definitions
+                const NDIS_STANDARDS: Record<string, { number: string; name: string; division: string }> = {
+                  "11": { number: "11", name: "Governance and Operational Management", division: "Division 2 – Governance and Operational Management" },
+                  "12": { number: "12", name: "Risk Management", division: "Division 2 – Governance and Operational Management" },
+                  "13": { number: "13", name: "Quality Management", division: "Division 2 – Governance and Operational Management" },
+                  "14": { number: "14", name: "Information Management", division: "Division 2 – Governance and Operational Management" },
+                  "15": { number: "15", name: "Feedback and Complaints Management", division: "Division 2 – Governance and Operational Management" },
+                  "16": { number: "16", name: "Incident Management", division: "Division 2 – Governance and Operational Management" },
+                  "17": { number: "17", name: "Human Resource Management", division: "Division 3 – Provision of Supports" },
+                  "18": { number: "18", name: "Continuity of Supports", division: "Division 3 – Provision of Supports" },
+                  "18A": { number: "18A", name: "Emergency and Disaster Management", division: "Division 3 – Provision of Supports" },
+                };
+
+                // Keywords to map indicators to standards
+                const KEYWORD_MAPPINGS: { keywords: string[]; standard: string }[] = [
+                  { keywords: ["governance", "organisational structure", "delegations", "roles and responsibilities", "board", "policy register", "whistleblower"], standard: "11" },
+                  { keywords: ["risk management", "risk register", "client-specific risk"], standard: "12" },
+                  { keywords: ["continuous improvement", "quality improvement", "internal audit", "external audit", "management review"], standard: "13" },
+                  { keywords: ["privacy", "confidentiality", "information management", "record keeping"], standard: "14" },
+                  { keywords: ["complaints", "feedback"], standard: "15" },
+                  { keywords: ["incident"], standard: "16" },
+                  { keywords: ["police check", "worker screening", "qualification", "training", "induction", "supervision", "performance review", "staff register", "rostering", "code of conduct"], standard: "17" },
+                  { keywords: ["continuity", "transition"], standard: "18" },
+                  { keywords: ["emergency", "evacuation", "fire safety", "disaster"], standard: "18A" },
+                ];
+
+                const getStandardForIndicator = (text: string): string | null => {
+                  if (!text) return null;
+                  const normalized = text.toLowerCase();
+                  for (const mapping of KEYWORD_MAPPINGS) {
+                    for (const keyword of mapping.keywords) {
+                      if (normalized.includes(keyword.toLowerCase())) {
+                        return mapping.standard;
+                      }
+                    }
+                  }
+                  return null;
+                };
+
+                const ratingToScore: Record<string, number> = {
+                  "CONFORMITY_BEST_PRACTICE": 3,
+                  "CONFORMITY": 2,
+                  "MINOR_NC": 1,
+                  "MAJOR_NC": 0,
+                };
+
+                // Group responses by standard
+                const standardScores: Record<string, { total: number; count: number }> = {};
+                
+                indicatorResponses.forEach((response: any) => {
+                  const standardKey = getStandardForIndicator(response.indicatorText || "");
+                  if (standardKey && response.rating) {
+                    if (!standardScores[standardKey]) {
+                      standardScores[standardKey] = { total: 0, count: 0 };
+                    }
+                    standardScores[standardKey].total += ratingToScore[response.rating] || 0;
+                    standardScores[standardKey].count += 1;
+                  }
+                });
+
+                // Calculate average per standard
+                const standardResults = Object.entries(standardScores).map(([key, scores]) => ({
+                  ...NDIS_STANDARDS[key],
+                  avgRating: scores.count > 0 ? Math.round((scores.total / scores.count) * 10) / 10 : 0,
+                  indicatorCount: scores.count,
+                })).sort((a, b) => a.number.localeCompare(b.number));
+
+                // Group by division
+                const byDivision: Record<string, typeof standardResults> = {};
+                standardResults.forEach(result => {
+                  if (!byDivision[result.division]) {
+                    byDivision[result.division] = [];
+                  }
+                  byDivision[result.division].push(result);
+                });
+
+                if (standardResults.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No indicator responses recorded yet. Complete the audit to see compliance status.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-primary/90 text-primary-foreground">
+                          <th className="text-left px-4 py-3 font-medium w-32">Standard</th>
+                          <th className="text-left px-4 py-3 font-medium">Name</th>
+                          <th className="text-center px-4 py-3 font-medium w-24">Rating</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(byDivision).map(([division, standards]) => (
+                          <>
+                            <tr key={division} className="bg-slate-100">
+                              <td colSpan={3} className="px-4 py-2 font-semibold text-slate-700">
+                                {division}
+                              </td>
+                            </tr>
+                            {standards.map((std) => (
+                              <tr key={std.number} className="border-t border-slate-200 hover:bg-slate-50">
+                                <td className="px-4 py-3"></td>
+                                <td className="px-4 py-3">{std.number} {std.name}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className={`font-semibold ${
+                                    std.avgRating >= 2.5 ? 'text-green-600' : 
+                                    std.avgRating >= 1.5 ? 'text-yellow-600' : 'text-red-600'
+                                  }`}>
+                                    {std.avgRating}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
           <Card data-testid="document-checklist-card">
             <CardHeader>
-              <CardTitle>Document Checklist & Auditor Commentary</CardTitle>
+              <CardTitle>Auditor Commentary</CardTitle>
               <CardDescription>
                 Consolidate your observations and commentary from all audit activities. These commentary sections will appear in the final audit report.
               </CardDescription>
