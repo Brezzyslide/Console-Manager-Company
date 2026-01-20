@@ -32,6 +32,8 @@ import {
   auditSites,
   auditEvidencePortals,
   generalEvidenceSubmissions,
+  complianceTemplates,
+  complianceTemplateItems,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -97,6 +99,10 @@ import {
   type InsertAuditEvidencePortal,
   type GeneralEvidenceSubmission,
   type InsertGeneralEvidenceSubmission,
+  type ComplianceTemplate,
+  type InsertComplianceTemplate,
+  type ComplianceTemplateItem,
+  type InsertComplianceTemplateItem,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -1830,6 +1836,64 @@ export class DatabaseStorage implements IStorage {
       ))
       .returning();
     return updated || undefined;
+  }
+  
+  // Compliance Templates
+  async createComplianceTemplate(template: InsertComplianceTemplate): Promise<ComplianceTemplate> {
+    const [created] = await db
+      .insert(complianceTemplates)
+      .values(template)
+      .returning();
+    return created;
+  }
+  
+  async getComplianceTemplates(companyId: string): Promise<ComplianceTemplate[]> {
+    return await db
+      .select()
+      .from(complianceTemplates)
+      .where(eq(complianceTemplates.companyId, companyId))
+      .orderBy(asc(complianceTemplates.name));
+  }
+  
+  async getComplianceTemplatesByScope(companyId: string, scopeType: string, frequency: string): Promise<ComplianceTemplate[]> {
+    return await db
+      .select()
+      .from(complianceTemplates)
+      .where(and(
+        eq(complianceTemplates.companyId, companyId),
+        eq(complianceTemplates.scopeType, scopeType),
+        eq(complianceTemplates.frequency, frequency),
+        eq(complianceTemplates.isActive, true)
+      ))
+      .orderBy(asc(complianceTemplates.name));
+  }
+  
+  // Compliance Template Items
+  async createComplianceTemplateItem(item: InsertComplianceTemplateItem): Promise<ComplianceTemplateItem> {
+    const [created] = await db
+      .insert(complianceTemplateItems)
+      .values(item)
+      .returning();
+    return created;
+  }
+  
+  async createComplianceTemplateItems(items: InsertComplianceTemplateItem[]): Promise<ComplianceTemplateItem[]> {
+    if (items.length === 0) return [];
+    return await db
+      .insert(complianceTemplateItems)
+      .values(items)
+      .returning();
+  }
+  
+  async getComplianceTemplateItems(templateId: string, companyId: string): Promise<ComplianceTemplateItem[]> {
+    return await db
+      .select()
+      .from(complianceTemplateItems)
+      .where(and(
+        eq(complianceTemplateItems.templateId, templateId),
+        eq(complianceTemplateItems.companyId, companyId)
+      ))
+      .orderBy(asc(complianceTemplateItems.sortOrder));
   }
 }
 
