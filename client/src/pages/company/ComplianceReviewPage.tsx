@@ -103,10 +103,20 @@ export default function ComplianceReviewPage() {
 
   const { data: workSites = [] } = useQuery<WorkSite[]>({
     queryKey: ["/api/company/work-sites"],
+    queryFn: async () => {
+      const res = await fetch("/api/company/work-sites", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch work sites");
+      return res.json();
+    },
   });
 
   const { data: participants = [] } = useQuery<Participant[]>({
     queryKey: ["/api/company/participants"],
+    queryFn: async () => {
+      const res = await fetch("/api/company/participants", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch participants");
+      return res.json();
+    },
   });
 
   const { data: templates = [] } = useQuery<ComplianceTemplate[]>({
