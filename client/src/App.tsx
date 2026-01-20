@@ -39,6 +39,7 @@ import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 // Public Pages
 import PublicUploadPage from "@/pages/public/PublicUploadPage";
+import AuditPortalPage from "@/pages/public/AuditPortalPage";
 
 function ProtectedConsolePage({ component: Component }: { component: React.ComponentType }) {
   return (
@@ -184,6 +185,7 @@ function Router() {
 
       {/* Public Pages - No Authentication Required */}
       <Route path="/upload/:token" component={PublicUploadPage} />
+      <Route path="/audit-portal/:token" component={AuditPortalPage} />
 
       {/* Unified Login - Landing */}
       <Route path="/" component={UnifiedLoginPage} />

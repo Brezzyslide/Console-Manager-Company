@@ -1507,3 +1507,98 @@ export async function dismissSuggestedFinding(id: string, reason?: string): Prom
   }
   return res.json();
 }
+
+// Audit Evidence Portal API
+export interface AuditEvidencePortal {
+  id: string;
+  companyId: string;
+  auditId: string;
+  token: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  lastAccessedAt: string | null;
+  createdByCompanyUserId: string;
+  createdAt: string;
+  portalUrl: string;
+}
+
+export interface CreatePortalInput {
+  password: string;
+  expiresInDays?: number;
+}
+
+export async function createAuditEvidencePortal(auditId: string, data: CreatePortalInput): Promise<AuditEvidencePortal> {
+  const res = await fetch(`/api/company/audits/${auditId}/evidence-portal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to create evidence portal");
+  }
+  return res.json();
+}
+
+export async function getAuditEvidencePortal(auditId: string): Promise<{ portal: AuditEvidencePortal | null }> {
+  const res = await fetch(`/api/company/audits/${auditId}/evidence-portal`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch evidence portal");
+  return res.json();
+}
+
+export async function revokeAuditEvidencePortal(auditId: string, portalId: string): Promise<void> {
+  const res = await fetch(`/api/company/audits/${auditId}/evidence-portal/${portalId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to revoke evidence portal");
+  }
+}
+
+// General Evidence Submissions API
+export interface GeneralEvidenceSubmission {
+  id: string;
+  companyId: string;
+  auditId: string;
+  portalId: string;
+  description: string;
+  fileName: string;
+  filePath: string | null;
+  mimeType: string | null;
+  fileSizeBytes: number | null;
+  uploaderName: string | null;
+  uploaderEmail: string | null;
+  status: "PENDING_REVIEW" | "ACCEPTED" | "REJECTED";
+  reviewedByCompanyUserId: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+export async function getGeneralEvidenceSubmissions(auditId: string): Promise<GeneralEvidenceSubmission[]> {
+  const res = await fetch(`/api/company/audits/${auditId}/general-evidence`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch general evidence submissions");
+  return res.json();
+}
+
+export interface ReviewGeneralEvidenceInput {
+  status: "ACCEPTED" | "REJECTED";
+  reviewNote?: string;
+}
+
+export async function reviewGeneralEvidenceSubmission(auditId: string, submissionId: string, data: ReviewGeneralEvidenceInput): Promise<GeneralEvidenceSubmission> {
+  const res = await fetch(`/api/company/audits/${auditId}/general-evidence/${submissionId}/review`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to review general evidence");
+  }
+  return res.json();
+}

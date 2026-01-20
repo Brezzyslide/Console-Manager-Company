@@ -172,7 +172,7 @@ router.post("/audit-portal/:token/auth", async (req, res) => {
       success: true,
       portalId: portal.id,
       auditId: portal.auditId,
-      auditName: audit?.auditName || "Audit",
+      auditName: audit?.title || "Audit",
       companyName: company?.legalName || "Company",
       expiresAt: portal.expiresAt,
     });
@@ -375,10 +375,9 @@ router.post("/audit-portal/:token/general-evidence", upload.single("file"), asyn
       mimeType: req.file.mimetype,
       filePath: req.file.path,
       fileSizeBytes: req.file.size,
-      description,
-      note: note || null,
-      externalUploaderName: uploaderName,
-      externalUploaderEmail: uploaderEmail,
+      description: note ? `${description}\n\nNote: ${note}` : description,
+      uploaderName,
+      uploaderEmail,
       status: "PENDING_REVIEW",
     });
     

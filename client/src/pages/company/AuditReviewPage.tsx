@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, AlertCircle, Eye, Lock, Clock, XCircle, FileText, Plus, Send, ThumbsUp, RotateCcw } from "lucide-react";
 import { AuditNavTabs } from "@/components/AuditNavTabs";
+import AuditEvidencePortalManager from "@/components/AuditEvidencePortalManager";
 import { getAudit, getAuditRunner, getFindings, closeAudit, getAuditEvidenceRequests, addIndicatorResponseInReview, submitAuditForReview, approveAudit, requestAuditChanges, reopenAudit, saveLeadAuditorReviewComment, type EvidenceStatus, type IndicatorRating } from "@/lib/company-api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -331,6 +332,13 @@ export default function AuditReviewPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Bulk Evidence Upload Portal */}
+      {id && audit?.status !== "DRAFT" && (
+        <div className="mb-6">
+          <AuditEvidencePortalManager auditId={id} />
+        </div>
       )}
 
       <Card className="mb-6">
