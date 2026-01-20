@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, json, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, json, jsonb, integer, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1193,3 +1193,41 @@ export const insertComplianceActionSchema = createInsertSchema(complianceActions
 
 export type InsertComplianceAction = z.infer<typeof insertComplianceActionSchema>;
 export type ComplianceAction = typeof complianceActions.$inferSelect;
+
+// Staff Site Assignments (which staff can access which sites)
+export const staffSiteAssignments = pgTable("staff_site_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => companyUsers.id, { onDelete: "cascade" }),
+  siteId: varchar("site_id").notNull().references(() => workSites.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("staff_site_assignments_unique").on(t.companyId, t.userId, t.siteId),
+]);
+
+export const insertStaffSiteAssignmentSchema = createInsertSchema(staffSiteAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertStaffSiteAssignment = z.infer<typeof insertStaffSiteAssignmentSchema>;
+export type StaffSiteAssignment = typeof staffSiteAssignments.$inferSelect;
+
+// Staff Participant Assignments (which staff can access which participants)
+export const staffParticipantAssignments = pgTable("staff_participant_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => companyUsers.id, { onDelete: "cascade" }),
+  participantId: varchar("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("staff_participant_assignments_unique").on(t.companyId, t.userId, t.participantId),
+]);
+
+export const insertStaffParticipantAssignmentSchema = createInsertSchema(staffParticipantAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertStaffParticipantAssignment = z.infer<typeof insertStaffParticipantAssignmentSchema>;
+export type StaffParticipantAssignment = typeof staffParticipantAssignments.$inferSelect;
