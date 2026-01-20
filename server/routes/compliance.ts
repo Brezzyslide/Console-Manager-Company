@@ -590,6 +590,19 @@ router.post("/compliance-runs/:id/submit", requireCompanyAuth, async (req: Authe
       statusColor = "green";
     }
     
+    if (run.siteId) {
+      const site = await storage.getWorkSite(run.siteId, companyId);
+      if (!site) {
+        return res.status(400).json({ error: "Invalid site reference in run" });
+      }
+    }
+    if (run.participantId) {
+      const participant = await storage.getParticipant(run.participantId, companyId);
+      if (!participant) {
+        return res.status(400).json({ error: "Invalid participant reference in run" });
+      }
+    }
+    
     const actionsCreated: any[] = [];
     for (const item of items) {
       const response = responseMap.get(item.id);

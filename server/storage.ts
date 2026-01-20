@@ -2062,7 +2062,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   async deleteParticipantSiteAssignment(id: string, companyId: string): Promise<boolean> {
-    const result = await db
+    const existing = await db
+      .select({ id: participantSiteAssignments.id })
+      .from(participantSiteAssignments)
+      .where(and(eq(participantSiteAssignments.id, id), eq(participantSiteAssignments.companyId, companyId)));
+    if (existing.length === 0) return false;
+    await db
       .delete(participantSiteAssignments)
       .where(and(eq(participantSiteAssignments.id, id), eq(participantSiteAssignments.companyId, companyId)));
     return true;
@@ -2105,7 +2110,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   async deleteComplianceTemplateItem(id: string, companyId: string): Promise<boolean> {
-    const result = await db
+    const existing = await db
+      .select({ id: complianceTemplateItems.id })
+      .from(complianceTemplateItems)
+      .where(and(eq(complianceTemplateItems.id, id), eq(complianceTemplateItems.companyId, companyId)));
+    if (existing.length === 0) return false;
+    await db
       .delete(complianceTemplateItems)
       .where(and(eq(complianceTemplateItems.id, id), eq(complianceTemplateItems.companyId, companyId)));
     return true;
