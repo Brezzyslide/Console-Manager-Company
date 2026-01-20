@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import crypto from "crypto";
+import bcrypt from "bcrypt";
 import { requireCompanyAuth, requireRole, type AuthenticatedCompanyRequest } from "../lib/companyAuth";
 import { storage } from "../storage";
 import { 
@@ -3437,6 +3438,190 @@ router.post("/audits/:auditId/reopen", requireCompanyAuth, requireRole(["Company
   } catch (error) {
     console.error("Reopen audit error:", error);
     return res.status(500).json({ error: "Failed to reopen audit" });
+  }
+});
+
+// ===== AUDIT EVIDENCE PORTAL ROUTES =====
+
+const createPortalSchema = z.object({
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  expiresInDays: z.number().min(1).max(90).optional(),
+});
+
+router.post("/audits/:auditId/evidence-portal", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId } = req.params;
+    
+    const input = createPortalSchema.parse(req.body);
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const existingPortals = await storage.getAuditEvidencePortals(auditId, companyId);
+    const activePortal = existingPortals.find(p => !p.revokedAt && (!p.expiresAt || new Date(p.expiresAt) > new Date()));
+    if (activePortal) {
+      return res.status(400).json({ error: "An active portal already exists for this audit. Revoke it first to create a new one." });
+    }
+    
+    const token = generatePublicToken();
+    const passwordHash = await bcrypt.hash(input.password, 10);
+    const expiresAt = input.expiresInDays 
+      ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000) 
+      : null;
+    
+    const portal = await storage.createAuditEvidencePortal({
+      companyId,
+      auditId,
+      token,
+      passwordHash,
+      expiresAt,
+      createdByCompanyUserId: userId,
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "EVIDENCE_PORTAL_CREATED",
+      entityType: "audit_evidence_portal",
+      entityId: portal.id,
+      afterJson: { auditId, expiresAt },
+    });
+    
+    return res.json({
+      ...portal,
+      portalUrl: `/audit-portal/${token}`,
+    });
+  } catch (error) {
+    console.error("Create evidence portal error:", error);
+    return res.status(500).json({ error: "Failed to create evidence portal" });
+  }
+});
+
+router.get("/audits/:auditId/evidence-portal", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const portals = await storage.getAuditEvidencePortals(auditId, companyId);
+    const activePortal = portals.find(p => !p.revokedAt && (!p.expiresAt || new Date(p.expiresAt) > new Date()));
+    
+    if (!activePortal) {
+      return res.json({ portal: null });
+    }
+    
+    return res.json({
+      portal: {
+        ...activePortal,
+        portalUrl: `/audit-portal/${activePortal.token}`,
+      }
+    });
+  } catch (error) {
+    console.error("Get evidence portal error:", error);
+    return res.status(500).json({ error: "Failed to get evidence portal" });
+  }
+});
+
+router.delete("/audits/:auditId/evidence-portal/:portalId", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId, portalId } = req.params;
+    
+    const portal = await storage.getAuditEvidencePortal(portalId, companyId);
+    if (!portal || portal.auditId !== auditId) {
+      return res.status(404).json({ error: "Portal not found" });
+    }
+    
+    const revokedPortal = await storage.revokeAuditEvidencePortal(portalId, companyId);
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: "EVIDENCE_PORTAL_REVOKED",
+      entityType: "audit_evidence_portal",
+      entityId: portalId,
+      afterJson: { auditId, revokedAt: revokedPortal?.revokedAt },
+    });
+    
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Revoke evidence portal error:", error);
+    return res.status(500).json({ error: "Failed to revoke evidence portal" });
+  }
+});
+
+router.get("/audits/:auditId/general-evidence", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { auditId } = req.params;
+    
+    const audit = await storage.getAudit(auditId, companyId);
+    if (!audit) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+    
+    const submissions = await storage.getGeneralEvidenceSubmissions(auditId, companyId);
+    return res.json(submissions);
+  } catch (error) {
+    console.error("Get general evidence error:", error);
+    return res.status(500).json({ error: "Failed to get general evidence" });
+  }
+});
+
+const reviewGeneralEvidenceSchema = z.object({
+  status: z.enum(["ACCEPTED", "REJECTED"]),
+  reviewNote: z.string().optional(),
+});
+
+router.put("/audits/:auditId/general-evidence/:submissionId/review", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const { auditId, submissionId } = req.params;
+    
+    const input = reviewGeneralEvidenceSchema.parse(req.body);
+    
+    if (input.status === "REJECTED" && (!input.reviewNote || input.reviewNote.length < 10)) {
+      return res.status(400).json({ error: "Rejection requires a reason of at least 10 characters" });
+    }
+    
+    const submission = await storage.getGeneralEvidenceSubmission(submissionId, companyId);
+    if (!submission || submission.auditId !== auditId) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+    
+    const updated = await storage.updateGeneralEvidenceSubmission(submissionId, companyId, {
+      status: input.status,
+      reviewNote: input.reviewNote,
+      reviewedByCompanyUserId: userId,
+      reviewedAt: new Date(),
+    });
+    
+    await storage.logChange({
+      actorType: "company_user",
+      actorId: userId,
+      companyId,
+      action: input.status === "ACCEPTED" ? "GENERAL_EVIDENCE_ACCEPTED" : "GENERAL_EVIDENCE_REJECTED",
+      entityType: "general_evidence_submission",
+      entityId: submissionId,
+      afterJson: { status: input.status, reviewNote: input.reviewNote },
+    });
+    
+    return res.json(updated);
+  } catch (error) {
+    console.error("Review general evidence error:", error);
+    return res.status(500).json({ error: "Failed to review general evidence" });
   }
 });
 
