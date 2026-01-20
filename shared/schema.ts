@@ -925,5 +925,55 @@ export const insertAuditSiteVisitSchema = createInsertSchema(auditSiteVisits).om
 export type InsertAuditSiteVisit = z.infer<typeof insertAuditSiteVisitSchema>;
 export type AuditSiteVisit = typeof auditSiteVisits.$inferSelect;
 
+// Audit Evidence Portals (password-protected bulk upload links)
+export const auditEvidencePortals = pgTable("audit_evidence_portals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  token: varchar("token").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  expiresAt: timestamp("expires_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdByCompanyUserId: varchar("created_by_company_user_id").notNull().references(() => companyUsers.id),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuditEvidencePortalSchema = createInsertSchema(auditEvidencePortals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditEvidencePortal = z.infer<typeof insertAuditEvidencePortalSchema>;
+export type AuditEvidencePortal = typeof auditEvidencePortals.$inferSelect;
+
+// General Evidence Submissions (unsolicited evidence uploaded via portal)
+export const generalEvidenceSubmissions = pgTable("general_evidence_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  auditId: varchar("audit_id").notNull().references(() => audits.id, { onDelete: "cascade" }),
+  portalId: varchar("portal_id").notNull().references(() => auditEvidencePortals.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  fileName: text("file_name").notNull(),
+  filePath: text("file_path"),
+  mimeType: text("mime_type"),
+  fileSizeBytes: integer("file_size_bytes"),
+  uploaderName: text("uploader_name"),
+  uploaderEmail: text("uploader_email"),
+  status: text("status", { enum: ["PENDING_REVIEW", "ACCEPTED", "REJECTED"] }).notNull().default("PENDING_REVIEW"),
+  reviewedByCompanyUserId: varchar("reviewed_by_company_user_id").references(() => companyUsers.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertGeneralEvidenceSubmissionSchema = createInsertSchema(generalEvidenceSubmissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertGeneralEvidenceSubmission = z.infer<typeof insertGeneralEvidenceSubmissionSchema>;
+export type GeneralEvidenceSubmission = typeof generalEvidenceSubmissions.$inferSelect;
+
 // Chat schema (for AI integrations)
 export * from "./models/chat";
