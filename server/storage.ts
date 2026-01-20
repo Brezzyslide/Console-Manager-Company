@@ -30,6 +30,8 @@ import {
   auditInterviews,
   auditSiteVisits,
   auditSites,
+  auditEvidencePortals,
+  generalEvidenceSubmissions,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -91,6 +93,10 @@ import {
   type InsertAuditSite,
   type StandardIndicator,
   type InsertStandardIndicator,
+  type AuditEvidencePortal,
+  type InsertAuditEvidencePortal,
+  type GeneralEvidenceSubmission,
+  type InsertGeneralEvidenceSubmission,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -260,6 +266,21 @@ export interface IStorage {
   getAuditSites(auditId: string): Promise<AuditSite[]>;
   createAuditSite(site: InsertAuditSite): Promise<AuditSite>;
   deleteAuditSite(id: string): Promise<boolean>;
+  
+  // Audit Evidence Portals
+  createAuditEvidencePortal(portal: InsertAuditEvidencePortal): Promise<AuditEvidencePortal>;
+  getAuditEvidencePortal(id: string, companyId: string): Promise<AuditEvidencePortal | undefined>;
+  getAuditEvidencePortalByToken(token: string): Promise<AuditEvidencePortal | undefined>;
+  getAuditEvidencePortals(auditId: string, companyId: string): Promise<AuditEvidencePortal[]>;
+  updateAuditEvidencePortal(id: string, companyId: string, updates: Partial<InsertAuditEvidencePortal>): Promise<AuditEvidencePortal | undefined>;
+  revokeAuditEvidencePortal(id: string, companyId: string): Promise<AuditEvidencePortal | undefined>;
+  updatePortalLastAccessed(id: string): Promise<void>;
+  
+  // General Evidence Submissions
+  createGeneralEvidenceSubmission(submission: InsertGeneralEvidenceSubmission): Promise<GeneralEvidenceSubmission>;
+  getGeneralEvidenceSubmissions(auditId: string, companyId: string): Promise<GeneralEvidenceSubmission[]>;
+  getGeneralEvidenceSubmission(id: string, companyId: string): Promise<GeneralEvidenceSubmission | undefined>;
+  updateGeneralEvidenceSubmission(id: string, companyId: string, updates: Partial<InsertGeneralEvidenceSubmission>): Promise<GeneralEvidenceSubmission | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1696,6 +1717,119 @@ export class DatabaseStorage implements IStorage {
       .delete(auditSites)
       .where(eq(auditSites.id, id));
     return true;
+  }
+  
+  // Audit Evidence Portals
+  async createAuditEvidencePortal(portal: InsertAuditEvidencePortal): Promise<AuditEvidencePortal> {
+    const [created] = await db
+      .insert(auditEvidencePortals)
+      .values(portal)
+      .returning();
+    return created;
+  }
+  
+  async getAuditEvidencePortal(id: string, companyId: string): Promise<AuditEvidencePortal | undefined> {
+    const [portal] = await db
+      .select()
+      .from(auditEvidencePortals)
+      .where(and(
+        eq(auditEvidencePortals.id, id),
+        eq(auditEvidencePortals.companyId, companyId)
+      ));
+    return portal || undefined;
+  }
+  
+  async getAuditEvidencePortalByToken(token: string): Promise<AuditEvidencePortal | undefined> {
+    const [portal] = await db
+      .select()
+      .from(auditEvidencePortals)
+      .where(eq(auditEvidencePortals.token, token));
+    return portal || undefined;
+  }
+  
+  async getAuditEvidencePortals(auditId: string, companyId: string): Promise<AuditEvidencePortal[]> {
+    return await db
+      .select()
+      .from(auditEvidencePortals)
+      .where(and(
+        eq(auditEvidencePortals.auditId, auditId),
+        eq(auditEvidencePortals.companyId, companyId)
+      ))
+      .orderBy(desc(auditEvidencePortals.createdAt));
+  }
+  
+  async updateAuditEvidencePortal(id: string, companyId: string, updates: Partial<InsertAuditEvidencePortal>): Promise<AuditEvidencePortal | undefined> {
+    const [updated] = await db
+      .update(auditEvidencePortals)
+      .set(updates)
+      .where(and(
+        eq(auditEvidencePortals.id, id),
+        eq(auditEvidencePortals.companyId, companyId)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async revokeAuditEvidencePortal(id: string, companyId: string): Promise<AuditEvidencePortal | undefined> {
+    const [revoked] = await db
+      .update(auditEvidencePortals)
+      .set({ revokedAt: new Date() })
+      .where(and(
+        eq(auditEvidencePortals.id, id),
+        eq(auditEvidencePortals.companyId, companyId)
+      ))
+      .returning();
+    return revoked || undefined;
+  }
+  
+  async updatePortalLastAccessed(id: string): Promise<void> {
+    await db
+      .update(auditEvidencePortals)
+      .set({ lastAccessedAt: new Date() })
+      .where(eq(auditEvidencePortals.id, id));
+  }
+  
+  // General Evidence Submissions
+  async createGeneralEvidenceSubmission(submission: InsertGeneralEvidenceSubmission): Promise<GeneralEvidenceSubmission> {
+    const [created] = await db
+      .insert(generalEvidenceSubmissions)
+      .values(submission)
+      .returning();
+    return created;
+  }
+  
+  async getGeneralEvidenceSubmissions(auditId: string, companyId: string): Promise<GeneralEvidenceSubmission[]> {
+    return await db
+      .select()
+      .from(generalEvidenceSubmissions)
+      .where(and(
+        eq(generalEvidenceSubmissions.auditId, auditId),
+        eq(generalEvidenceSubmissions.companyId, companyId)
+      ))
+      .orderBy(desc(generalEvidenceSubmissions.createdAt));
+  }
+  
+  async getGeneralEvidenceSubmission(id: string, companyId: string): Promise<GeneralEvidenceSubmission | undefined> {
+    const [submission] = await db
+      .select()
+      .from(generalEvidenceSubmissions)
+      .where(and(
+        eq(generalEvidenceSubmissions.id, id),
+        eq(generalEvidenceSubmissions.companyId, companyId)
+      ));
+    return submission || undefined;
+  }
+  
+  async updateGeneralEvidenceSubmission(id: string, companyId: string, updates: Partial<InsertGeneralEvidenceSubmission>): Promise<GeneralEvidenceSubmission | undefined> {
+    const [updated] = await db
+      .update(generalEvidenceSubmissions)
+      .set(updates)
+      .where(and(
+        eq(generalEvidenceSubmissions.id, id),
+        eq(generalEvidenceSubmissions.companyId, companyId)
+      ))
+      .returning();
+    return updated || undefined;
   }
 }
 
