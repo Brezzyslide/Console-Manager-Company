@@ -22,6 +22,7 @@ import {
 } from "@/lib/company-api";
 import { format } from "date-fns";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
+import AuditEvidencePortalManager from "@/components/AuditEvidencePortalManager";
 
 const evidenceTypeOptions: { value: EvidenceType; label: string }[] = [
   // Client Identity & Authority
@@ -299,6 +300,12 @@ export default function EvidenceLockerPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {auditFilter !== "all" && (
+        <div className="mb-6">
+          <AuditEvidencePortalManager auditId={auditFilter} />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-12">
