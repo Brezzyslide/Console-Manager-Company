@@ -1,0 +1,137 @@
+Implement Phase 1 of “Compliance Review” inside the existing multi-tenant NDIS Audit System.
+
+PROMPT 1 GOAL
+Create the database schema (tables + enums) and seed default compliance templates/items per tenant.
+Do NOT build UI yet. Do NOT change the audit runner/scoring/evidence system.
+
+Constraints
+- Enforce tenant/companyId scoping in every table.
+- Use existing DB tooling used in this repo (Drizzle ORM if present, otherwise existing migration approach).
+- No breaking changes to existing tables.
+
+Create enums
+- compliance_scope_type: SITE | PARTICIPANT
+- compliance_frequency: DAILY | WEEKLY
+- compliance_run_status: OPEN | SUBMITTED | LOCKED
+- compliance_response_type: YES_NO_NA | NUMBER | TEXT | PHOTO_REQUIRED
+- evidence_source_type: MANUAL | EXTERNAL_SIGNAL
+- compliance_action_severity: LOW | MEDIUM | HIGH
+- compliance_action_status: OPEN | IN_PROGRESS | CLOSED
+
+Create tables (all must include tenantId/companyId + id + createdAt + updatedAt)
+1) work_sites
+- id, companyId
+- name
+- addressLine1, suburb, state, postcode
+- siteType (string or enum)
+- status (active/inactive)
+
+2) participants
+- id, companyId
+- firstName, lastName (or displayName)
+- ndisNumber nullable
+- dob nullable
+- status (active/inactive)
+- primarySiteId nullable (FK to work_sites)
+
+3) participant_site_assignments
+- id, companyId
+- participantId (FK participants)
+- siteId (FK work_sites)
+- startDate
+- endDate nullable
+- isPrimary boolean
+
+4) compliance_templates
+- id, companyId
+- scopeType (SITE/PARTICIPANT)
+- frequency (DAILY/WEEKLY)
+- name
+- description nullable
+- appliesToSiteTypes json nullable
+- isActive boolean default true
+
+5) compliance_template_items
+- id, companyId
+- templateId (FK compliance_templates)
+- sortOrder integer
+- title
+- guidanceText nullable
+- responseType (YES_NO_NA/NUMBER/TEXT/PHOTO_REQUIRED)
+- isCritical boolean default false
+- defaultEvidenceRequired boolean default false
+- evidenceSourceType default MANUAL
+- externalSignalKey nullable (future CRM signals)
+
+6) compliance_runs
+- id, companyId
+- templateId
+- scopeType
+- frequency
+- siteId nullable
+- participantId nullable
+- periodStart datetime
+- periodEnd datetime
+- status (OPEN/SUBMITTED/LOCKED)
+- createdByUserId
+- submittedByUserId nullable
+- submittedAt nullable
+
+7) compliance_responses
+- id, companyId
+- runId
+- templateItemId
+- responseValue string
+- notes text nullable
+- attachmentId nullable (if you already have a file table, FK it; otherwise store a file reference safely)
+- createdAt, updatedAt
+
+8) compliance_actions
+- id, companyId
+- runId
+- siteId nullable
+- participantId nullable
+- severity (LOW/MEDIUM/HIGH)
+- status (OPEN/IN_PROGRESS/CLOSED)
+- title
+- description text nullable
+- assignedToUserId nullable
+- dueAt nullable
+- closedAt nullable
+- closureNotes nullable
+- closureAttachmentId nullable
+
+Indexes/constraints
+- Add indexes on companyId for all tables.
+- Add indexes on (companyId, siteId), (companyId, participantId) for runs/actions.
+- Add a unique guard to prevent duplicate compliance runs per scope per period:
+  For DAILY:
+    unique(companyId, templateId, siteId, DATE(periodStart)) for site templates
+    unique(companyId, templateId, participantId, DATE(periodStart)) for participant templates
+  For WEEKLY:
+    unique(companyId, templateId, siteId, periodStart) and similarly for participantId
+
+Seed default templates/items
+On app bootstrap or via a seed script:
+Create default templates per tenant (company):
+A) Site Daily template items:
+- House neat and tidy (critical)
+- Trip hazards checked and cleared (critical)
+- Exits and pathways clear (critical)
+- Emergency/evacuation kit present and accessible (critical)
+- Hazards identified logged (non critical, with notes)
+B) Site Weekly template items:
+- Evacuation drill completed (critical)
+- Emergency contacts list reviewed and current (critical)
+- Hazard register reviewed actions assigned (critical)
+- Maintenance issues triaged (non critical)
+C) Participant Weekly template items:
+- Incidents for period reviewed and recorded (number + notes) (critical)
+- Medication compliance sighted for period (yes/no) (critical)
+- Case note completion confirmed for rostered supports (yes/no) (critical, manual for now)
+- Care plan review needed flagged (yes/no + notes) (non critical)
+
+Deliverable
+- Migrations applied successfully
+- Seed script runs without error and creates templates/items for at least one tenant
+- No UI changes

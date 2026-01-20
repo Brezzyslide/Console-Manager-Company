@@ -977,3 +977,219 @@ export type GeneralEvidenceSubmission = typeof generalEvidenceSubmissions.$infer
 
 // Chat schema (for AI integrations)
 export * from "./models/chat";
+
+// ============================================================
+// COMPLIANCE REVIEW SYSTEM (Phase 1)
+// ============================================================
+
+// Compliance Enums (defined as type literals for use in text() columns)
+export const complianceScopeTypes = ["SITE", "PARTICIPANT"] as const;
+export type ComplianceScopeType = typeof complianceScopeTypes[number];
+
+export const complianceFrequencies = ["DAILY", "WEEKLY"] as const;
+export type ComplianceFrequency = typeof complianceFrequencies[number];
+
+export const complianceRunStatuses = ["OPEN", "SUBMITTED", "LOCKED"] as const;
+export type ComplianceRunStatus = typeof complianceRunStatuses[number];
+
+export const complianceResponseTypes = ["YES_NO_NA", "NUMBER", "TEXT", "PHOTO_REQUIRED"] as const;
+export type ComplianceResponseType = typeof complianceResponseTypes[number];
+
+export const evidenceSourceTypes = ["MANUAL", "EXTERNAL_SIGNAL"] as const;
+export type EvidenceSourceType = typeof evidenceSourceTypes[number];
+
+export const complianceActionSeverities = ["LOW", "MEDIUM", "HIGH"] as const;
+export type ComplianceActionSeverity = typeof complianceActionSeverities[number];
+
+export const complianceActionStatuses = ["OPEN", "IN_PROGRESS", "CLOSED"] as const;
+export type ComplianceActionStatus = typeof complianceActionStatuses[number];
+
+// Work Sites (tenant-scoped locations)
+export const workSites = pgTable("work_sites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  addressLine1: text("address_line_1"),
+  suburb: text("suburb"),
+  state: text("state"),
+  postcode: text("postcode"),
+  siteType: text("site_type"),
+  status: text("status", { enum: ["active", "inactive"] }).notNull().default("active"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertWorkSiteSchema = createInsertSchema(workSites).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWorkSite = z.infer<typeof insertWorkSiteSchema>;
+export type WorkSite = typeof workSites.$inferSelect;
+
+// Participants (tenant-scoped NDIS participants)
+export const participants = pgTable("participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  displayName: text("display_name"),
+  ndisNumber: text("ndis_number"),
+  dob: timestamp("dob"),
+  status: text("status", { enum: ["active", "inactive"] }).notNull().default("active"),
+  primarySiteId: varchar("primary_site_id").references(() => workSites.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertParticipantSchema = createInsertSchema(participants).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertParticipant = z.infer<typeof insertParticipantSchema>;
+export type Participant = typeof participants.$inferSelect;
+
+// Participant Site Assignments (many-to-many relationship)
+export const participantSiteAssignments = pgTable("participant_site_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  participantId: varchar("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+  siteId: varchar("site_id").notNull().references(() => workSites.id, { onDelete: "cascade" }),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertParticipantSiteAssignmentSchema = createInsertSchema(participantSiteAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertParticipantSiteAssignment = z.infer<typeof insertParticipantSiteAssignmentSchema>;
+export type ParticipantSiteAssignment = typeof participantSiteAssignments.$inferSelect;
+
+// Compliance Templates (tenant-scoped check templates)
+export const complianceTemplates = pgTable("compliance_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  scopeType: text("scope_type", { enum: complianceScopeTypes }).notNull(),
+  frequency: text("frequency", { enum: complianceFrequencies }).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  appliesToSiteTypes: json("applies_to_site_types").$type<string[] | null>(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertComplianceTemplateSchema = createInsertSchema(complianceTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertComplianceTemplate = z.infer<typeof insertComplianceTemplateSchema>;
+export type ComplianceTemplate = typeof complianceTemplates.$inferSelect;
+
+// Compliance Template Items (checklist items within a template)
+export const complianceTemplateItems = pgTable("compliance_template_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  templateId: varchar("template_id").notNull().references(() => complianceTemplates.id, { onDelete: "cascade" }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  title: text("title").notNull(),
+  guidanceText: text("guidance_text"),
+  responseType: text("response_type", { enum: complianceResponseTypes }).notNull().default("YES_NO_NA"),
+  isCritical: boolean("is_critical").notNull().default(false),
+  defaultEvidenceRequired: boolean("default_evidence_required").notNull().default(false),
+  evidenceSourceType: text("evidence_source_type", { enum: evidenceSourceTypes }).notNull().default("MANUAL"),
+  externalSignalKey: text("external_signal_key"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertComplianceTemplateItemSchema = createInsertSchema(complianceTemplateItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertComplianceTemplateItem = z.infer<typeof insertComplianceTemplateItemSchema>;
+export type ComplianceTemplateItem = typeof complianceTemplateItems.$inferSelect;
+
+// Compliance Runs (instances of running a compliance check)
+export const complianceRuns = pgTable("compliance_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  templateId: varchar("template_id").notNull().references(() => complianceTemplates.id, { onDelete: "cascade" }),
+  scopeType: text("scope_type", { enum: complianceScopeTypes }).notNull(),
+  frequency: text("frequency", { enum: complianceFrequencies }).notNull(),
+  siteId: varchar("site_id").references(() => workSites.id),
+  participantId: varchar("participant_id").references(() => participants.id),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  status: text("status", { enum: complianceRunStatuses }).notNull().default("OPEN"),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => companyUsers.id),
+  submittedByUserId: varchar("submitted_by_user_id").references(() => companyUsers.id),
+  submittedAt: timestamp("submitted_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertComplianceRunSchema = createInsertSchema(complianceRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertComplianceRun = z.infer<typeof insertComplianceRunSchema>;
+export type ComplianceRun = typeof complianceRuns.$inferSelect;
+
+// Compliance Responses (answers to template items within a run)
+export const complianceResponses = pgTable("compliance_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  runId: varchar("run_id").notNull().references(() => complianceRuns.id, { onDelete: "cascade" }),
+  templateItemId: varchar("template_item_id").notNull().references(() => complianceTemplateItems.id, { onDelete: "cascade" }),
+  responseValue: text("response_value"),
+  notes: text("notes"),
+  attachmentPath: text("attachment_path"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertComplianceResponseSchema = createInsertSchema(complianceResponses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertComplianceResponse = z.infer<typeof insertComplianceResponseSchema>;
+export type ComplianceResponse = typeof complianceResponses.$inferSelect;
+
+// Compliance Actions (follow-up items from non-compliant responses)
+export const complianceActions = pgTable("compliance_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  runId: varchar("run_id").notNull().references(() => complianceRuns.id, { onDelete: "cascade" }),
+  siteId: varchar("site_id").references(() => workSites.id),
+  participantId: varchar("participant_id").references(() => participants.id),
+  severity: text("severity", { enum: complianceActionSeverities }).notNull().default("MEDIUM"),
+  status: text("status", { enum: complianceActionStatuses }).notNull().default("OPEN"),
+  title: text("title").notNull(),
+  description: text("description"),
+  assignedToUserId: varchar("assigned_to_user_id").references(() => companyUsers.id),
+  dueAt: timestamp("due_at"),
+  closedAt: timestamp("closed_at"),
+  closureNotes: text("closure_notes"),
+  closureAttachmentPath: text("closure_attachment_path"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertComplianceActionSchema = createInsertSchema(complianceActions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertComplianceAction = z.infer<typeof insertComplianceActionSchema>;
+export type ComplianceAction = typeof complianceActions.$inferSelect;
