@@ -1842,7 +1842,7 @@ export class DatabaseStorage implements IStorage {
   async createComplianceTemplate(template: InsertComplianceTemplate): Promise<ComplianceTemplate> {
     const [created] = await db
       .insert(complianceTemplates)
-      .values(template)
+      .values(template as any)
       .returning();
     return created;
   }
@@ -1861,8 +1861,8 @@ export class DatabaseStorage implements IStorage {
       .from(complianceTemplates)
       .where(and(
         eq(complianceTemplates.companyId, companyId),
-        eq(complianceTemplates.scopeType, scopeType),
-        eq(complianceTemplates.frequency, frequency),
+        eq(complianceTemplates.scopeType, scopeType as any),
+        eq(complianceTemplates.frequency, frequency as any),
         eq(complianceTemplates.isActive, true)
       ))
       .orderBy(asc(complianceTemplates.name));
@@ -1872,7 +1872,7 @@ export class DatabaseStorage implements IStorage {
   async createComplianceTemplateItem(item: InsertComplianceTemplateItem): Promise<ComplianceTemplateItem> {
     const [created] = await db
       .insert(complianceTemplateItems)
-      .values(item)
+      .values(item as any)
       .returning();
     return created;
   }
@@ -1881,7 +1881,7 @@ export class DatabaseStorage implements IStorage {
     if (items.length === 0) return [];
     return await db
       .insert(complianceTemplateItems)
-      .values(items)
+      .values(items as any)
       .returning();
   }
   
