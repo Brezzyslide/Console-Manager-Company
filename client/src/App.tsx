@@ -35,6 +35,7 @@ import FindingDetailPage from "@/pages/company/FindingDetailPage";
 import ServicesSettingsPage from "@/pages/company/ServicesSettingsPage";
 import EvidenceLockerPage from "@/pages/company/EvidenceLockerPage";
 import EvidenceDetailPage from "@/pages/company/EvidenceDetailPage";
+import ComplianceReviewPage from "@/pages/company/ComplianceReviewPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 // Public Pages
@@ -111,6 +112,13 @@ function Router() {
       <Route path="/app/admin/users">
         <CompanyLayout requireRole={["CompanyAdmin"]}>
           <AdminUsersPage />
+        </CompanyLayout>
+      </Route>
+      
+      {/* Compliance Review Route */}
+      <Route path="/compliance-review">
+        <CompanyLayout>
+          <ComplianceReviewPage />
         </CompanyLayout>
       </Route>
       

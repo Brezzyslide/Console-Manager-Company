@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Sparkles,
   ClipboardCheck,
-  FileBarChart
+  FileBarChart,
+  ListChecks
 } from "lucide-react";
 
 interface CompanyLayoutProps {
@@ -109,6 +110,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
 
   const navItems = [
     { href: "/company/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
+    { href: "/compliance-review", label: "Compliance", icon: ListChecks, testId: "nav-compliance" },
     { href: "/audits", label: "Audits", icon: ClipboardCheck, testId: "nav-audits", startsWith: true },
     { href: "/findings", label: "Findings", icon: AlertTriangle, testId: "nav-findings" },
     { href: "/reports", label: "Reports", icon: FileBarChart, testId: "nav-reports" },

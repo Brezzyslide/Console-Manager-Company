@@ -1,0 +1,64 @@
+PROMPT 3 GOAL
+Build the frontend Compliance Review page and components.
+Use existing React, Tailwind, shadcn/ui patterns in the repo.
+Assume APIs exist from Prompt 2.
+
+Page requirements
+Create route/page: /compliance-review
+
+Top controls
+- Frequency toggle: Daily / Weekly
+- Site selector dropdown (loads /api/work-sites)
+- Participant selector dropdown (loads /api/participants)
+- Date picker for Daily
+- Week selector (or auto week range) for Weekly
+
+Behavior
+A) Site checklist
+- When site selected + frequency chosen:
+  - fetch the appropriate template(s) for SITE + frequency
+  - allow user to Start or Resume a run:
+     - if run exists for that site and date/week, load it
+     - else create run via POST /api/compliance-runs then load
+
+B) Participant checklist
+- When participant selected + frequency chosen:
+  - fetch templates for PARTICIPANT + frequency
+  - Start/Resume similarly
+
+Checklist rendering
+- For each item:
+  - show title
+  - show optional guidance text in subtle style
+  - render input control based on responseType:
+    - YES/NO/NA buttons
+    - number input
+    - textarea for text
+    - photo upload button for PHOTO_REQUIRED (use existing upload component if exists)
+  - notes field optional for all items
+
+Autosave
+- On change, debounce-save to /api/compliance-runs/:id/respond
+
+Submit
+- Submit button calls /api/compliance-runs/:id/submit
+- After submit show summary banner:
+  - Green/Amber/Red status
+  - list failed critical items
+  - list created actions
+
+Actions panel
+- Right side panel showing open actions for selected site/participant:
+  - fetch /api/compliance-actions?siteId=... and/or participantId=...
+  - show status, severity, due date
+  - allow “Mark In Progress” and “Close” if role allows (close requires notes, optional photo)
+
+UX requirements
+- Keep layout clean, calm, and consistent with your dark-accented theme.
+- Provide meaningful success/error toasts.
+
+Deliverables
+- Page works end-to-end
+- Staff can complete a site daily run and submit it
+- Actions appear after submission
+- No template editing UI required yet (admin can use existing admin routes or we add later)
