@@ -1,0 +1,89 @@
+PROMPT 2 GOAL
+Implement backend APIs for the Compliance Review module (tenant-scoped + RBAC).
+Do NOT build UI yet. Assume schema exists from Prompt 1.
+
+Constraints
+- Every handler must enforce companyId/tenantId scoping.
+- Use existing auth middleware and role permission patterns.
+- Do not touch audit runner logic.
+
+APIs to implement
+Work Sites
+- GET /api/work-sites
+- POST /api/work-sites
+- PATCH /api/work-sites/:id
+- DELETE /api/work-sites/:id (soft delete preferred)
+
+Participants
+- GET /api/participants
+- POST /api/participants
+- PATCH /api/participants/:id
+- DELETE /api/participants/:id (soft delete preferred)
+
+Assignments
+- POST /api/participant-site-assignments (assign participant to site)
+- DELETE /api/participant-site-assignments/:id (unassign)
+
+Templates
+- GET /api/compliance-templates?scopeType=&frequency=
+- POST /api/compliance-templates
+- PATCH /api/compliance-templates/:id
+- DELETE /api/compliance-templates/:id (soft deactivate preferred)
+
+Template Items
+- GET /api/compliance-templates/:id/items
+- POST /api/compliance-templates/:id/items
+- PATCH /api/compliance-template-items/:itemId
+- DELETE /api/compliance-template-items/:itemId
+
+Compliance Runs
+- POST /api/compliance-runs
+  Input: templateId, scopeType, frequency, siteId or participantId, date (for daily) or periodStart/periodEnd (for weekly)
+  Behavior:
+   - prevent duplicates for same scope and period (use unique guard or query check)
+   - create status OPEN
+- GET /api/compliance-runs
+  Query: siteId, participantId, frequency, date, templateId
+  Return the run + template items + any saved responses
+
+Responses
+- POST /api/compliance-runs/:id/respond
+  Save responses in draft mode (upsert by templateItemId)
+  Validate response types:
+   - YES_NO_NA must be YES/NO/NA
+   - NUMBER must be numeric string
+   - TEXT any string
+   - PHOTO_REQUIRED must include attachmentId
+
+Submit Run (core logic)
+- POST /api/compliance-runs/:id/submit
+  Behavior:
+   - validate run is OPEN
+   - ensure all critical items have a response (YES/NO/NA; NA allowed only if the item permits it)
+   - compute runStatusColor (green/amber/red) and store as derived field if you have a place; if not, compute in response
+     Rules:
+      - Red if any critical item is NO
+      - Amber if all critical are not NO but any non-critical is NO
+      - Green if no NO responses (or NA where applicable)
+   - create compliance_actions automatically for failed critical items:
+      - if critical item response = NO → create HIGH action with title = item title and description includes notes
+      - if non-critical response = NO → optional MEDIUM action (implement as feature flag or always create MEDIUM)
+   - mark run as SUBMITTED, set submittedByUserId and submittedAt
+
+Actions
+- GET /api/compliance-actions?siteId=&participantId=&status=
+- PATCH /api/compliance-actions/:id (assign, set IN_PROGRESS)
+- POST /api/compliance-actions/:id/close
+  Requires closureNotes, optional closureAttachmentId
+  Sets status CLOSED and closedAt
+
+Permissions
+- Admin/TeamLeader can manage templates
+- Staff can create/respond/submit runs for allowed scope
+For now allow staff to create runs; assignment scoping will be tightened in Prompt 4.
+
+Deliverables
+- All endpoints implemented with tenant scoping
+- Submit endpoint creates actions correctly
+- Duplicate run prevention works
+- Unit tests if repo supports, otherwise add simple route sanity checks

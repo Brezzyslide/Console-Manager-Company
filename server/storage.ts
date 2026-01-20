@@ -34,6 +34,12 @@ import {
   generalEvidenceSubmissions,
   complianceTemplates,
   complianceTemplateItems,
+  complianceRuns,
+  complianceResponses,
+  complianceActions,
+  workSites,
+  participants,
+  participantSiteAssignments,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -103,6 +109,18 @@ import {
   type InsertComplianceTemplate,
   type ComplianceTemplateItem,
   type InsertComplianceTemplateItem,
+  type ComplianceRun,
+  type InsertComplianceRun,
+  type ComplianceResponse,
+  type InsertComplianceResponse,
+  type ComplianceAction,
+  type InsertComplianceAction,
+  type WorkSite,
+  type InsertWorkSite,
+  type Participant,
+  type InsertParticipant,
+  type ParticipantSiteAssignment,
+  type InsertParticipantSiteAssignment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -287,6 +305,52 @@ export interface IStorage {
   getGeneralEvidenceSubmissions(auditId: string, companyId: string): Promise<GeneralEvidenceSubmission[]>;
   getGeneralEvidenceSubmission(id: string, companyId: string): Promise<GeneralEvidenceSubmission | undefined>;
   updateGeneralEvidenceSubmission(id: string, companyId: string, updates: Partial<InsertGeneralEvidenceSubmission>): Promise<GeneralEvidenceSubmission | undefined>;
+  
+  // Work Sites
+  getWorkSites(companyId: string): Promise<WorkSite[]>;
+  getWorkSite(id: string, companyId: string): Promise<WorkSite | undefined>;
+  createWorkSite(site: InsertWorkSite): Promise<WorkSite>;
+  updateWorkSite(id: string, companyId: string, updates: Partial<InsertWorkSite>): Promise<WorkSite | undefined>;
+  deleteWorkSite(id: string, companyId: string): Promise<boolean>;
+  
+  // Participants
+  getParticipants(companyId: string): Promise<Participant[]>;
+  getParticipant(id: string, companyId: string): Promise<Participant | undefined>;
+  createParticipant(participant: InsertParticipant): Promise<Participant>;
+  updateParticipant(id: string, companyId: string, updates: Partial<InsertParticipant>): Promise<Participant | undefined>;
+  deleteParticipant(id: string, companyId: string): Promise<boolean>;
+  
+  // Participant Site Assignments
+  getParticipantSiteAssignments(companyId: string, filters?: { participantId?: string; siteId?: string }): Promise<ParticipantSiteAssignment[]>;
+  createParticipantSiteAssignment(assignment: InsertParticipantSiteAssignment): Promise<ParticipantSiteAssignment>;
+  deleteParticipantSiteAssignment(id: string, companyId: string): Promise<boolean>;
+  
+  // Compliance Templates (extended)
+  getComplianceTemplate(id: string, companyId: string): Promise<ComplianceTemplate | undefined>;
+  updateComplianceTemplate(id: string, companyId: string, updates: Partial<InsertComplianceTemplate>): Promise<ComplianceTemplate | undefined>;
+  
+  // Compliance Template Items (extended)
+  getComplianceTemplateItem(id: string, companyId: string): Promise<ComplianceTemplateItem | undefined>;
+  updateComplianceTemplateItem(id: string, companyId: string, updates: Partial<InsertComplianceTemplateItem>): Promise<ComplianceTemplateItem | undefined>;
+  deleteComplianceTemplateItem(id: string, companyId: string): Promise<boolean>;
+  
+  // Compliance Runs
+  getComplianceRuns(companyId: string, filters?: { siteId?: string; participantId?: string; templateId?: string; status?: string }): Promise<ComplianceRun[]>;
+  getComplianceRun(id: string, companyId: string): Promise<ComplianceRun | undefined>;
+  createComplianceRun(run: InsertComplianceRun): Promise<ComplianceRun>;
+  updateComplianceRun(id: string, companyId: string, updates: Partial<InsertComplianceRun>): Promise<ComplianceRun | undefined>;
+  checkDuplicateRun(companyId: string, templateId: string, scopeEntityId: string, periodStart: Date, scopeType: string): Promise<ComplianceRun | undefined>;
+  
+  // Compliance Responses
+  getComplianceResponses(runId: string, companyId: string): Promise<ComplianceResponse[]>;
+  getComplianceResponse(runId: string, templateItemId: string, companyId: string): Promise<ComplianceResponse | undefined>;
+  upsertComplianceResponse(response: InsertComplianceResponse): Promise<ComplianceResponse>;
+  
+  // Compliance Actions
+  getComplianceActions(companyId: string, filters?: { siteId?: string; participantId?: string; status?: string; runId?: string }): Promise<ComplianceAction[]>;
+  getComplianceAction(id: string, companyId: string): Promise<ComplianceAction | undefined>;
+  createComplianceAction(action: InsertComplianceAction): Promise<ComplianceAction>;
+  updateComplianceAction(id: string, companyId: string, updates: Partial<InsertComplianceAction>): Promise<ComplianceAction | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1894,6 +1958,311 @@ export class DatabaseStorage implements IStorage {
         eq(complianceTemplateItems.companyId, companyId)
       ))
       .orderBy(asc(complianceTemplateItems.sortOrder));
+  }
+  
+  // Work Sites
+  async getWorkSites(companyId: string): Promise<WorkSite[]> {
+    return await db
+      .select()
+      .from(workSites)
+      .where(eq(workSites.companyId, companyId))
+      .orderBy(asc(workSites.name));
+  }
+  
+  async getWorkSite(id: string, companyId: string): Promise<WorkSite | undefined> {
+    const [site] = await db
+      .select()
+      .from(workSites)
+      .where(and(eq(workSites.id, id), eq(workSites.companyId, companyId)));
+    return site || undefined;
+  }
+  
+  async createWorkSite(site: InsertWorkSite): Promise<WorkSite> {
+    const [created] = await db.insert(workSites).values(site).returning();
+    return created;
+  }
+  
+  async updateWorkSite(id: string, companyId: string, updates: Partial<InsertWorkSite>): Promise<WorkSite | undefined> {
+    const [updated] = await db
+      .update(workSites)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(workSites.id, id), eq(workSites.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteWorkSite(id: string, companyId: string): Promise<boolean> {
+    const [updated] = await db
+      .update(workSites)
+      .set({ status: "inactive", updatedAt: new Date() })
+      .where(and(eq(workSites.id, id), eq(workSites.companyId, companyId)))
+      .returning();
+    return !!updated;
+  }
+  
+  // Participants
+  async getParticipants(companyId: string): Promise<Participant[]> {
+    return await db
+      .select()
+      .from(participants)
+      .where(eq(participants.companyId, companyId))
+      .orderBy(asc(participants.lastName), asc(participants.firstName));
+  }
+  
+  async getParticipant(id: string, companyId: string): Promise<Participant | undefined> {
+    const [participant] = await db
+      .select()
+      .from(participants)
+      .where(and(eq(participants.id, id), eq(participants.companyId, companyId)));
+    return participant || undefined;
+  }
+  
+  async createParticipant(participant: InsertParticipant): Promise<Participant> {
+    const [created] = await db.insert(participants).values(participant).returning();
+    return created;
+  }
+  
+  async updateParticipant(id: string, companyId: string, updates: Partial<InsertParticipant>): Promise<Participant | undefined> {
+    const [updated] = await db
+      .update(participants)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(participants.id, id), eq(participants.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteParticipant(id: string, companyId: string): Promise<boolean> {
+    const [updated] = await db
+      .update(participants)
+      .set({ status: "inactive", updatedAt: new Date() })
+      .where(and(eq(participants.id, id), eq(participants.companyId, companyId)))
+      .returning();
+    return !!updated;
+  }
+  
+  // Participant Site Assignments
+  async getParticipantSiteAssignments(companyId: string, filters?: { participantId?: string; siteId?: string }): Promise<ParticipantSiteAssignment[]> {
+    let conditions = [eq(participantSiteAssignments.companyId, companyId)];
+    if (filters?.participantId) {
+      conditions.push(eq(participantSiteAssignments.participantId, filters.participantId));
+    }
+    if (filters?.siteId) {
+      conditions.push(eq(participantSiteAssignments.siteId, filters.siteId));
+    }
+    return await db
+      .select()
+      .from(participantSiteAssignments)
+      .where(and(...conditions))
+      .orderBy(desc(participantSiteAssignments.startDate));
+  }
+  
+  async createParticipantSiteAssignment(assignment: InsertParticipantSiteAssignment): Promise<ParticipantSiteAssignment> {
+    const [created] = await db.insert(participantSiteAssignments).values(assignment).returning();
+    return created;
+  }
+  
+  async deleteParticipantSiteAssignment(id: string, companyId: string): Promise<boolean> {
+    const result = await db
+      .delete(participantSiteAssignments)
+      .where(and(eq(participantSiteAssignments.id, id), eq(participantSiteAssignments.companyId, companyId)));
+    return true;
+  }
+  
+  // Compliance Templates (extended)
+  async getComplianceTemplate(id: string, companyId: string): Promise<ComplianceTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(complianceTemplates)
+      .where(and(eq(complianceTemplates.id, id), eq(complianceTemplates.companyId, companyId)));
+    return template || undefined;
+  }
+  
+  async updateComplianceTemplate(id: string, companyId: string, updates: Partial<InsertComplianceTemplate>): Promise<ComplianceTemplate | undefined> {
+    const [updated] = await db
+      .update(complianceTemplates)
+      .set({ ...updates, updatedAt: new Date() } as any)
+      .where(and(eq(complianceTemplates.id, id), eq(complianceTemplates.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Compliance Template Items (extended)
+  async getComplianceTemplateItem(id: string, companyId: string): Promise<ComplianceTemplateItem | undefined> {
+    const [item] = await db
+      .select()
+      .from(complianceTemplateItems)
+      .where(and(eq(complianceTemplateItems.id, id), eq(complianceTemplateItems.companyId, companyId)));
+    return item || undefined;
+  }
+  
+  async updateComplianceTemplateItem(id: string, companyId: string, updates: Partial<InsertComplianceTemplateItem>): Promise<ComplianceTemplateItem | undefined> {
+    const [updated] = await db
+      .update(complianceTemplateItems)
+      .set({ ...updates, updatedAt: new Date() } as any)
+      .where(and(eq(complianceTemplateItems.id, id), eq(complianceTemplateItems.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteComplianceTemplateItem(id: string, companyId: string): Promise<boolean> {
+    const result = await db
+      .delete(complianceTemplateItems)
+      .where(and(eq(complianceTemplateItems.id, id), eq(complianceTemplateItems.companyId, companyId)));
+    return true;
+  }
+  
+  // Compliance Runs
+  async getComplianceRuns(companyId: string, filters?: { siteId?: string; participantId?: string; templateId?: string; status?: string }): Promise<ComplianceRun[]> {
+    let conditions = [eq(complianceRuns.companyId, companyId)];
+    if (filters?.siteId) {
+      conditions.push(eq(complianceRuns.siteId, filters.siteId));
+    }
+    if (filters?.participantId) {
+      conditions.push(eq(complianceRuns.participantId, filters.participantId));
+    }
+    if (filters?.templateId) {
+      conditions.push(eq(complianceRuns.templateId, filters.templateId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(complianceRuns.status, filters.status as any));
+    }
+    return await db
+      .select()
+      .from(complianceRuns)
+      .where(and(...conditions))
+      .orderBy(desc(complianceRuns.periodStart));
+  }
+  
+  async getComplianceRun(id: string, companyId: string): Promise<ComplianceRun | undefined> {
+    const [run] = await db
+      .select()
+      .from(complianceRuns)
+      .where(and(eq(complianceRuns.id, id), eq(complianceRuns.companyId, companyId)));
+    return run || undefined;
+  }
+  
+  async createComplianceRun(run: InsertComplianceRun): Promise<ComplianceRun> {
+    const [created] = await db.insert(complianceRuns).values(run as any).returning();
+    return created;
+  }
+  
+  async updateComplianceRun(id: string, companyId: string, updates: Partial<InsertComplianceRun>): Promise<ComplianceRun | undefined> {
+    const [updated] = await db
+      .update(complianceRuns)
+      .set({ ...updates, updatedAt: new Date() } as any)
+      .where(and(eq(complianceRuns.id, id), eq(complianceRuns.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async checkDuplicateRun(companyId: string, templateId: string, scopeEntityId: string, periodStart: Date, scopeType: string): Promise<ComplianceRun | undefined> {
+    const startOfDay = new Date(periodStart);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(periodStart);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    let conditions = [
+      eq(complianceRuns.companyId, companyId),
+      eq(complianceRuns.templateId, templateId),
+    ];
+    
+    if (scopeType === "SITE") {
+      conditions.push(eq(complianceRuns.siteId, scopeEntityId));
+    } else {
+      conditions.push(eq(complianceRuns.participantId, scopeEntityId));
+    }
+    
+    const [existing] = await db
+      .select()
+      .from(complianceRuns)
+      .where(and(...conditions));
+    
+    if (existing) {
+      const existingStart = new Date(existing.periodStart);
+      existingStart.setHours(0, 0, 0, 0);
+      if (existingStart.getTime() === startOfDay.getTime()) {
+        return existing;
+      }
+    }
+    return undefined;
+  }
+  
+  // Compliance Responses
+  async getComplianceResponses(runId: string, companyId: string): Promise<ComplianceResponse[]> {
+    return await db
+      .select()
+      .from(complianceResponses)
+      .where(and(eq(complianceResponses.runId, runId), eq(complianceResponses.companyId, companyId)));
+  }
+  
+  async getComplianceResponse(runId: string, templateItemId: string, companyId: string): Promise<ComplianceResponse | undefined> {
+    const [response] = await db
+      .select()
+      .from(complianceResponses)
+      .where(and(
+        eq(complianceResponses.runId, runId),
+        eq(complianceResponses.templateItemId, templateItemId),
+        eq(complianceResponses.companyId, companyId)
+      ));
+    return response || undefined;
+  }
+  
+  async upsertComplianceResponse(response: InsertComplianceResponse): Promise<ComplianceResponse> {
+    const existing = await this.getComplianceResponse(response.runId, response.templateItemId, response.companyId);
+    if (existing) {
+      const [updated] = await db
+        .update(complianceResponses)
+        .set({ ...response, updatedAt: new Date() } as any)
+        .where(eq(complianceResponses.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(complianceResponses).values(response as any).returning();
+    return created;
+  }
+  
+  // Compliance Actions
+  async getComplianceActions(companyId: string, filters?: { siteId?: string; participantId?: string; status?: string; runId?: string }): Promise<ComplianceAction[]> {
+    let conditions = [eq(complianceActions.companyId, companyId)];
+    if (filters?.siteId) {
+      conditions.push(eq(complianceActions.siteId, filters.siteId));
+    }
+    if (filters?.participantId) {
+      conditions.push(eq(complianceActions.participantId, filters.participantId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(complianceActions.status, filters.status as any));
+    }
+    if (filters?.runId) {
+      conditions.push(eq(complianceActions.runId, filters.runId));
+    }
+    return await db
+      .select()
+      .from(complianceActions)
+      .where(and(...conditions))
+      .orderBy(desc(complianceActions.createdAt));
+  }
+  
+  async getComplianceAction(id: string, companyId: string): Promise<ComplianceAction | undefined> {
+    const [action] = await db
+      .select()
+      .from(complianceActions)
+      .where(and(eq(complianceActions.id, id), eq(complianceActions.companyId, companyId)));
+    return action || undefined;
+  }
+  
+  async createComplianceAction(action: InsertComplianceAction): Promise<ComplianceAction> {
+    const [created] = await db.insert(complianceActions).values(action as any).returning();
+    return created;
+  }
+  
+  async updateComplianceAction(id: string, companyId: string, updates: Partial<InsertComplianceAction>): Promise<ComplianceAction | undefined> {
+    const [updated] = await db
+      .update(complianceActions)
+      .set({ ...updates, updatedAt: new Date() } as any)
+      .where(and(eq(complianceActions.id, id), eq(complianceActions.companyId, companyId)))
+      .returning();
+    return updated || undefined;
   }
 }
 
