@@ -60,6 +60,8 @@ interface ComplianceTemplateItem {
   responseType: "YES_NO_NA" | "NUMBER" | "TEXT" | "PHOTO_REQUIRED";
   isCritical: boolean;
   sortOrder: number;
+  evidenceSourceType?: "MANUAL" | "EXTERNAL_SIGNAL";
+  externalSignalKey?: string;
 }
 
 interface ComplianceRun {
@@ -496,100 +498,119 @@ export default function ComplianceReviewPage() {
                   </div>
                 )}
 
-                {items.map((item) => (
-                  <div key={item.id} className={`p-4 rounded-lg border ${item.isCritical ? "border-red-500/30 bg-red-500/5" : "border-border"}`}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{item.title}</span>
-                          {item.isCritical && (
-                            <Badge variant="destructive" className="text-xs">Critical</Badge>
+                {items.map((item) => {
+                  const isExternalSignal = item.evidenceSourceType === "EXTERNAL_SIGNAL";
+                  
+                  return (
+                    <div key={item.id} className={`p-4 rounded-lg border ${
+                      isExternalSignal ? "border-blue-500/30 bg-blue-500/5" :
+                      item.isCritical ? "border-red-500/30 bg-red-500/5" : "border-border"
+                    }`}>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{item.title}</span>
+                            {item.isCritical && (
+                              <Badge variant="destructive" className="text-xs">Critical</Badge>
+                            )}
+                            {isExternalSignal && (
+                              <Badge variant="outline" className="text-xs border-blue-500/50 text-blue-600">Signal</Badge>
+                            )}
+                          </div>
+                          {item.guidanceText && (
+                            <p className="text-sm text-muted-foreground mt-1">{item.guidanceText}</p>
                           )}
                         </div>
-                        {item.guidanceText && (
-                          <p className="text-sm text-muted-foreground mt-1">{item.guidanceText}</p>
-                        )}
+
+                        <div className="flex-shrink-0">
+                          {isExternalSignal ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
+                              <FileText className="h-4 w-4" />
+                              <span>No signal connected</span>
+                            </div>
+                          ) : (
+                            <>
+                              {item.responseType === "YES_NO_NA" && (
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant={localResponses[item.id]?.value === "YES" ? "default" : "outline"}
+                                    onClick={() => handleResponseChange(item.id, "YES")}
+                                    disabled={run.status !== "OPEN"}
+                                    className={localResponses[item.id]?.value === "YES" ? "bg-green-600 hover:bg-green-700" : ""}
+                                    data-testid={`button-yes-${item.id}`}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={localResponses[item.id]?.value === "NO" ? "default" : "outline"}
+                                    onClick={() => handleResponseChange(item.id, "NO")}
+                                    disabled={run.status !== "OPEN"}
+                                    className={localResponses[item.id]?.value === "NO" ? "bg-red-600 hover:bg-red-700" : ""}
+                                    data-testid={`button-no-${item.id}`}
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={localResponses[item.id]?.value === "NA" ? "default" : "outline"}
+                                    onClick={() => handleResponseChange(item.id, "NA")}
+                                    disabled={run.status !== "OPEN"}
+                                    className={localResponses[item.id]?.value === "NA" ? "bg-gray-600 hover:bg-gray-700" : ""}
+                                    data-testid={`button-na-${item.id}`}
+                                  >
+                                    <MinusCircle className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+
+                              {item.responseType === "NUMBER" && (
+                                <Input
+                                  type="number"
+                                  value={localResponses[item.id]?.value || ""}
+                                  onChange={(e) => handleResponseChange(item.id, e.target.value)}
+                                  disabled={run.status !== "OPEN"}
+                                  className="w-24"
+                                  data-testid={`input-number-${item.id}`}
+                                />
+                              )}
+
+                              {item.responseType === "TEXT" && (
+                                <Textarea
+                                  value={localResponses[item.id]?.value || ""}
+                                  onChange={(e) => handleResponseChange(item.id, e.target.value)}
+                                  disabled={run.status !== "OPEN"}
+                                  className="w-48"
+                                  rows={2}
+                                  data-testid={`input-text-${item.id}`}
+                                />
+                              )}
+
+                              {item.responseType === "PHOTO_REQUIRED" && (
+                                <Button variant="outline" size="sm" disabled={run.status !== "OPEN"}>
+                                  Upload Photo
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex-shrink-0">
-                        {item.responseType === "YES_NO_NA" && (
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant={localResponses[item.id]?.value === "YES" ? "default" : "outline"}
-                              onClick={() => handleResponseChange(item.id, "YES")}
-                              disabled={run.status !== "OPEN"}
-                              className={localResponses[item.id]?.value === "YES" ? "bg-green-600 hover:bg-green-700" : ""}
-                              data-testid={`button-yes-${item.id}`}
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={localResponses[item.id]?.value === "NO" ? "default" : "outline"}
-                              onClick={() => handleResponseChange(item.id, "NO")}
-                              disabled={run.status !== "OPEN"}
-                              className={localResponses[item.id]?.value === "NO" ? "bg-red-600 hover:bg-red-700" : ""}
-                              data-testid={`button-no-${item.id}`}
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={localResponses[item.id]?.value === "NA" ? "default" : "outline"}
-                              onClick={() => handleResponseChange(item.id, "NA")}
-                              disabled={run.status !== "OPEN"}
-                              className={localResponses[item.id]?.value === "NA" ? "bg-gray-600 hover:bg-gray-700" : ""}
-                              data-testid={`button-na-${item.id}`}
-                            >
-                              <MinusCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-
-                        {item.responseType === "NUMBER" && (
+                      {run.status === "OPEN" && (
+                        <div className="mt-2">
                           <Input
-                            type="number"
-                            value={localResponses[item.id]?.value || ""}
-                            onChange={(e) => handleResponseChange(item.id, e.target.value)}
-                            disabled={run.status !== "OPEN"}
-                            className="w-24"
-                            data-testid={`input-number-${item.id}`}
+                            placeholder={isExternalSignal ? "Notes for this signal item..." : "Optional notes..."}
+                            value={localResponses[item.id]?.notes || ""}
+                            onChange={(e) => handleResponseChange(item.id, undefined, e.target.value)}
+                            className="text-sm"
+                            data-testid={`input-notes-${item.id}`}
                           />
-                        )}
-
-                        {item.responseType === "TEXT" && (
-                          <Textarea
-                            value={localResponses[item.id]?.value || ""}
-                            onChange={(e) => handleResponseChange(item.id, e.target.value)}
-                            disabled={run.status !== "OPEN"}
-                            className="w-48"
-                            rows={2}
-                            data-testid={`input-text-${item.id}`}
-                          />
-                        )}
-
-                        {item.responseType === "PHOTO_REQUIRED" && (
-                          <Button variant="outline" size="sm" disabled={run.status !== "OPEN"}>
-                            Upload Photo
-                          </Button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
-
-                    {run.status === "OPEN" && (
-                      <div className="mt-2">
-                        <Input
-                          placeholder="Optional notes..."
-                          value={localResponses[item.id]?.notes || ""}
-                          onChange={(e) => handleResponseChange(item.id, undefined, e.target.value)}
-                          className="text-sm"
-                          data-testid={`input-notes-${item.id}`}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
 
                 {run.status === "OPEN" && (
                   <Button
