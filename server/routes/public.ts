@@ -1,11 +1,65 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { storage } from "../storage";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+
+const PORTAL_JWT_SECRET = process.env.COMPANY_JWT_SECRET || "portal-session-secret";
+const PORTAL_SESSION_EXPIRY = "4h";
+
+interface PortalSession {
+  portalId: string;
+  token: string;
+}
+
+interface AuthenticatedPortalRequest extends Request {
+  portalSession?: PortalSession;
+}
+
+function createPortalSessionToken(portalId: string, token: string): string {
+  return jwt.sign({ portalId, token }, PORTAL_JWT_SECRET, { expiresIn: PORTAL_SESSION_EXPIRY });
+}
+
+function verifyPortalSession(sessionToken: string): PortalSession | null {
+  try {
+    const decoded = jwt.verify(sessionToken, PORTAL_JWT_SECRET) as PortalSession;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+async function requirePortalSession(req: AuthenticatedPortalRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Session token required" });
+  }
+  
+  const sessionToken = authHeader.substring(7);
+  const session = verifyPortalSession(sessionToken);
+  
+  if (!session) {
+    return res.status(401).json({ error: "Invalid or expired session" });
+  }
+  
+  const portal = await storage.getAuditEvidencePortalByToken(session.token);
+  
+  if (!portal || portal.id !== session.portalId) {
+    return res.status(401).json({ error: "Portal not found" });
+  }
+  
+  if (portal.revokedAt || (portal.expiresAt && new Date(portal.expiresAt) < new Date())) {
+    return res.status(403).json({ error: "Portal access denied" });
+  }
+  
+  req.portalSession = session;
+  next();
+}
 
 const router = Router();
 
@@ -168,8 +222,11 @@ router.post("/audit-portal/:token/auth", async (req, res) => {
     const audit = await storage.getAudit(portal.auditId, portal.companyId);
     const company = await storage.getCompany(portal.companyId);
     
+    const sessionToken = createPortalSessionToken(portal.id, token);
+    
     return res.json({
       success: true,
+      sessionToken,
       portalId: portal.id,
       auditId: portal.auditId,
       auditName: audit?.title || "Audit",
@@ -185,28 +242,13 @@ router.post("/audit-portal/:token/auth", async (req, res) => {
   }
 });
 
-router.get("/audit-portal/:token/evidence-requests", async (req, res) => {
+router.get("/audit-portal/evidence-requests", requirePortalSession, async (req: AuthenticatedPortalRequest, res) => {
   try {
-    const { token } = req.params;
-    const { password } = req.query;
-    
-    if (!password || typeof password !== "string") {
-      return res.status(401).json({ error: "Password required" });
-    }
-    
-    const portal = await storage.getAuditEvidencePortalByToken(token);
+    const session = req.portalSession!;
+    const portal = await storage.getAuditEvidencePortalByToken(session.token);
     
     if (!portal) {
       return res.status(404).json({ error: "Portal not found" });
-    }
-    
-    if (portal.revokedAt || (portal.expiresAt && new Date(portal.expiresAt) < new Date())) {
-      return res.status(403).json({ error: "Portal access denied" });
-    }
-    
-    const isValidPassword = await bcrypt.compare(password, portal.passwordHash);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid password" });
     }
     
     const evidenceRequests = await storage.getEvidenceRequests(portal.companyId, { auditId: portal.auditId });
@@ -229,32 +271,20 @@ router.get("/audit-portal/:token/evidence-requests", async (req, res) => {
   }
 });
 
-router.post("/audit-portal/:token/evidence-requests/:requestId/upload", upload.single("file"), async (req, res) => {
+router.post("/audit-portal/evidence-requests/:requestId/upload", requirePortalSession, upload.single("file"), async (req: AuthenticatedPortalRequest, res) => {
   try {
-    const { token, requestId } = req.params;
-    const { password, uploaderName, uploaderEmail, note, documentType } = req.body;
-    
-    if (!password) {
-      return res.status(401).json({ error: "Password required" });
-    }
+    const session = req.portalSession!;
+    const { requestId } = req.params;
+    const { uploaderName, uploaderEmail, note, documentType } = req.body;
     
     if (!uploaderName || !uploaderEmail) {
       return res.status(400).json({ error: "Name and email are required" });
     }
     
-    const portal = await storage.getAuditEvidencePortalByToken(token);
+    const portal = await storage.getAuditEvidencePortalByToken(session.token);
     
     if (!portal) {
       return res.status(404).json({ error: "Portal not found" });
-    }
-    
-    if (portal.revokedAt || (portal.expiresAt && new Date(portal.expiresAt) < new Date())) {
-      return res.status(403).json({ error: "Portal access denied" });
-    }
-    
-    const isValidPassword = await bcrypt.compare(password, portal.passwordHash);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid password" });
     }
     
     const evidenceRequest = await storage.getEvidenceRequest(requestId, portal.companyId);
@@ -321,22 +351,10 @@ router.post("/audit-portal/:token/evidence-requests/:requestId/upload", upload.s
   }
 });
 
-const generalEvidenceSchema = z.object({
-  password: z.string().min(1),
-  uploaderName: z.string().min(1),
-  uploaderEmail: z.string().email(),
-  description: z.string().min(1, "Description is required"),
-  note: z.string().optional(),
-});
-
-router.post("/audit-portal/:token/general-evidence", upload.single("file"), async (req, res) => {
+router.post("/audit-portal/general-evidence", requirePortalSession, upload.single("file"), async (req: AuthenticatedPortalRequest, res) => {
   try {
-    const { token } = req.params;
-    const { password, uploaderName, uploaderEmail, description, note } = req.body;
-    
-    if (!password) {
-      return res.status(401).json({ error: "Password required" });
-    }
+    const session = req.portalSession!;
+    const { uploaderName, uploaderEmail, description, note } = req.body;
     
     if (!uploaderName || !uploaderEmail) {
       return res.status(400).json({ error: "Name and email are required" });
@@ -346,19 +364,10 @@ router.post("/audit-portal/:token/general-evidence", upload.single("file"), asyn
       return res.status(400).json({ error: "Description is required to explain what this evidence is for" });
     }
     
-    const portal = await storage.getAuditEvidencePortalByToken(token);
+    const portal = await storage.getAuditEvidencePortalByToken(session.token);
     
     if (!portal) {
       return res.status(404).json({ error: "Portal not found" });
-    }
-    
-    if (portal.revokedAt || (portal.expiresAt && new Date(portal.expiresAt) < new Date())) {
-      return res.status(403).json({ error: "Portal access denied" });
-    }
-    
-    const isValidPassword = await bcrypt.compare(password, portal.passwordHash);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid password" });
     }
     
     if (!req.file) {

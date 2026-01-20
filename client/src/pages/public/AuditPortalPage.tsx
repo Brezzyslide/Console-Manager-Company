@@ -65,6 +65,10 @@ const evidenceTypeLabels: Record<string, string> = {
   OTHER: "Other",
 };
 
+interface PortalInfoWithSession extends PortalInfo {
+  sessionToken: string;
+}
+
 export default function AuditPortalPage() {
   const { token } = useParams<{ token: string }>();
   const { toast } = useToast();
@@ -73,7 +77,7 @@ export default function AuditPortalPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authenticating, setAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [portalInfo, setPortalInfo] = useState<PortalInfo | null>(null);
+  const [portalInfo, setPortalInfo] = useState<PortalInfoWithSession | null>(null);
   
   const [evidenceRequests, setEvidenceRequests] = useState<EvidenceRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -107,12 +111,14 @@ export default function AuditPortalPage() {
         throw new Error(data.error || "Authentication failed");
       }
       
-      const data: PortalInfo = await res.json();
+      const data: PortalInfoWithSession = await res.json();
       setPortalInfo(data);
       setIsAuthenticated(true);
       
       setLoadingRequests(true);
-      const reqRes = await fetch(`/api/public/audit-portal/${token}/evidence-requests?password=${encodeURIComponent(password)}`);
+      const reqRes = await fetch(`/api/public/audit-portal/evidence-requests`, {
+        headers: { "Authorization": `Bearer ${data.sessionToken}` },
+      });
       if (reqRes.ok) {
         const requests = await reqRes.json();
         setEvidenceRequests(requests);
@@ -126,7 +132,7 @@ export default function AuditPortalPage() {
   };
 
   const handleUploadGeneral = async () => {
-    if (!selectedFile || !uploaderName || !uploaderEmail || !description) {
+    if (!selectedFile || !uploaderName || !uploaderEmail || !description || !portalInfo) {
       toast({ title: "Missing information", description: "Please fill all required fields", variant: "destructive" });
       return;
     }
@@ -136,14 +142,14 @@ export default function AuditPortalPage() {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("password", password);
       formData.append("uploaderName", uploaderName);
       formData.append("uploaderEmail", uploaderEmail);
       formData.append("description", description);
       if (note) formData.append("note", note);
       
-      const res = await fetch(`/api/public/audit-portal/${token}/general-evidence`, {
+      const res = await fetch(`/api/public/audit-portal/general-evidence`, {
         method: "POST",
+        headers: { "Authorization": `Bearer ${portalInfo.sessionToken}` },
         body: formData,
       });
       
@@ -165,7 +171,7 @@ export default function AuditPortalPage() {
   };
 
   const handleUploadToRequest = async (requestId: string) => {
-    if (!requestFile || !uploaderName || !uploaderEmail) {
+    if (!requestFile || !uploaderName || !uploaderEmail || !portalInfo) {
       toast({ title: "Missing information", description: "Please fill your name, email, and select a file", variant: "destructive" });
       return;
     }
@@ -175,13 +181,13 @@ export default function AuditPortalPage() {
     try {
       const formData = new FormData();
       formData.append("file", requestFile);
-      formData.append("password", password);
       formData.append("uploaderName", uploaderName);
       formData.append("uploaderEmail", uploaderEmail);
       if (requestNote) formData.append("note", requestNote);
       
-      const res = await fetch(`/api/public/audit-portal/${token}/evidence-requests/${requestId}/upload`, {
+      const res = await fetch(`/api/public/audit-portal/evidence-requests/${requestId}/upload`, {
         method: "POST",
+        headers: { "Authorization": `Bearer ${portalInfo.sessionToken}` },
         body: formData,
       });
       
@@ -196,7 +202,9 @@ export default function AuditPortalPage() {
       setSelectedRequestId(null);
       setUploadSuccess(requestId);
       
-      const reqRes = await fetch(`/api/public/audit-portal/${token}/evidence-requests?password=${encodeURIComponent(password)}`);
+      const reqRes = await fetch(`/api/public/audit-portal/evidence-requests`, {
+        headers: { "Authorization": `Bearer ${portalInfo.sessionToken}` },
+      });
       if (reqRes.ok) {
         const requests = await reqRes.json();
         setEvidenceRequests(requests);
