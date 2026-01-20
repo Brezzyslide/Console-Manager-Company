@@ -12,7 +12,17 @@ const router = Router();
 router.get("/work-sites", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
-    const sites = await storage.getWorkSites(companyId);
+    const userId = req.companyUser!.companyUserId;
+    const userRole = req.companyUser!.role;
+    
+    let sites = await storage.getWorkSites(companyId);
+    
+    // Staff can only see assigned sites
+    if (userRole === "StaffReadOnly") {
+      const assignedSiteIds = await storage.getAssignedSiteIds(companyId, userId);
+      sites = sites.filter(s => assignedSiteIds.includes(s.id));
+    }
+    
     res.json(sites);
   } catch (error: any) {
     console.error("Error fetching work sites:", error);
@@ -87,8 +97,18 @@ router.delete("/work-sites/:id", requireCompanyAuth, requireRole(["CompanyAdmin"
 router.get("/participants", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
-    const participants = await storage.getParticipants(companyId);
-    res.json(participants);
+    const userId = req.companyUser!.companyUserId;
+    const userRole = req.companyUser!.role;
+    
+    let allParticipants = await storage.getParticipants(companyId);
+    
+    // Staff can only see assigned participants
+    if (userRole === "StaffReadOnly") {
+      const assignedParticipantIds = await storage.getAssignedParticipantIds(companyId, userId);
+      allParticipants = allParticipants.filter(p => assignedParticipantIds.includes(p.id));
+    }
+    
+    res.json(allParticipants);
   } catch (error: any) {
     console.error("Error fetching participants:", error);
     res.status(500).json({ error: "Failed to fetch participants" });
@@ -414,6 +434,7 @@ router.post("/compliance-runs", requireCompanyAuth, async (req: AuthenticatedCom
   try {
     const companyId = req.companyUser!.companyId;
     const userId = req.companyUser!.companyUserId;
+    const userRole = req.companyUser!.role;
     
     const schema = z.object({
       templateId: z.string(),
@@ -433,6 +454,21 @@ router.post("/compliance-runs", requireCompanyAuth, async (req: AuthenticatedCom
     const scopeEntityId = template.scopeType === "SITE" ? data.siteId : data.participantId;
     if (!scopeEntityId) {
       return res.status(400).json({ error: `${template.scopeType.toLowerCase()}Id is required for this template` });
+    }
+    
+    // Staff can only create runs for assigned sites/participants
+    if (userRole === "StaffReadOnly") {
+      if (template.scopeType === "SITE") {
+        const assignedSiteIds = await storage.getAssignedSiteIds(companyId, userId);
+        if (!assignedSiteIds.includes(scopeEntityId)) {
+          return res.status(403).json({ error: "You are not assigned to this site" });
+        }
+      } else {
+        const assignedParticipantIds = await storage.getAssignedParticipantIds(companyId, userId);
+        if (!assignedParticipantIds.includes(scopeEntityId)) {
+          return res.status(403).json({ error: "You are not assigned to this participant" });
+        }
+      }
     }
     
     let periodStart: Date;
@@ -683,11 +719,28 @@ router.patch("/compliance-actions/:id", requireCompanyAuth, async (req: Authenti
 router.post("/compliance-actions/:id/close", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    const userRole = req.companyUser!.role;
     const { id } = req.params;
     
     const existingAction = await storage.getComplianceAction(id, companyId);
     if (!existingAction) {
       return res.status(404).json({ error: "Action not found" });
+    }
+    
+    // Staff can only close actions they are assigned to or actions for sites/participants they're assigned to
+    if (userRole === "StaffReadOnly") {
+      const assignedSiteIds = await storage.getAssignedSiteIds(companyId, userId);
+      const assignedParticipantIds = await storage.getAssignedParticipantIds(companyId, userId);
+      
+      const isAssignedToAction = existingAction.assignedToUserId === userId;
+      const isAssignedToScope = 
+        (existingAction.siteId && assignedSiteIds.includes(existingAction.siteId)) ||
+        (existingAction.participantId && assignedParticipantIds.includes(existingAction.participantId));
+      
+      if (!isAssignedToAction && !isAssignedToScope) {
+        return res.status(403).json({ error: "You are not authorized to close this action" });
+      }
     }
     
     const schema = z.object({
@@ -707,6 +760,158 @@ router.post("/compliance-actions/:id/close", requireCompanyAuth, async (req: Aut
   } catch (error: any) {
     console.error("Error closing action:", error);
     res.status(400).json({ error: error.message || "Failed to close action" });
+  }
+});
+
+// ============================================================
+// STAFF SITE ASSIGNMENTS
+// ============================================================
+
+router.get("/staff-site-assignments", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { userId, siteId } = req.query;
+    const assignments = await storage.getStaffSiteAssignments(companyId, {
+      userId: userId as string | undefined,
+      siteId: siteId as string | undefined,
+    });
+    res.json(assignments);
+  } catch (error: any) {
+    console.error("Error fetching staff site assignments:", error);
+    res.status(500).json({ error: "Failed to fetch assignments" });
+  }
+});
+
+router.post("/staff-site-assignments", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const schema = z.object({
+      userId: z.string(),
+      siteId: z.string(),
+    });
+    const data = schema.parse(req.body);
+    
+    // Verify user and site exist in this company
+    const user = await storage.getCompanyUser(data.userId);
+    if (!user || user.companyId !== companyId) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const site = await storage.getWorkSite(data.siteId, companyId);
+    if (!site) {
+      return res.status(404).json({ error: "Site not found" });
+    }
+    
+    const assignment = await storage.createStaffSiteAssignment({ ...data, companyId });
+    res.status(201).json(assignment);
+  } catch (error: any) {
+    console.error("Error creating staff site assignment:", error);
+    if (error.message?.includes("unique")) {
+      return res.status(409).json({ error: "Assignment already exists" });
+    }
+    res.status(400).json({ error: error.message || "Failed to create assignment" });
+  }
+});
+
+router.delete("/staff-site-assignments/:id", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { id } = req.params;
+    const success = await storage.deleteStaffSiteAssignment(id, companyId);
+    if (!success) {
+      return res.status(404).json({ error: "Assignment not found" });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Error deleting staff site assignment:", error);
+    res.status(500).json({ error: "Failed to delete assignment" });
+  }
+});
+
+// ============================================================
+// STAFF PARTICIPANT ASSIGNMENTS
+// ============================================================
+
+router.get("/staff-participant-assignments", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { userId, participantId } = req.query;
+    const assignments = await storage.getStaffParticipantAssignments(companyId, {
+      userId: userId as string | undefined,
+      participantId: participantId as string | undefined,
+    });
+    res.json(assignments);
+  } catch (error: any) {
+    console.error("Error fetching staff participant assignments:", error);
+    res.status(500).json({ error: "Failed to fetch assignments" });
+  }
+});
+
+router.post("/staff-participant-assignments", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const schema = z.object({
+      userId: z.string(),
+      participantId: z.string(),
+    });
+    const data = schema.parse(req.body);
+    
+    // Verify user and participant exist in this company
+    const user = await storage.getCompanyUser(data.userId);
+    if (!user || user.companyId !== companyId) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const participant = await storage.getParticipant(data.participantId, companyId);
+    if (!participant) {
+      return res.status(404).json({ error: "Participant not found" });
+    }
+    
+    const assignment = await storage.createStaffParticipantAssignment({ ...data, companyId });
+    res.status(201).json(assignment);
+  } catch (error: any) {
+    console.error("Error creating staff participant assignment:", error);
+    if (error.message?.includes("unique")) {
+      return res.status(409).json({ error: "Assignment already exists" });
+    }
+    res.status(400).json({ error: error.message || "Failed to create assignment" });
+  }
+});
+
+router.delete("/staff-participant-assignments/:id", requireCompanyAuth, requireRole(["CompanyAdmin"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { id } = req.params;
+    const success = await storage.deleteStaffParticipantAssignment(id, companyId);
+    if (!success) {
+      return res.status(404).json({ error: "Assignment not found" });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Error deleting staff participant assignment:", error);
+    res.status(500).json({ error: "Failed to delete assignment" });
+  }
+});
+
+// ============================================================
+// COMPLIANCE ROLLUPS
+// ============================================================
+
+router.get("/compliance-rollups", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { frequency, siteId, participantId, periodStart, periodEnd } = req.query;
+    
+    const rollup = await storage.getComplianceRollup(companyId, {
+      frequency: frequency as string | undefined,
+      siteId: siteId as string | undefined,
+      participantId: participantId as string | undefined,
+      periodStart: periodStart ? new Date(periodStart as string) : undefined,
+      periodEnd: periodEnd ? new Date(periodEnd as string) : undefined,
+    });
+    
+    res.json(rollup);
+  } catch (error: any) {
+    console.error("Error fetching compliance rollup:", error);
+    res.status(500).json({ error: "Failed to fetch rollup" });
   }
 });
 
