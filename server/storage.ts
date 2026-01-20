@@ -40,6 +40,8 @@ import {
   workSites,
   participants,
   participantSiteAssignments,
+  staffSiteAssignments,
+  staffParticipantAssignments,
   type ConsoleUser, 
   type InsertConsoleUser,
   type Company,
@@ -121,6 +123,10 @@ import {
   type InsertParticipant,
   type ParticipantSiteAssignment,
   type InsertParticipantSiteAssignment,
+  type StaffSiteAssignment,
+  type InsertStaffSiteAssignment,
+  type StaffParticipantAssignment,
+  type InsertStaffParticipantAssignment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -351,6 +357,29 @@ export interface IStorage {
   getComplianceAction(id: string, companyId: string): Promise<ComplianceAction | undefined>;
   createComplianceAction(action: InsertComplianceAction): Promise<ComplianceAction>;
   updateComplianceAction(id: string, companyId: string, updates: Partial<InsertComplianceAction>): Promise<ComplianceAction | undefined>;
+  
+  // Staff Site Assignments
+  getStaffSiteAssignments(companyId: string, filters?: { userId?: string; siteId?: string }): Promise<StaffSiteAssignment[]>;
+  createStaffSiteAssignment(assignment: InsertStaffSiteAssignment): Promise<StaffSiteAssignment>;
+  deleteStaffSiteAssignment(id: string, companyId: string): Promise<boolean>;
+  getAssignedSiteIds(companyId: string, userId: string): Promise<string[]>;
+  
+  // Staff Participant Assignments
+  getStaffParticipantAssignments(companyId: string, filters?: { userId?: string; participantId?: string }): Promise<StaffParticipantAssignment[]>;
+  createStaffParticipantAssignment(assignment: InsertStaffParticipantAssignment): Promise<StaffParticipantAssignment>;
+  deleteStaffParticipantAssignment(id: string, companyId: string): Promise<boolean>;
+  getAssignedParticipantIds(companyId: string, userId: string): Promise<string[]>;
+  
+  // Compliance Rollups
+  getComplianceRollup(companyId: string, filters: { frequency?: string; siteId?: string; participantId?: string; periodStart?: Date; periodEnd?: Date }): Promise<{
+    runCount: number;
+    redCount: number;
+    amberCount: number;
+    greenCount: number;
+    openActionsByHigh: number;
+    openActionsByMedium: number;
+    openActionsByLow: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2273,6 +2302,179 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(complianceActions.id, id), eq(complianceActions.companyId, companyId)))
       .returning();
     return updated || undefined;
+  }
+  
+  // Staff Site Assignments
+  async getStaffSiteAssignments(companyId: string, filters?: { userId?: string; siteId?: string }): Promise<StaffSiteAssignment[]> {
+    let conditions = [eq(staffSiteAssignments.companyId, companyId)];
+    if (filters?.userId) {
+      conditions.push(eq(staffSiteAssignments.userId, filters.userId));
+    }
+    if (filters?.siteId) {
+      conditions.push(eq(staffSiteAssignments.siteId, filters.siteId));
+    }
+    return await db
+      .select()
+      .from(staffSiteAssignments)
+      .where(and(...conditions))
+      .orderBy(asc(staffSiteAssignments.createdAt));
+  }
+  
+  async createStaffSiteAssignment(assignment: InsertStaffSiteAssignment): Promise<StaffSiteAssignment> {
+    const [created] = await db.insert(staffSiteAssignments).values(assignment as any).returning();
+    return created;
+  }
+  
+  async deleteStaffSiteAssignment(id: string, companyId: string): Promise<boolean> {
+    const result = await db
+      .delete(staffSiteAssignments)
+      .where(and(eq(staffSiteAssignments.id, id), eq(staffSiteAssignments.companyId, companyId)));
+    return (result.rowCount ?? 0) > 0;
+  }
+  
+  async getAssignedSiteIds(companyId: string, userId: string): Promise<string[]> {
+    const assignments = await db
+      .select({ siteId: staffSiteAssignments.siteId })
+      .from(staffSiteAssignments)
+      .where(and(eq(staffSiteAssignments.companyId, companyId), eq(staffSiteAssignments.userId, userId)));
+    return assignments.map(a => a.siteId);
+  }
+  
+  // Staff Participant Assignments
+  async getStaffParticipantAssignments(companyId: string, filters?: { userId?: string; participantId?: string }): Promise<StaffParticipantAssignment[]> {
+    let conditions = [eq(staffParticipantAssignments.companyId, companyId)];
+    if (filters?.userId) {
+      conditions.push(eq(staffParticipantAssignments.userId, filters.userId));
+    }
+    if (filters?.participantId) {
+      conditions.push(eq(staffParticipantAssignments.participantId, filters.participantId));
+    }
+    return await db
+      .select()
+      .from(staffParticipantAssignments)
+      .where(and(...conditions))
+      .orderBy(asc(staffParticipantAssignments.createdAt));
+  }
+  
+  async createStaffParticipantAssignment(assignment: InsertStaffParticipantAssignment): Promise<StaffParticipantAssignment> {
+    const [created] = await db.insert(staffParticipantAssignments).values(assignment as any).returning();
+    return created;
+  }
+  
+  async deleteStaffParticipantAssignment(id: string, companyId: string): Promise<boolean> {
+    const result = await db
+      .delete(staffParticipantAssignments)
+      .where(and(eq(staffParticipantAssignments.id, id), eq(staffParticipantAssignments.companyId, companyId)));
+    return (result.rowCount ?? 0) > 0;
+  }
+  
+  async getAssignedParticipantIds(companyId: string, userId: string): Promise<string[]> {
+    const assignments = await db
+      .select({ participantId: staffParticipantAssignments.participantId })
+      .from(staffParticipantAssignments)
+      .where(and(eq(staffParticipantAssignments.companyId, companyId), eq(staffParticipantAssignments.userId, userId)));
+    return assignments.map(a => a.participantId);
+  }
+  
+  // Compliance Rollups
+  async getComplianceRollup(companyId: string, filters: { frequency?: string; siteId?: string; participantId?: string; periodStart?: Date; periodEnd?: Date }): Promise<{
+    runCount: number;
+    redCount: number;
+    amberCount: number;
+    greenCount: number;
+    openActionsByHigh: number;
+    openActionsByMedium: number;
+    openActionsByLow: number;
+  }> {
+    // Build run conditions
+    let runConditions = [eq(complianceRuns.companyId, companyId)];
+    if (filters.siteId) {
+      runConditions.push(eq(complianceRuns.siteId, filters.siteId));
+    }
+    if (filters.participantId) {
+      runConditions.push(eq(complianceRuns.participantId, filters.participantId));
+    }
+    if (filters.frequency) {
+      runConditions.push(eq(complianceRuns.frequency, filters.frequency as any));
+    }
+    
+    // Fetch runs within period (filter status colors by responses)
+    const runs = await db
+      .select()
+      .from(complianceRuns)
+      .where(and(...runConditions));
+    
+    // Filter by period if specified
+    const filteredRuns = runs.filter(run => {
+      if (filters.periodStart && new Date(run.periodStart) < filters.periodStart) return false;
+      if (filters.periodEnd && new Date(run.periodEnd) > filters.periodEnd) return false;
+      return run.status === "SUBMITTED" || run.status === "LOCKED";
+    });
+    
+    let redCount = 0, amberCount = 0, greenCount = 0;
+    
+    for (const run of filteredRuns) {
+      // Get responses and items to determine status color
+      const responses = await this.getComplianceResponses(run.id, companyId);
+      const template = await this.getComplianceTemplate(run.templateId, companyId);
+      if (!template) continue;
+      
+      const items = await db
+        .select()
+        .from(complianceTemplateItems)
+        .where(and(eq(complianceTemplateItems.templateId, template.id), eq(complianceTemplateItems.companyId, companyId)));
+      
+      // Calculate status color based on responses
+      let hasCriticalNo = false;
+      let hasNonCriticalNo = false;
+      
+      for (const item of items) {
+        const resp = responses.find(r => r.templateItemId === item.id);
+        if (resp?.responseValue === "NO") {
+          if (item.isCritical) {
+            hasCriticalNo = true;
+          } else {
+            hasNonCriticalNo = true;
+          }
+        }
+      }
+      
+      if (hasCriticalNo) {
+        redCount++;
+      } else if (hasNonCriticalNo) {
+        amberCount++;
+      } else {
+        greenCount++;
+      }
+    }
+    
+    // Build action conditions
+    let actionConditions = [eq(complianceActions.companyId, companyId), eq(complianceActions.status, "OPEN")];
+    if (filters.siteId) {
+      actionConditions.push(eq(complianceActions.siteId, filters.siteId));
+    }
+    if (filters.participantId) {
+      actionConditions.push(eq(complianceActions.participantId, filters.participantId));
+    }
+    
+    const actions = await db
+      .select()
+      .from(complianceActions)
+      .where(and(...actionConditions));
+    
+    const openActionsByHigh = actions.filter(a => a.severity === "HIGH").length;
+    const openActionsByMedium = actions.filter(a => a.severity === "MEDIUM").length;
+    const openActionsByLow = actions.filter(a => a.severity === "LOW").length;
+    
+    return {
+      runCount: filteredRuns.length,
+      redCount,
+      amberCount,
+      greenCount,
+      openActionsByHigh,
+      openActionsByMedium,
+      openActionsByLow,
+    };
   }
 }
 
