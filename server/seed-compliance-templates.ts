@@ -89,6 +89,13 @@ const DEFAULT_TEMPLATES: TemplateDef[] = [
         responseType: "TEXT",
         isCritical: false,
       },
+      {
+        title: "Electrical safety visual check completed",
+        guidanceText: "Conduct visual inspection of electrical outlets, cords, and equipment for damage or hazards",
+        responseType: "YES_NO_NA",
+        isCritical: true,
+        notesRequiredOnFail: true,
+      },
     ],
   },
   {
