@@ -39,6 +39,7 @@ import ComplianceReviewPage from "@/pages/company/ComplianceReviewPage";
 import SitesParticipantsPage from "@/pages/company/SitesParticipantsPage";
 import WeeklyReportsPage from "@/pages/company/WeeklyReportsPage";
 import RestrictivePracticesPage from "@/pages/company/RestrictivePracticesPage";
+import ComplianceDashboardPage from "@/pages/company/ComplianceDashboardPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 // Public Pages
@@ -143,6 +144,13 @@ function Router() {
       <Route path="/restrictive-practices">
         <CompanyLayout requireRole={["CompanyAdmin", "Auditor", "Reviewer"]}>
           <RestrictivePracticesPage />
+        </CompanyLayout>
+      </Route>
+      
+      {/* Compliance Dashboard Route */}
+      <Route path="/compliance-dashboard">
+        <CompanyLayout>
+          <ComplianceDashboardPage />
         </CompanyLayout>
       </Route>
       

@@ -129,6 +129,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
   ];
 
   const complianceModuleItems = [
+    { href: "/compliance-dashboard", label: "Compliance Dashboard", icon: LayoutDashboard, testId: "nav-compliance-dashboard" },
     { href: "/sites-participants", label: "Sites & People", icon: Building2, testId: "nav-sites-participants" },
     { href: "/compliance-review", label: "Compliance Checks", icon: ListChecks, testId: "nav-compliance" },
     { href: "/weekly-reports", label: "AI Reports", icon: Sparkles, testId: "nav-weekly-reports", roles: ["CompanyAdmin", "Auditor"] as const },
