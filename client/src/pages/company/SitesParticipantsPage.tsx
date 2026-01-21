@@ -657,14 +657,14 @@ export default function SitesParticipantsPage() {
                     <div className="space-y-2">
                       <Label htmlFor="primarySite">Primary Site</Label>
                       <Select
-                        value={participantForm.primarySiteId}
-                        onValueChange={(value) => setParticipantForm({ ...participantForm, primarySiteId: value })}
+                        value={participantForm.primarySiteId || "none"}
+                        onValueChange={(value) => setParticipantForm({ ...participantForm, primarySiteId: value === "none" ? "" : value })}
                       >
                         <SelectTrigger data-testid="select-primary-site">
                           <SelectValue placeholder="Select primary site" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No primary site</SelectItem>
+                          <SelectItem value="none">No primary site</SelectItem>
                           {activeSites.map((site) => (
                             <SelectItem key={site.id} value={site.id}>
                               {site.name}
