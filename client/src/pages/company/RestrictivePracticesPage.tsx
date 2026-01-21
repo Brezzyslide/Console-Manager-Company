@@ -341,12 +341,12 @@ export default function RestrictivePracticesPage() {
       
       <div className="flex items-center gap-4">
         <Label>Filter by Participant:</Label>
-        <Select value={selectedParticipant} onValueChange={setSelectedParticipant}>
+        <Select value={selectedParticipant || "all"} onValueChange={(v) => setSelectedParticipant(v === "all" ? "" : v)}>
           <SelectTrigger className="w-64" data-testid="select-participant-filter">
             <SelectValue placeholder="All Participants" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Participants</SelectItem>
+            <SelectItem value="all">All Participants</SelectItem>
             {activeParticipants.map(p => (
               <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
             ))}
