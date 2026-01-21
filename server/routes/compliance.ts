@@ -969,7 +969,8 @@ router.patch("/weekly-reports/:id", requireCompanyAuth, requireRole(["CompanyAdm
     const { id } = req.params;
     
     const schema = z.object({
-      manualOverrideText: z.string().optional(),
+      reportText: z.string().optional(),
+      reportStatus: z.enum(["DRAFT", "FINAL"]).optional(),
     });
     const data = schema.parse(req.body);
     
@@ -978,9 +979,7 @@ router.patch("/weekly-reports/:id", requireCompanyAuth, requireRole(["CompanyAdm
       return res.status(404).json({ error: "Report not found" });
     }
     
-    const updated = await storage.updateWeeklyComplianceReport(id, companyId, {
-      manualOverrideText: data.manualOverrideText || null,
-    });
+    const updated = await storage.updateWeeklyComplianceReport(id, companyId, data);
     
     res.json(updated);
   } catch (error: any) {
@@ -1074,38 +1073,59 @@ ${inputData.runSummaries.map(s => `  * ${s.date} - ${s.templateName} (${s.freque
 
 Based strictly on this data, provide a professional compliance summary.`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_completion_tokens: 1000,
-    });
+    let generatedText = "";
+    let modelName = "gpt-5";
     
-    const generatedText = completion.choices[0]?.message?.content || "";
-    const modelName = completion.model || "gpt-5";
-    
-    await storage.createAiGenerationLog({
-      companyId,
-      generatedBy: userId,
-      reportType: "WEEKLY_COMPLIANCE",
-      inputHash,
-      modelName,
-      promptVersion: WEEKLY_REPORT_PROMPT_VERSION,
-      inputSnapshot: inputData,
-    });
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_completion_tokens: 1000,
+      });
+      
+      generatedText = completion.choices[0]?.message?.content || "";
+      modelName = completion.model || "gpt-5";
+      
+      await storage.createAiGenerationLog({
+        companyId,
+        userId,
+        featureKey: "WEEKLY_COMPLIANCE_REPORT",
+        participantId: data.participantId,
+        periodStart,
+        periodEnd,
+        inputHash,
+        modelName,
+        promptVersion: WEEKLY_REPORT_PROMPT_VERSION,
+        success: true,
+      });
+    } catch (aiError: any) {
+      await storage.createAiGenerationLog({
+        companyId,
+        userId,
+        featureKey: "WEEKLY_COMPLIANCE_REPORT",
+        participantId: data.participantId,
+        periodStart,
+        periodEnd,
+        inputHash,
+        modelName,
+        promptVersion: WEEKLY_REPORT_PROMPT_VERSION,
+        success: false,
+        errorMessage: aiError.message || "AI generation failed",
+      });
+      throw new Error("AI generation failed: " + (aiError.message || "Unknown error"));
+    }
     
     const report = await storage.createWeeklyComplianceReport({
       companyId,
       participantId: data.participantId,
       periodStart,
       periodEnd,
-      generatedText,
-      manualOverrideText: null,
-      inputHash,
-      modelName,
-      promptVersion: WEEKLY_REPORT_PROMPT_VERSION,
+      generatedByUserId: userId,
+      generationSource: "AI",
+      reportText: generatedText,
     });
     
     res.status(201).json(report);

@@ -112,6 +112,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
     { href: "/company/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
     { href: "/sites-participants", label: "Sites & People", icon: Building2, testId: "nav-sites-participants" },
     { href: "/compliance-review", label: "Compliance", icon: ListChecks, testId: "nav-compliance" },
+    { href: "/weekly-reports", label: "AI Reports", icon: Sparkles, testId: "nav-weekly-reports", roles: ["CompanyAdmin", "Auditor"] as const },
     { href: "/audits", label: "Audits", icon: ClipboardCheck, testId: "nav-audits", startsWith: true },
     { href: "/findings", label: "Findings", icon: AlertTriangle, testId: "nav-findings" },
     { href: "/reports", label: "Reports", icon: FileBarChart, testId: "nav-reports" },
@@ -144,7 +145,9 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
               </Link>
               
               <nav className="hidden lg:flex items-center gap-1">
-                {navItems.map((item) => {
+                {navItems
+                  .filter(item => !item.roles || (user?.role && item.roles.includes(user.role as any)))
+                  .map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.href, item.startsWith);
                   return (

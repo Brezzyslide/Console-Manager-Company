@@ -37,6 +37,7 @@ import EvidenceLockerPage from "@/pages/company/EvidenceLockerPage";
 import EvidenceDetailPage from "@/pages/company/EvidenceDetailPage";
 import ComplianceReviewPage from "@/pages/company/ComplianceReviewPage";
 import SitesParticipantsPage from "@/pages/company/SitesParticipantsPage";
+import WeeklyReportsPage from "@/pages/company/WeeklyReportsPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 // Public Pages
@@ -127,6 +128,13 @@ function Router() {
       <Route path="/compliance-review">
         <CompanyLayout>
           <ComplianceReviewPage />
+        </CompanyLayout>
+      </Route>
+      
+      {/* Weekly Reports Route */}
+      <Route path="/weekly-reports">
+        <CompanyLayout requireRole={["CompanyAdmin", "Auditor"]}>
+          <WeeklyReportsPage />
         </CompanyLayout>
       </Route>
       
