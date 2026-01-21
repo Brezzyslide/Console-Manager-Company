@@ -127,6 +127,12 @@ import {
   type InsertStaffSiteAssignment,
   type StaffParticipantAssignment,
   type InsertStaffParticipantAssignment,
+  weeklyComplianceReports,
+  aiGenerationLogs,
+  type WeeklyComplianceReport,
+  type InsertWeeklyComplianceReport,
+  type AiGenerationLog,
+  type InsertAiGenerationLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -380,6 +386,15 @@ export interface IStorage {
     openActionsByMedium: number;
     openActionsByLow: number;
   }>;
+  
+  // Weekly Compliance Reports
+  getWeeklyComplianceReports(companyId: string, filters: { participantId?: string; periodStart?: Date; periodEnd?: Date }): Promise<WeeklyComplianceReport[]>;
+  getWeeklyComplianceReport(id: string, companyId: string): Promise<WeeklyComplianceReport | undefined>;
+  createWeeklyComplianceReport(report: InsertWeeklyComplianceReport): Promise<WeeklyComplianceReport>;
+  updateWeeklyComplianceReport(id: string, companyId: string, updates: Partial<InsertWeeklyComplianceReport>): Promise<WeeklyComplianceReport | undefined>;
+  
+  // AI Generation Logs
+  createAiGenerationLog(log: InsertAiGenerationLog): Promise<AiGenerationLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2475,6 +2490,57 @@ export class DatabaseStorage implements IStorage {
       openActionsByMedium,
       openActionsByLow,
     };
+  }
+  
+  // Weekly Compliance Reports
+  async getWeeklyComplianceReports(companyId: string, filters: { participantId?: string; periodStart?: Date; periodEnd?: Date }): Promise<WeeklyComplianceReport[]> {
+    const conditions: any[] = [eq(weeklyComplianceReports.companyId, companyId)];
+    if (filters.participantId) conditions.push(eq(weeklyComplianceReports.participantId, filters.participantId));
+    
+    const results = await db
+      .select()
+      .from(weeklyComplianceReports)
+      .where(and(...conditions))
+      .orderBy(desc(weeklyComplianceReports.createdAt));
+    
+    // Filter by period if specified
+    let filtered = results;
+    if (filters.periodStart) {
+      filtered = filtered.filter(r => new Date(r.periodStart) >= filters.periodStart!);
+    }
+    if (filters.periodEnd) {
+      filtered = filtered.filter(r => new Date(r.periodEnd) <= filters.periodEnd!);
+    }
+    
+    return filtered;
+  }
+  
+  async getWeeklyComplianceReport(id: string, companyId: string): Promise<WeeklyComplianceReport | undefined> {
+    const [report] = await db
+      .select()
+      .from(weeklyComplianceReports)
+      .where(and(eq(weeklyComplianceReports.id, id), eq(weeklyComplianceReports.companyId, companyId)));
+    return report || undefined;
+  }
+  
+  async createWeeklyComplianceReport(report: InsertWeeklyComplianceReport): Promise<WeeklyComplianceReport> {
+    const [created] = await db.insert(weeklyComplianceReports).values(report).returning();
+    return created;
+  }
+  
+  async updateWeeklyComplianceReport(id: string, companyId: string, updates: Partial<InsertWeeklyComplianceReport>): Promise<WeeklyComplianceReport | undefined> {
+    const [updated] = await db
+      .update(weeklyComplianceReports)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(weeklyComplianceReports.id, id), eq(weeklyComplianceReports.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // AI Generation Logs
+  async createAiGenerationLog(log: InsertAiGenerationLog): Promise<AiGenerationLog> {
+    const [created] = await db.insert(aiGenerationLogs).values(log).returning();
+    return created;
   }
 }
 
