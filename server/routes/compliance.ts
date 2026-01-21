@@ -651,6 +651,8 @@ router.post("/compliance-runs/:id/submit", requireCompanyAuth, async (req: Authe
     const actionsCreated: any[] = [];
     for (const item of items) {
       const response = responseMap.get(item.id);
+      
+      // Create action for NO responses
       if (response?.responseValue === "NO") {
         const severity = item.isCritical ? "HIGH" : "MEDIUM";
         const action = await storage.createComplianceAction({
@@ -662,6 +664,24 @@ router.post("/compliance-runs/:id/submit", requireCompanyAuth, async (req: Authe
           status: "OPEN",
           title: item.title,
           description: response.notes || `Non-compliant response for: ${item.title}`,
+        });
+        actionsCreated.push(action);
+      }
+      
+      // Create action for YES responses on incident/concern items that require notes but have none
+      const incidentKeywords = ["incident", "concern", "restrictive practice"];
+      const isIncidentItem = incidentKeywords.some(kw => item.title.toLowerCase().includes(kw));
+      if (response?.responseValue === "YES" && isIncidentItem && item.notesRequiredOnFail && !response.notes?.trim()) {
+        const severity = item.isCritical ? "HIGH" : "MEDIUM";
+        const action = await storage.createComplianceAction({
+          companyId,
+          runId,
+          siteId: run.siteId || undefined,
+          participantId: run.participantId || undefined,
+          severity,
+          status: "OPEN",
+          title: `${item.title} - Missing Details`,
+          description: `Incident/concern flagged but no notes provided for: ${item.title}`,
         });
         actionsCreated.push(action);
       }
@@ -1025,53 +1045,185 @@ router.post("/weekly-reports/generate", requireCompanyAuth, requireRole(["Compan
       runResponses.push({ run, responses, template });
     }
     
+    // Collect compliance actions for the period
+    const allActions = await storage.getComplianceActions(companyId, { participantId: data.participantId });
+    const periodActions = allActions.filter(a => {
+      const actionDate = new Date(a.createdAt);
+      return actionDate >= periodStart && actionDate <= periodEnd;
+    });
+    
+    // Separate daily and weekly runs
+    const dailyRuns = periodRuns.filter(r => r.frequency === "DAILY");
+    const weeklyRuns = periodRuns.filter(r => r.frequency === "WEEKLY");
+    
+    // Get template items for each run to analyze responses properly
+    const allTemplateItems: Map<string, any[]> = new Map();
+    for (const { run } of runResponses) {
+      if (!allTemplateItems.has(run.templateId)) {
+        const items = await storage.getComplianceTemplateItems(run.templateId, companyId);
+        allTemplateItems.set(run.templateId, items);
+      }
+    }
+    
+    // Compute rollup metrics
+    let dailyCriticalFailuresCount = 0;
+    let incidentDaysCount = 0;
+    let medicationNonComplianceDaysCount = 0;
+    let weeklyIncidentCount = 0;
+    let weeklyMedicationCompliant = "NA";
+    let prnFlag = false;
+    let restrictivePracticesUsed = false;
+    
+    for (const { run, responses } of runResponses) {
+      const items = allTemplateItems.get(run.templateId) || [];
+      
+      for (const response of responses) {
+        const item = items.find(i => i.id === response.templateItemId);
+        if (!item) continue;
+        
+        const titleLower = item.title.toLowerCase();
+        
+        // Count critical failures
+        if (item.isCritical && response.responseValue === "NO") {
+          dailyCriticalFailuresCount++;
+        }
+        
+        // Count incident days
+        if (titleLower.includes("incident") && response.responseValue === "YES") {
+          incidentDaysCount++;
+        }
+        
+        // Track weekly incident count (NUMBER type)
+        if (run.frequency === "WEEKLY" && titleLower.includes("number of incidents") && response.responseValue) {
+          weeklyIncidentCount = parseInt(response.responseValue) || 0;
+        }
+        
+        // Track medication compliance
+        if (titleLower.includes("medication")) {
+          if (run.frequency === "DAILY" && response.responseValue === "NO") {
+            medicationNonComplianceDaysCount++;
+          }
+          if (run.frequency === "WEEKLY") {
+            weeklyMedicationCompliant = response.responseValue || "NA";
+          }
+        }
+        
+        // PRN usage
+        if (titleLower.includes("prn") && response.responseValue === "YES") {
+          prnFlag = true;
+        }
+        
+        // Restrictive practices
+        if (titleLower.includes("restrictive practice") && response.responseValue === "YES") {
+          restrictivePracticesUsed = true;
+        }
+      }
+    }
+    
+    // Calculate overall status
+    const highActions = periodActions.filter(a => a.severity === "HIGH");
+    const mediumActions = periodActions.filter(a => a.severity === "MEDIUM");
+    let overallStatus: "GREEN" | "AMBER" | "RED";
+    if (highActions.length > 0 || dailyCriticalFailuresCount > 0) {
+      overallStatus = "RED";
+    } else if (mediumActions.length > 0) {
+      overallStatus = "AMBER";
+    } else {
+      overallStatus = "GREEN";
+    }
+    
+    const metricsJson = {
+      dailyRunsCompletedCount: dailyRuns.length,
+      weeklyRunsCompletedCount: weeklyRuns.length,
+      dailyCriticalFailuresCount,
+      incidentDaysCount,
+      weeklyIncidentCount,
+      medicationNonComplianceDaysCount,
+      weeklyMedicationCompliant,
+      prnFlag,
+      restrictivePracticesUsed,
+      openActionsCountBySeverity: {
+        HIGH: highActions.filter(a => a.status === "OPEN").length,
+        MEDIUM: mediumActions.filter(a => a.status === "OPEN").length,
+      },
+      overallStatus,
+    };
+    
     const inputData = {
-      participantName: `${participant.firstName} ${participant.lastName}`,
+      participantName: participant.displayName || `${participant.firstName} ${participant.lastName}`,
       periodStart: periodStart.toISOString().split("T")[0],
       periodEnd: periodEnd.toISOString().split("T")[0],
-      totalRuns: periodRuns.length,
+      metrics: metricsJson,
       runSummaries: runResponses.map(({ run, responses, template }) => {
-        const criticalFails = responses.filter(r => {
-          const item = template?.items?.find((i: any) => i.id === r.itemId);
-          return item?.isCritical && r.responseValue === "NO";
-        });
+        const items = allTemplateItems.get(run.templateId) || [];
         return {
-          date: run.createdAt,
+          date: new Date(run.createdAt).toISOString().split("T")[0],
           templateName: template?.name || "Unknown",
-          frequency: template?.frequency || "UNKNOWN",
-          overallStatus: run.overallStatus,
-          criticalFailCount: criticalFails.length,
-          itemsSummary: responses.map(r => ({
-            title: r.notes ? r.notes.substring(0, 100) : "",
-            value: r.responseValue,
-            hasNote: !!r.notes,
-          })),
+          frequency: run.frequency,
+          itemResponses: responses.map(r => {
+            const item = items.find(i => i.id === r.templateItemId);
+            return {
+              title: item?.title || "Unknown",
+              value: r.responseValue,
+              notes: r.notes || null,
+              isCritical: item?.isCritical || false,
+            };
+          }),
         };
       }),
+      actions: periodActions.map(a => ({
+        title: a.title,
+        severity: a.severity,
+        status: a.status,
+        createdAt: new Date(a.createdAt).toISOString().split("T")[0],
+      })),
     };
     
     const inputHash = crypto.createHash("sha256").update(JSON.stringify(inputData)).digest("hex");
     
-    const systemPrompt = `You are a compliance report writer for an NDIS (National Disability Insurance Scheme) provider. Generate a professional weekly compliance summary for a participant based on the data provided.
+    const systemPrompt = `You are a compliance report writer for an Australian NDIS (National Disability Insurance Scheme) provider. Generate a professional weekly compliance summary for a participant based ONLY on the data provided.
 
 STRICT RULES - YOU MUST FOLLOW:
-1. ONLY summarize facts from the provided data - do not invent or assume any information
+1. ONLY summarize facts from the provided checklist entries and actions - do NOT invent or assume any information
 2. Never include specific medical diagnoses, disability types, or sensitive health details
-3. Use professional, neutral language appropriate for care documentation
-4. Focus on compliance status, patterns, and actionable observations
-5. If critical failures occurred, highlight them clearly with dates
-6. Structure the report with: Overview, Key Observations, Areas of Concern (if any), Recommendations
+3. Use factual, neutral, professional language appropriate for NDIS care documentation
+4. If something is not recorded in the entries, explicitly state "Not recorded in checklist entries"
+5. Reference specific dates when describing compliance issues or incidents
 
-Keep the summary concise (200-400 words maximum).`;
+REQUIRED REPORT STRUCTURE (use these exact headings):
+1) Period Overview - Summary of the reporting period, number of checks completed, overall compliance status
+2) Support Delivery and Documentation - Summary of support delivery, case notes, and care plan alignment
+3) Incidents and Safeguards - Summary of any incidents reported, restrictive practices (if any), and safety concerns
+4) Medication and Health - Summary of medication compliance, PRN usage, and health-related observations
+5) Actions and Follow-up - Summary of open actions, their severity, and recommended follow-up
+6) Overall Compliance Status - Final assessment (GREEN/AMBER/RED) with brief justification
+
+Keep the report factual and concise (300-500 words maximum).`;
 
     const userPrompt = `Generate a weekly compliance summary for participant "${inputData.participantName}" covering the period ${inputData.periodStart} to ${inputData.periodEnd}.
 
-Data:
-- Total compliance checks completed: ${inputData.totalRuns}
-- Run summaries:
-${inputData.runSummaries.map(s => `  * ${s.date} - ${s.templateName} (${s.frequency}): Status=${s.overallStatus}, Critical Fails=${s.criticalFailCount}`).join("\n")}
+METRICS:
+- Daily checks completed: ${inputData.metrics.dailyRunsCompletedCount}
+- Weekly checks completed: ${inputData.metrics.weeklyRunsCompletedCount}
+- Critical failures: ${inputData.metrics.dailyCriticalFailuresCount}
+- Days with incidents reported: ${inputData.metrics.incidentDaysCount}
+- Weekly incident count: ${inputData.metrics.weeklyIncidentCount}
+- Medication non-compliance days: ${inputData.metrics.medicationNonComplianceDaysCount}
+- Weekly medication compliance: ${inputData.metrics.weeklyMedicationCompliant}
+- PRN usage noted: ${inputData.metrics.prnFlag ? "Yes" : "No"}
+- Restrictive practices used: ${inputData.metrics.restrictivePracticesUsed ? "Yes" : "No"}
+- Open HIGH actions: ${inputData.metrics.openActionsCountBySeverity.HIGH}
+- Open MEDIUM actions: ${inputData.metrics.openActionsCountBySeverity.MEDIUM}
+- Overall Status: ${inputData.metrics.overallStatus}
 
-Based strictly on this data, provide a professional compliance summary.`;
+CHECKLIST ENTRIES:
+${inputData.runSummaries.map(s => `${s.date} - ${s.templateName} (${s.frequency}):
+${s.itemResponses.map(r => `  - ${r.title}: ${r.value}${r.notes ? ` (Notes: ${r.notes})` : ""}${r.isCritical ? " [CRITICAL]" : ""}`).join("\n")}`).join("\n\n")}
+
+COMPLIANCE ACTIONS CREATED:
+${inputData.actions.length > 0 ? inputData.actions.map(a => `- ${a.createdAt}: ${a.title} (${a.severity}, ${a.status})`).join("\n") : "No actions created this period"}
+
+Based STRICTLY on this data, provide a professional weekly compliance summary following the required structure.`;
 
     let generatedText = "";
     let modelName = "gpt-5";
@@ -1126,6 +1278,7 @@ Based strictly on this data, provide a professional compliance summary.`;
       generatedByUserId: userId,
       generationSource: "AI",
       reportText: generatedText,
+      metricsJson,
     });
     
     res.status(201).json(report);

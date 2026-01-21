@@ -71,7 +71,7 @@ export default function WeeklyReportsPage() {
     queryKey: ["/api/compliance/participants"],
   });
   
-  const activeParticipants = participants.filter(p => p.status === "ACTIVE");
+  const activeParticipants = participants.filter(p => p.status === "active");
   
   const { data: reports = [], isLoading: reportsLoading } = useQuery<WeeklyReport[]>({
     queryKey: ["/api/compliance/weekly-reports", { 
