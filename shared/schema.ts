@@ -1285,3 +1285,73 @@ export const insertAiGenerationLogSchema = createInsertSchema(aiGenerationLogs).
 
 export type InsertAiGenerationLog = z.infer<typeof insertAiGenerationLogSchema>;
 export type AiGenerationLog = typeof aiGenerationLogs.$inferSelect;
+
+// Restrictive Practice Types (catalog)
+export const restrictivePracticeTypes = [
+  "PHYSICAL_RESTRAINT",
+  "MECHANICAL_RESTRAINT", 
+  "CHEMICAL_RESTRAINT",
+  "SECLUSION",
+  "ENVIRONMENTAL_RESTRAINT",
+] as const;
+
+export const authorizationStatuses = ["PENDING", "APPROVED", "EXPIRED", "REVOKED"] as const;
+
+// Restrictive Practice Authorizations (per participant)
+export const restrictivePracticeAuthorizations = pgTable("restrictive_practice_authorizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  participantId: varchar("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+  practiceType: text("practice_type", { enum: restrictivePracticeTypes }).notNull(),
+  authorizationStatus: text("authorization_status", { enum: authorizationStatuses }).notNull().default("PENDING"),
+  approvedByUserId: varchar("approved_by_user_id").references(() => companyUsers.id),
+  approvalDate: timestamp("approval_date"),
+  expiryDate: timestamp("expiry_date"),
+  behaviorSupportPlanRef: text("behavior_support_plan_ref"),
+  conditionsOfUse: text("conditions_of_use"),
+  reviewFrequencyDays: integer("review_frequency_days").default(90),
+  lastReviewDate: timestamp("last_review_date"),
+  nextReviewDate: timestamp("next_review_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertRestrictivePracticeAuthorizationSchema = createInsertSchema(restrictivePracticeAuthorizations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertRestrictivePracticeAuthorization = z.infer<typeof insertRestrictivePracticeAuthorizationSchema>;
+export type RestrictivePracticeAuthorization = typeof restrictivePracticeAuthorizations.$inferSelect;
+
+// Restrictive Practice Usage Logs (event-driven logging)
+export const restrictivePracticeUsageLogs = pgTable("restrictive_practice_usage_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  participantId: varchar("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+  authorizationId: varchar("authorization_id").references(() => restrictivePracticeAuthorizations.id),
+  practiceType: text("practice_type", { enum: restrictivePracticeTypes }).notNull(),
+  isAuthorized: boolean("is_authorized").notNull().default(true),
+  usageDate: timestamp("usage_date").notNull(),
+  startTime: timestamp("start_time"),
+  endTime: timestamp("end_time"),
+  durationMinutes: integer("duration_minutes"),
+  reason: text("reason").notNull(),
+  deescalationAttempts: text("deescalation_attempts"),
+  outcome: text("outcome"),
+  witnessName: text("witness_name"),
+  reportedByUserId: varchar("reported_by_user_id").notNull().references(() => companyUsers.id),
+  incidentLinked: boolean("incident_linked").default(false),
+  incidentReference: text("incident_reference"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertRestrictivePracticeUsageLogSchema = createInsertSchema(restrictivePracticeUsageLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertRestrictivePracticeUsageLog = z.infer<typeof insertRestrictivePracticeUsageLogSchema>;
+export type RestrictivePracticeUsageLog = typeof restrictivePracticeUsageLogs.$inferSelect;
