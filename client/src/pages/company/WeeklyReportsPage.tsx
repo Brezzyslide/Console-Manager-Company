@@ -79,13 +79,13 @@ export default function WeeklyReportsPage() {
   const activeParticipants = participants.filter(p => p.status === "active");
   
   const { data: reports = [], isLoading: reportsLoading } = useQuery<WeeklyReport[]>({
-    queryKey: ["/api/compliance/weekly-reports", selectedParticipant, periodStart.toISOString(), periodEnd.toISOString()],
+    queryKey: ["/api/company/weekly-reports", selectedParticipant, periodStart.toISOString(), periodEnd.toISOString()],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedParticipant) params.set("participantId", selectedParticipant);
       params.set("periodStart", periodStart.toISOString());
       params.set("periodEnd", periodEnd.toISOString());
-      const res = await fetch(`/api/compliance/weekly-reports?${params}`, { credentials: "include" });
+      const res = await fetch(`/api/company/weekly-reports?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch reports");
       return res.json();
     },
@@ -94,7 +94,7 @@ export default function WeeklyReportsPage() {
   
   const generateMutation = useMutation({
     mutationFn: async (data: { participantId: string; periodStart: string; periodEnd: string }) => {
-      const res = await fetch("/api/compliance/weekly-reports/generate", {
+      const res = await fetch("/api/company/weekly-reports/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -107,7 +107,7 @@ export default function WeeklyReportsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/compliance/weekly-reports"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/weekly-reports"] });
       setShowGenerateDialog(false);
       toast({ title: "Report generated", description: "AI-generated weekly compliance report created successfully" });
     },
@@ -118,7 +118,7 @@ export default function WeeklyReportsPage() {
   
   const updateMutation = useMutation({
     mutationFn: async ({ id, reportText, reportStatus }: { id: string; reportText?: string; reportStatus?: string }) => {
-      const res = await fetch(`/api/compliance/weekly-reports/${id}`, {
+      const res = await fetch(`/api/company/weekly-reports/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -128,7 +128,7 @@ export default function WeeklyReportsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/compliance/weekly-reports"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/weekly-reports"] });
       setEditingReport(null);
       toast({ title: "Report updated", description: "Changes saved successfully" });
     },
