@@ -1235,7 +1235,7 @@ Based STRICTLY on this data, provide a professional weekly compliance summary fo
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_completion_tokens: 1000,
+        max_completion_tokens: 4000,
       });
       
       console.log("AI completion full response:", JSON.stringify(completion, null, 2));
