@@ -118,7 +118,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
   const isAdmin = user?.role === "CompanyAdmin";
 
   const coreItems = [
-    { href: "/company/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
+    { href: "/company/dashboard", label: "Audit Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
   ];
 
   const auditModuleItems = [
