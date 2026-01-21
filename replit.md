@@ -37,7 +37,7 @@ The application is structured as a multi-tenant SaaS with strong data isolation.
 ### Data Storage
 - **Database**: PostgreSQL
 - **ORM**: Drizzle ORM with Zod schema validation.
-- **Key Tables**: `console_users`, `companies`, `company_users`, `company_roles`, `change_log` (immutable audit trail), `audits`, `audit_indicator_responses`, `evidence_requests`, `evidence_items`, `standard_indicators`, `document_checklist_templates`, `document_checklist_items`, `document_reviews`, `suggested_findings`, `audit_interviews`, `audit_site_visits`, `audit_sites`, `finding_activities` (tracks corrective action lifecycle), `finding_closure_evidence` (links evidence to finding closures).
+- **Key Tables**: `console_users`, `companies`, `company_users`, `company_roles`, `change_log` (immutable audit trail), `audits`, `audit_indicator_responses`, `evidence_requests`, `evidence_items`, `standard_indicators`, `document_checklist_templates`, `document_checklist_items`, `document_reviews`, `suggested_findings`, `audit_interviews`, `audit_site_visits`, `audit_sites`, `finding_activities` (tracks corrective action lifecycle), `finding_closure_evidence` (links evidence to finding closures), `weekly_compliance_reports`, `ai_generation_logs` (tracks AI generation with input hash, model, prompt version for traceability).
 
 ### Key Features
 - **Audit Scoring Model**: Standardized rating system (CONFORMITY_BEST_PRACTICE, CONFORMITY, MINOR_NC, MAJOR_NC) with score calculation and versioning.
@@ -49,6 +49,13 @@ The application is structured as a multi-tenant SaaS with strong data isolation.
 - **Audit Report Generation**: Professional PDF reports conforming to DNV standards, including AI-generated (and editable) executive summaries, scoring summaries, detailed responses, interview logs, and site visit observations.
 - **Corrective Action Management**: Complete lifecycle tracking for non-conformance findings from identification through resolution. Activity timeline captures status changes, comments, evidence submissions, owner assignments, due dates, and closure details. PDF reports include full corrective action journey for each finding.
 - **Lead Auditor Approval Workflow**: Quality control gate requiring lead auditor review before audit closure. Workflow: DRAFT → IN_PROGRESS → IN_REVIEW → CLOSED. Auditors submit for review, lead auditors (CompanyAdmin role) can approve or request changes with feedback notes. Tracks submission and approval timestamps with user attribution.
+- **AI-Powered Weekly Compliance Reports**: Generates professional participant compliance summaries using GPT-5 with strict guardrails. Features include:
+  - Automatic data gathering from compliance runs within a selected period
+  - AI prompt with strict rules: only summarizes provided data, no medical details, professional language
+  - Full traceability via `ai_generation_logs` table: input hash (SHA-256), model name, prompt version, success/error status
+  - Report lifecycle: DRAFT → FINAL with manual edit capability
+  - Role-restricted access (CompanyAdmin, Auditor only)
+  - Error handling logs AI failures with success=false before returning errors
 
 ## External Dependencies
 
