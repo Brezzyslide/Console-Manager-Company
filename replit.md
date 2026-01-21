@@ -37,7 +37,7 @@ The application is structured as a multi-tenant SaaS with strong data isolation.
 ### Data Storage
 - **Database**: PostgreSQL
 - **ORM**: Drizzle ORM with Zod schema validation.
-- **Key Tables**: `console_users`, `companies`, `company_users`, `company_roles`, `change_log` (immutable audit trail), `audits`, `audit_indicator_responses`, `evidence_requests`, `evidence_items`, `standard_indicators`, `document_checklist_templates`, `document_checklist_items`, `document_reviews`, `suggested_findings`, `audit_interviews`, `audit_site_visits`, `audit_sites`, `finding_activities` (tracks corrective action lifecycle), `finding_closure_evidence` (links evidence to finding closures), `weekly_compliance_reports`, `ai_generation_logs` (tracks AI generation with input hash, model, prompt version for traceability).
+- **Key Tables**: `console_users`, `companies`, `company_users`, `company_roles`, `change_log` (immutable audit trail), `audits`, `audit_indicator_responses`, `evidence_requests`, `evidence_items`, `standard_indicators`, `document_checklist_templates`, `document_checklist_items`, `document_reviews`, `suggested_findings`, `audit_interviews`, `audit_site_visits`, `audit_sites`, `finding_activities` (tracks corrective action lifecycle), `finding_closure_evidence` (links evidence to finding closures), `weekly_compliance_reports`, `ai_generation_logs` (tracks AI generation with input hash, model, prompt version for traceability), `restrictive_practice_authorizations` (tracks authorized restrictive practices per participant), `restrictive_practice_usage_logs` (event-driven logging of practice usage including unauthorized).
 
 ### Key Features
 - **Audit Scoring Model**: Standardized rating system (CONFORMITY_BEST_PRACTICE, CONFORMITY, MINOR_NC, MAJOR_NC) with score calculation and versioning.
@@ -56,6 +56,18 @@ The application is structured as a multi-tenant SaaS with strong data isolation.
   - Report lifecycle: DRAFT → FINAL with manual edit capability
   - Role-restricted access (CompanyAdmin, Auditor only)
   - Error handling logs AI failures with success=false before returning errors
+- **Restrictive Practices Register**: Standalone module for managing NDIS restrictive practices with:
+  - Authorization tracking for 5 practice types (PHYSICAL_RESTRAINT, MECHANICAL_RESTRAINT, CHEMICAL_RESTRAINT, SECLUSION, ENVIRONMENTAL_RESTRAINT)
+  - Status workflow: PENDING → APPROVED, with EXPIRED/REVOKED states
+  - Expiry date tracking with dashboard alerts for expiring soon and expired authorizations
+  - Usage logging (event-driven) capturing both authorized and unauthorized practice instances
+  - De-escalation attempts, duration, witness, and outcome documentation
+  - Dashboard with real-time metrics: active/pending/expired authorizations, recent usage, unauthorized count
+  - AI Report Generation with two report types:
+    - Practice-Focused Report: Analyzes practices by type, usage patterns, compliance observations
+    - Participant-Focused Report: Person-centered analysis focusing on individual experience and reducing restrictive practice use
+  - Full AI traceability via `ai_generation_logs` with SHA-256 input hash, model name, prompt version
+  - Role-restricted access (CompanyAdmin, Auditor, Reviewer)
 
 ## External Dependencies
 

@@ -161,7 +161,7 @@ router.post("/restrictive-practices/usage-logs", requireCompanyAuth, requireRole
       participantId: z.string().min(1),
       authorizationId: z.string().optional(),
       practiceType: z.enum(restrictivePracticeTypes),
-      isAuthorized: z.boolean(),
+      isAuthorized: z.boolean().optional(),
       usageDate: z.string().datetime(),
       startTime: z.string().datetime().optional(),
       endTime: z.string().datetime().optional(),
@@ -177,9 +177,40 @@ router.post("/restrictive-practices/usage-logs", requireCompanyAuth, requireRole
     
     const data = schema.parse(req.body);
     
+    // Auto-detect authorization if not provided
+    let authorizationId = data.authorizationId;
+    let isAuthorized = data.isAuthorized;
+    
+    if (!authorizationId) {
+      // Look for active authorization for this participant/practice type
+      const authorizations = await storage.getRestrictivePracticeAuthorizations(companyId, { participantId: data.participantId });
+      const usageDate = new Date(data.usageDate);
+      
+      const matchingAuth = authorizations.find(auth => 
+        auth.practiceType === data.practiceType &&
+        auth.authorizationStatus === "APPROVED" &&
+        (!auth.expiryDate || new Date(auth.expiryDate) > usageDate)
+      );
+      
+      if (matchingAuth) {
+        authorizationId = matchingAuth.id;
+        // If isAuthorized not explicitly set, derive from authorization match
+        if (isAuthorized === undefined) {
+          isAuthorized = true;
+        }
+      } else {
+        // No valid authorization found
+        if (isAuthorized === undefined) {
+          isAuthorized = false;
+        }
+      }
+    }
+    
     const log = await storage.createRestrictivePracticeUsageLog({
       ...data,
       companyId,
+      authorizationId,
+      isAuthorized: isAuthorized ?? false,
       reportedByUserId: userId,
       usageDate: new Date(data.usageDate),
       startTime: data.startTime ? new Date(data.startTime) : undefined,

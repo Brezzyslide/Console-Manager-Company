@@ -113,6 +113,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
     { href: "/sites-participants", label: "Sites & People", icon: Building2, testId: "nav-sites-participants" },
     { href: "/compliance-review", label: "Compliance", icon: ListChecks, testId: "nav-compliance" },
     { href: "/weekly-reports", label: "AI Reports", icon: Sparkles, testId: "nav-weekly-reports", roles: ["CompanyAdmin", "Auditor"] as const },
+    { href: "/restrictive-practices", label: "Restrictive Practices", icon: Shield, testId: "nav-restrictive-practices", roles: ["CompanyAdmin", "Auditor", "Reviewer"] as const },
     { href: "/audits", label: "Audits", icon: ClipboardCheck, testId: "nav-audits", startsWith: true },
     { href: "/findings", label: "Findings", icon: AlertTriangle, testId: "nav-findings" },
     { href: "/reports", label: "Reports", icon: FileBarChart, testId: "nav-reports" },
