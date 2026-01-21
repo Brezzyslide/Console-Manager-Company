@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import crypto from "crypto";
 import OpenAI from "openai";
+import { TextDocument } from "simple-odf";
 import { storage } from "../storage";
 import { requireCompanyAuth, requireRole, type AuthenticatedCompanyRequest } from "../lib/companyAuth";
 
@@ -1008,6 +1009,74 @@ router.patch("/weekly-reports/:id", requireCompanyAuth, requireRole(["CompanyAdm
   }
 });
 
+router.get("/weekly-reports/:id/export-odf", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { id } = req.params;
+    
+    const report = await storage.getWeeklyComplianceReport(id, companyId);
+    if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    
+    const participant = await storage.getParticipant(report.participantId, companyId);
+    const participantName = participant?.displayName || `${participant?.firstName} ${participant?.lastName}` || "Unknown";
+    
+    const periodStart = new Date(report.periodStart).toLocaleDateString("en-AU");
+    const periodEnd = new Date(report.periodEnd).toLocaleDateString("en-AU");
+    
+    const doc = new TextDocument();
+    const body = doc.getBody();
+    
+    body.addHeading(`Weekly Compliance Report`, 1);
+    body.addParagraph(`Participant: ${participantName}`);
+    body.addParagraph(`Period: ${periodStart} to ${periodEnd}`);
+    body.addParagraph(`Generated: ${new Date(report.createdAt).toLocaleDateString("en-AU")}`);
+    body.addParagraph(`Status: ${report.reportStatus}`);
+    body.addParagraph("");
+    
+    const metrics = report.metricsJson as any;
+    if (metrics) {
+      body.addHeading("Compliance Metrics", 2);
+      body.addParagraph(`Overall Status: ${metrics.overallStatus || "N/A"}`);
+      body.addParagraph(`Daily Checks Completed: ${metrics.dailyRunsCompletedCount || 0}`);
+      body.addParagraph(`Weekly Checks Completed: ${metrics.weeklyRunsCompletedCount || 0}`);
+      body.addParagraph(`Critical Failures: ${metrics.dailyCriticalFailuresCount || 0}`);
+      body.addParagraph(`Incident Days: ${metrics.incidentDaysCount || 0}`);
+      body.addParagraph(`Medication Non-Compliance Days: ${metrics.medicationNonComplianceDaysCount || 0}`);
+      body.addParagraph(`PRN Usage: ${metrics.prnFlag ? "Yes" : "No"}`);
+      body.addParagraph(`Restrictive Practices Used: ${metrics.restrictivePracticesUsed ? "Yes" : "No"}`);
+      body.addParagraph("");
+    }
+    
+    body.addHeading("AI-Generated Summary", 2);
+    if (report.reportText) {
+      const lines = report.reportText.split("\n");
+      for (const line of lines) {
+        if (line.trim()) {
+          body.addParagraph(line);
+        }
+      }
+    } else {
+      body.addParagraph("No summary generated.");
+    }
+    
+    const tmpPath = `/tmp/report_${id}.fodt`;
+    await doc.saveFlat(tmpPath);
+    const buffer = await require("fs").promises.readFile(tmpPath);
+    await require("fs").promises.unlink(tmpPath);
+    
+    const filename = `Weekly_Report_${participantName.replace(/[^a-zA-Z0-9]/g, "_")}_${periodStart.replace(/\//g, "-")}.odt`;
+    
+    res.setHeader("Content-Type", "application/vnd.oasis.opendocument.text");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(Buffer.from(buffer));
+  } catch (error: any) {
+    console.error("Error exporting weekly report to ODF:", error);
+    res.status(500).json({ error: "Failed to export report" });
+  }
+});
+
 router.post("/weekly-reports/generate", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
@@ -1238,14 +1307,7 @@ Based STRICTLY on this data, provide a professional weekly compliance summary fo
         max_completion_tokens: 4000,
       });
       
-      console.log("AI completion full response:", JSON.stringify(completion, null, 2));
-      console.log("Choices array:", JSON.stringify(completion.choices, null, 2));
-      if (completion.choices && completion.choices[0]) {
-        console.log("First choice message:", JSON.stringify(completion.choices[0].message, null, 2));
-      }
       generatedText = completion.choices[0]?.message?.content || "";
-      console.log("Extracted generatedText length:", generatedText.length);
-      console.log("Extracted generatedText preview:", generatedText ? generatedText.substring(0, 200) : "(empty)");
       modelName = completion.model || "gpt-5";
       
       await storage.createAiGenerationLog({

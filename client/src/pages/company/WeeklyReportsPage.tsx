@@ -31,6 +31,7 @@ import {
   Check,
   X,
   RefreshCw,
+  Download,
 } from "lucide-react";
 import { format, startOfWeek, endOfWeek, subWeeks } from "date-fns";
 
@@ -168,6 +169,31 @@ export default function WeeklyReportsPage() {
     return p ? `${p.firstName} ${p.lastName}` : "Unknown";
   };
   
+  const handleExportOdf = async (reportId: string) => {
+    try {
+      const res = await fetch(`/api/company/weekly-reports/${reportId}/export-odf`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error("Export failed");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const contentDisposition = res.headers.get("content-disposition");
+      const filename = contentDisposition?.match(/filename="(.+)"/)?.[1] || "report.odt";
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Export successful", description: "Report downloaded as ODF file" });
+    } catch (error) {
+      toast({ title: "Export failed", description: "Could not export report", variant: "destructive" });
+    }
+  };
+  
   return (
     <div className="container mx-auto py-6 max-w-6xl">
       <div className="mb-6">
@@ -292,29 +318,41 @@ export default function WeeklyReportsPage() {
                       </div>
                     </div>
                     
-                    {report.reportStatus === "DRAFT" && (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => startEditing(report)}
-                          className="gap-1"
-                          data-testid={`btn-edit-${report.id}`}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleFinalizeReport(report)}
-                          className="gap-1"
-                          data-testid={`btn-finalize-${report.id}`}
-                        >
-                          <Check className="h-3 w-3" />
-                          Finalize
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {report.reportStatus === "DRAFT" && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => startEditing(report)}
+                            className="gap-1"
+                            data-testid={`btn-edit-${report.id}`}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleFinalizeReport(report)}
+                            className="gap-1"
+                            data-testid={`btn-finalize-${report.id}`}
+                          >
+                            <Check className="h-3 w-3" />
+                            Finalize
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportOdf(report.id)}
+                        className="gap-1"
+                        data-testid={`btn-export-${report.id}`}
+                      >
+                        <Download className="h-3 w-3" />
+                        Export ODF
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="mt-4 p-4 bg-muted/30 rounded-md whitespace-pre-wrap text-sm">
