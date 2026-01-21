@@ -68,7 +68,12 @@ export default function WeeklyReportsPage() {
   const periodEnd = endOfWeek(subWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
   
   const { data: participants = [] } = useQuery<Participant[]>({
-    queryKey: ["/api/compliance/participants"],
+    queryKey: ["/api/company/participants"],
+    queryFn: async () => {
+      const res = await fetch("/api/company/participants", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch participants");
+      return res.json();
+    },
   });
   
   const activeParticipants = participants.filter(p => p.status === "active");
