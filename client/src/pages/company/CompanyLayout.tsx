@@ -1,9 +1,15 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
 import { getOnboardingStatus } from "@/lib/company-api";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   Building2, 
   Users, 
@@ -15,10 +21,13 @@ import {
   AlertTriangle,
   FolderOpen,
   ChevronRight,
+  ChevronDown,
   Sparkles,
   ClipboardCheck,
   FileBarChart,
-  ListChecks
+  ListChecks,
+  Clipboard,
+  Activity
 } from "lucide-react";
 
 interface CompanyLayoutProps {
@@ -108,16 +117,22 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
 
   const isAdmin = user?.role === "CompanyAdmin";
 
-  const navItems = [
+  const coreItems = [
     { href: "/company/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
     { href: "/sites-participants", label: "Sites & People", icon: Building2, testId: "nav-sites-participants" },
-    { href: "/compliance-review", label: "Compliance", icon: ListChecks, testId: "nav-compliance" },
-    { href: "/weekly-reports", label: "AI Reports", icon: Sparkles, testId: "nav-weekly-reports", roles: ["CompanyAdmin", "Auditor"] as const },
-    { href: "/restrictive-practices", label: "Restrictive Practices", icon: Shield, testId: "nav-restrictive-practices", roles: ["CompanyAdmin", "Auditor", "Reviewer"] as const },
+  ];
+
+  const auditModuleItems = [
     { href: "/audits", label: "Audits", icon: ClipboardCheck, testId: "nav-audits", startsWith: true },
     { href: "/findings", label: "Findings", icon: AlertTriangle, testId: "nav-findings" },
-    { href: "/reports", label: "Reports", icon: FileBarChart, testId: "nav-reports" },
-    { href: "/evidence", label: "Evidence", icon: FolderOpen, testId: "nav-evidence", startsWith: true },
+    { href: "/reports", label: "Audit Reports", icon: FileBarChart, testId: "nav-reports" },
+    { href: "/evidence", label: "Evidence Locker", icon: FolderOpen, testId: "nav-evidence", startsWith: true },
+  ];
+
+  const complianceModuleItems = [
+    { href: "/compliance-review", label: "Compliance Checks", icon: ListChecks, testId: "nav-compliance" },
+    { href: "/weekly-reports", label: "AI Reports", icon: Sparkles, testId: "nav-weekly-reports", roles: ["CompanyAdmin", "Auditor"] as const },
+    { href: "/restrictive-practices", label: "Restrictive Practices", icon: Shield, testId: "nav-restrictive-practices", roles: ["CompanyAdmin", "Auditor", "Reviewer"] as const },
   ];
 
   const adminItems = [
@@ -128,6 +143,10 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
   const isActive = (href: string, startsWith?: boolean) => {
     if (startsWith) return location.startsWith(href);
     return location === href;
+  };
+
+  const isModuleActive = (items: typeof auditModuleItems) => {
+    return items.some(item => isActive(item.href, item.startsWith));
   };
 
   return (
@@ -146,11 +165,9 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
               </Link>
               
               <nav className="hidden lg:flex items-center gap-1">
-                {navItems
-                  .filter(item => !item.roles || (user?.role && item.roles.includes(user.role as any)))
-                  .map((item) => {
+                {coreItems.map((item) => {
                   const Icon = item.icon;
-                  const active = isActive(item.href, item.startsWith);
+                  const active = isActive(item.href);
                   return (
                     <Link key={item.href} href={item.href}>
                       <button
@@ -169,6 +186,74 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
                     </Link>
                   );
                 })}
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={`
+                        flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                        ${isModuleActive(auditModuleItems)
+                          ? 'bg-primary/10 text-primary' 
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }
+                      `}
+                      data-testid="nav-audit-module"
+                    >
+                      <Clipboard className="h-4 w-4" />
+                      Audit Module
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    {auditModuleItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.href, item.startsWith);
+                      return (
+                        <Link key={item.href} href={item.href}>
+                          <DropdownMenuItem className={`cursor-pointer ${active ? 'bg-primary/10 text-primary' : ''}`} data-testid={item.testId}>
+                            <Icon className="h-4 w-4 mr-2" />
+                            {item.label}
+                          </DropdownMenuItem>
+                        </Link>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={`
+                        flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                        ${isModuleActive(complianceModuleItems)
+                          ? 'bg-primary/10 text-primary' 
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }
+                      `}
+                      data-testid="nav-compliance-module"
+                    >
+                      <Activity className="h-4 w-4" />
+                      Compliance Module
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    {complianceModuleItems
+                      .filter(item => !item.roles || (user?.role && item.roles.includes(user.role as any)))
+                      .map((item) => {
+                        const Icon = item.icon;
+                        const active = isActive(item.href, (item as any).startsWith);
+                        return (
+                          <Link key={item.href} href={item.href}>
+                            <DropdownMenuItem className={`cursor-pointer ${active ? 'bg-primary/10 text-primary' : ''}`} data-testid={item.testId}>
+                              <Icon className="h-4 w-4 mr-2" />
+                              {item.label}
+                            </DropdownMenuItem>
+                          </Link>
+                        );
+                      })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 
                 {isAdmin && (
                   <>
