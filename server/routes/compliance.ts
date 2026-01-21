@@ -1238,9 +1238,14 @@ Based STRICTLY on this data, provide a professional weekly compliance summary fo
         max_completion_tokens: 1000,
       });
       
-      console.log("AI completion response:", JSON.stringify(completion, null, 2));
+      console.log("AI completion full response:", JSON.stringify(completion, null, 2));
+      console.log("Choices array:", JSON.stringify(completion.choices, null, 2));
+      if (completion.choices && completion.choices[0]) {
+        console.log("First choice message:", JSON.stringify(completion.choices[0].message, null, 2));
+      }
       generatedText = completion.choices[0]?.message?.content || "";
-      console.log("Extracted generatedText:", generatedText ? generatedText.substring(0, 100) + "..." : "(empty)");
+      console.log("Extracted generatedText length:", generatedText.length);
+      console.log("Extracted generatedText preview:", generatedText ? generatedText.substring(0, 200) : "(empty)");
       modelName = completion.model || "gpt-5";
       
       await storage.createAiGenerationLog({
