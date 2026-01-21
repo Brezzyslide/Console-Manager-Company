@@ -28,7 +28,7 @@ interface WorkSite {
   id: string;
   name: string;
   address?: string;
-  status: "ACTIVE" | "INACTIVE";
+  status: "active" | "inactive";
   createdAt: string;
 }
 
@@ -40,7 +40,7 @@ interface Participant {
   ndisNumber?: string;
   dob?: string;
   primarySiteId?: string;
-  status: "ACTIVE" | "INACTIVE";
+  status: "active" | "inactive";
   createdAt: string;
 }
 
@@ -375,10 +375,10 @@ export default function SitesParticipantsPage() {
     return assignments.filter(a => a.participantId === participantId);
   };
 
-  const activeSites = workSites.filter(s => s.status === "ACTIVE");
-  const inactiveSites = workSites.filter(s => s.status === "INACTIVE");
-  const activeParticipants = participants.filter(p => p.status === "ACTIVE");
-  const inactiveParticipants = participants.filter(p => p.status === "INACTIVE");
+  const activeSites = workSites.filter(s => s.status === "active");
+  const inactiveSites = workSites.filter(s => s.status === "inactive");
+  const activeParticipants = participants.filter(p => p.status === "active");
+  const inactiveParticipants = participants.filter(p => p.status === "inactive");
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -510,7 +510,7 @@ export default function SitesParticipantsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => updateSiteMutation.mutate({ id: site.id, data: { status: "INACTIVE" } })}
+                                onClick={() => updateSiteMutation.mutate({ id: site.id, data: { status: "inactive" } })}
                                 data-testid={`button-deactivate-site-${site.id}`}
                               >
                                 <XCircle className="h-4 w-4 text-muted-foreground" />
@@ -551,7 +551,7 @@ export default function SitesParticipantsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => updateSiteMutation.mutate({ id: site.id, data: { status: "ACTIVE" } })}
+                                onClick={() => updateSiteMutation.mutate({ id: site.id, data: { status: "active" } })}
                                 data-testid={`button-activate-site-${site.id}`}
                               >
                                 <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -748,7 +748,7 @@ export default function SitesParticipantsPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => updateParticipantMutation.mutate({ id: participant.id, data: { status: "INACTIVE" } })}
+                                    onClick={() => updateParticipantMutation.mutate({ id: participant.id, data: { status: "inactive" } })}
                                     data-testid={`button-deactivate-participant-${participant.id}`}
                                   >
                                     <XCircle className="h-4 w-4 text-muted-foreground" />
@@ -816,7 +816,7 @@ export default function SitesParticipantsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => updateParticipantMutation.mutate({ id: participant.id, data: { status: "ACTIVE" } })}
+                                onClick={() => updateParticipantMutation.mutate({ id: participant.id, data: { status: "active" } })}
                                 data-testid={`button-activate-participant-${participant.id}`}
                               >
                                 <CheckCircle2 className="h-4 w-4 text-green-600" />
