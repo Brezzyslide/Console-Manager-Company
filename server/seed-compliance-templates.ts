@@ -9,6 +9,7 @@ interface TemplateItemDef {
   responseType: "YES_NO_NA" | "NUMBER" | "TEXT" | "PHOTO_REQUIRED";
   isCritical: boolean;
   defaultEvidenceRequired?: boolean;
+  notesRequiredOnFail?: boolean;
 }
 
 interface TemplateDef {
@@ -122,6 +123,93 @@ const DEFAULT_TEMPLATES: TemplateDef[] = [
       },
     ],
   },
+  {
+    name: "Daily Client Compliance Check",
+    description: "Daily participant-focused checks for medication, personal care, and safety",
+    scopeType: "PARTICIPANT",
+    frequency: "DAILY",
+    items: [
+      {
+        title: "Medication administered as per MAR chart",
+        guidanceText: "Verify all scheduled medications have been administered and documented correctly",
+        responseType: "YES_NO_NA",
+        isCritical: true,
+        notesRequiredOnFail: true,
+      },
+      {
+        title: "Personal care completed as per support plan",
+        guidanceText: "Confirm personal care activities were delivered according to participant's care plan",
+        responseType: "YES_NO_NA",
+        isCritical: true,
+        notesRequiredOnFail: true,
+      },
+      {
+        title: "Participant presentation noted",
+        guidanceText: "Record observations about participant's physical and emotional wellbeing",
+        responseType: "TEXT",
+        isCritical: false,
+      },
+      {
+        title: "Any incidents or concerns today",
+        guidanceText: "Document any incidents, near-misses, or concerns that occurred during the shift",
+        responseType: "YES_NO_NA",
+        isCritical: true,
+        notesRequiredOnFail: true,
+      },
+      {
+        title: "Handover notes completed",
+        guidanceText: "Confirm handover documentation has been completed for incoming staff",
+        responseType: "YES_NO_NA",
+        isCritical: false,
+      },
+    ],
+  },
+  {
+    name: "Weekly Client Compliance Check",
+    description: "Weekly participant review covering goals progress, documentation, and care plan compliance",
+    scopeType: "PARTICIPANT",
+    frequency: "WEEKLY",
+    items: [
+      {
+        title: "Weekly goal progress reviewed",
+        guidanceText: "Review participant's progress towards their NDIS goals for the week",
+        responseType: "YES_NO_NA",
+        isCritical: false,
+        notesRequiredOnFail: true,
+      },
+      {
+        title: "All shift notes completed for the week",
+        guidanceText: "Verify that case notes have been completed for all rostered shifts this week",
+        responseType: "YES_NO_NA",
+        isCritical: true,
+      },
+      {
+        title: "Incident reports submitted and reviewed",
+        guidanceText: "Confirm all incident reports have been submitted, reviewed, and actioned appropriately",
+        responseType: "YES_NO_NA",
+        isCritical: true,
+      },
+      {
+        title: "Family/carer communication logged",
+        guidanceText: "Document any communication with family members or carers during the week",
+        responseType: "YES_NO_NA",
+        isCritical: false,
+      },
+      {
+        title: "Number of missed supports this week",
+        guidanceText: "Enter the number of scheduled supports that were missed or cancelled",
+        responseType: "NUMBER",
+        isCritical: true,
+        notesRequiredOnFail: true,
+      },
+      {
+        title: "Restrictive practice register updated",
+        guidanceText: "Confirm restrictive practice register has been reviewed and updated if applicable",
+        responseType: "YES_NO_NA",
+        isCritical: true,
+      },
+    ],
+  },
 ];
 
 export async function seedComplianceTemplatesForCompany(companyId: string): Promise<{ templatesCreated: number; itemsCreated: number }> {
@@ -164,6 +252,7 @@ export async function seedComplianceTemplatesForCompany(companyId: string): Prom
       responseType: item.responseType,
       isCritical: item.isCritical,
       defaultEvidenceRequired: item.defaultEvidenceRequired || false,
+      notesRequiredOnFail: item.notesRequiredOnFail || false,
       evidenceSourceType: "MANUAL" as const,
     }));
 

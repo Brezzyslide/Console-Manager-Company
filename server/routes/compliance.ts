@@ -1,7 +1,16 @@
 import { Router } from "express";
 import { z } from "zod";
+import crypto from "crypto";
+import OpenAI from "openai";
 import { storage } from "../storage";
 import { requireCompanyAuth, requireRole, type AuthenticatedCompanyRequest } from "../lib/companyAuth";
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
+
+const WEEKLY_REPORT_PROMPT_VERSION = "1.0.0";
 
 const router = Router();
 
@@ -912,6 +921,197 @@ router.get("/compliance-rollups", requireCompanyAuth, async (req: AuthenticatedC
   } catch (error: any) {
     console.error("Error fetching compliance rollup:", error);
     res.status(500).json({ error: "Failed to fetch rollup" });
+  }
+});
+
+// ============================================================
+// WEEKLY COMPLIANCE REPORTS
+// ============================================================
+
+router.get("/weekly-reports", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { participantId, periodStart, periodEnd } = req.query;
+    
+    const reports = await storage.getWeeklyComplianceReports(companyId, {
+      participantId: participantId as string | undefined,
+      periodStart: periodStart ? new Date(periodStart as string) : undefined,
+      periodEnd: periodEnd ? new Date(periodEnd as string) : undefined,
+    });
+    
+    res.json(reports);
+  } catch (error: any) {
+    console.error("Error fetching weekly reports:", error);
+    res.status(500).json({ error: "Failed to fetch weekly reports" });
+  }
+});
+
+router.get("/weekly-reports/:id", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { id } = req.params;
+    
+    const report = await storage.getWeeklyComplianceReport(id, companyId);
+    if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    
+    res.json(report);
+  } catch (error: any) {
+    console.error("Error fetching weekly report:", error);
+    res.status(500).json({ error: "Failed to fetch report" });
+  }
+});
+
+router.patch("/weekly-reports/:id", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const { id } = req.params;
+    
+    const schema = z.object({
+      manualOverrideText: z.string().optional(),
+    });
+    const data = schema.parse(req.body);
+    
+    const existing = await storage.getWeeklyComplianceReport(id, companyId);
+    if (!existing) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    
+    const updated = await storage.updateWeeklyComplianceReport(id, companyId, {
+      manualOverrideText: data.manualOverrideText || null,
+    });
+    
+    res.json(updated);
+  } catch (error: any) {
+    console.error("Error updating weekly report:", error);
+    res.status(400).json({ error: error.message || "Failed to update report" });
+  }
+});
+
+router.post("/weekly-reports/generate", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor"]), async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const userId = req.companyUser!.companyUserId;
+    
+    const schema = z.object({
+      participantId: z.string().uuid(),
+      periodStart: z.string(),
+      periodEnd: z.string(),
+    });
+    const data = schema.parse(req.body);
+    
+    const periodStart = new Date(data.periodStart);
+    const periodEnd = new Date(data.periodEnd);
+    
+    const participant = await storage.getParticipant(data.participantId, companyId);
+    if (!participant) {
+      return res.status(404).json({ error: "Participant not found" });
+    }
+    
+    const runs = await storage.getComplianceRuns(companyId, { participantId: data.participantId });
+    const periodRuns = runs.filter(r => {
+      const runDate = new Date(r.createdAt);
+      return runDate >= periodStart && runDate <= periodEnd;
+    });
+    
+    if (periodRuns.length === 0) {
+      return res.status(400).json({ error: "No compliance runs found for the specified period" });
+    }
+    
+    const runResponses: { run: any; responses: any[]; template: any }[] = [];
+    for (const run of periodRuns) {
+      const responses = await storage.getComplianceResponses(run.id, companyId);
+      const template = await storage.getComplianceTemplate(run.templateId, companyId);
+      runResponses.push({ run, responses, template });
+    }
+    
+    const inputData = {
+      participantName: `${participant.firstName} ${participant.lastName}`,
+      periodStart: periodStart.toISOString().split("T")[0],
+      periodEnd: periodEnd.toISOString().split("T")[0],
+      totalRuns: periodRuns.length,
+      runSummaries: runResponses.map(({ run, responses, template }) => {
+        const criticalFails = responses.filter(r => {
+          const item = template?.items?.find((i: any) => i.id === r.itemId);
+          return item?.isCritical && r.responseValue === "NO";
+        });
+        return {
+          date: run.createdAt,
+          templateName: template?.name || "Unknown",
+          frequency: template?.frequency || "UNKNOWN",
+          overallStatus: run.overallStatus,
+          criticalFailCount: criticalFails.length,
+          itemsSummary: responses.map(r => ({
+            title: r.notes ? r.notes.substring(0, 100) : "",
+            value: r.responseValue,
+            hasNote: !!r.notes,
+          })),
+        };
+      }),
+    };
+    
+    const inputHash = crypto.createHash("sha256").update(JSON.stringify(inputData)).digest("hex");
+    
+    const systemPrompt = `You are a compliance report writer for an NDIS (National Disability Insurance Scheme) provider. Generate a professional weekly compliance summary for a participant based on the data provided.
+
+STRICT RULES - YOU MUST FOLLOW:
+1. ONLY summarize facts from the provided data - do not invent or assume any information
+2. Never include specific medical diagnoses, disability types, or sensitive health details
+3. Use professional, neutral language appropriate for care documentation
+4. Focus on compliance status, patterns, and actionable observations
+5. If critical failures occurred, highlight them clearly with dates
+6. Structure the report with: Overview, Key Observations, Areas of Concern (if any), Recommendations
+
+Keep the summary concise (200-400 words maximum).`;
+
+    const userPrompt = `Generate a weekly compliance summary for participant "${inputData.participantName}" covering the period ${inputData.periodStart} to ${inputData.periodEnd}.
+
+Data:
+- Total compliance checks completed: ${inputData.totalRuns}
+- Run summaries:
+${inputData.runSummaries.map(s => `  * ${s.date} - ${s.templateName} (${s.frequency}): Status=${s.overallStatus}, Critical Fails=${s.criticalFailCount}`).join("\n")}
+
+Based strictly on this data, provide a professional compliance summary.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_completion_tokens: 1000,
+    });
+    
+    const generatedText = completion.choices[0]?.message?.content || "";
+    const modelName = completion.model || "gpt-5";
+    
+    await storage.createAiGenerationLog({
+      companyId,
+      generatedBy: userId,
+      reportType: "WEEKLY_COMPLIANCE",
+      inputHash,
+      modelName,
+      promptVersion: WEEKLY_REPORT_PROMPT_VERSION,
+      inputSnapshot: inputData,
+    });
+    
+    const report = await storage.createWeeklyComplianceReport({
+      companyId,
+      participantId: data.participantId,
+      periodStart,
+      periodEnd,
+      generatedText,
+      manualOverrideText: null,
+      inputHash,
+      modelName,
+      promptVersion: WEEKLY_REPORT_PROMPT_VERSION,
+    });
+    
+    res.status(201).json(report);
+  } catch (error: any) {
+    console.error("Error generating weekly report:", error);
+    res.status(500).json({ error: error.message || "Failed to generate weekly report" });
   }
 });
 
