@@ -119,7 +119,6 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
 
   const coreItems = [
     { href: "/company/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
-    { href: "/sites-participants", label: "Sites & People", icon: Building2, testId: "nav-sites-participants" },
   ];
 
   const auditModuleItems = [
@@ -130,6 +129,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
   ];
 
   const complianceModuleItems = [
+    { href: "/sites-participants", label: "Sites & People", icon: Building2, testId: "nav-sites-participants" },
     { href: "/compliance-review", label: "Compliance Checks", icon: ListChecks, testId: "nav-compliance" },
     { href: "/weekly-reports", label: "AI Reports", icon: Sparkles, testId: "nav-weekly-reports", roles: ["CompanyAdmin", "Auditor"] as const },
     { href: "/restrictive-practices", label: "Restrictive Practices", icon: Shield, testId: "nav-restrictive-practices", roles: ["CompanyAdmin", "Auditor", "Reviewer"] as const },
