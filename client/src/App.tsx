@@ -36,6 +36,7 @@ import ServicesSettingsPage from "@/pages/company/ServicesSettingsPage";
 import EvidenceLockerPage from "@/pages/company/EvidenceLockerPage";
 import EvidenceDetailPage from "@/pages/company/EvidenceDetailPage";
 import ComplianceReviewPage from "@/pages/company/ComplianceReviewPage";
+import SitesParticipantsPage from "@/pages/company/SitesParticipantsPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 // Public Pages
@@ -112,6 +113,13 @@ function Router() {
       <Route path="/app/admin/users">
         <CompanyLayout requireRole={["CompanyAdmin"]}>
           <AdminUsersPage />
+        </CompanyLayout>
+      </Route>
+      
+      {/* Sites & Participants Route */}
+      <Route path="/sites-participants">
+        <CompanyLayout>
+          <SitesParticipantsPage />
         </CompanyLayout>
       </Route>
       

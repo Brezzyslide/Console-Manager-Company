@@ -110,6 +110,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
 
   const navItems = [
     { href: "/company/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
+    { href: "/sites-participants", label: "Sites & People", icon: Building2, testId: "nav-sites-participants" },
     { href: "/compliance-review", label: "Compliance", icon: ListChecks, testId: "nav-compliance" },
     { href: "/audits", label: "Audits", icon: ClipboardCheck, testId: "nav-audits", startsWith: true },
     { href: "/findings", label: "Findings", icon: AlertTriangle, testId: "nav-findings" },
