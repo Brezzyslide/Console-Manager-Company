@@ -79,11 +79,16 @@ export default function WeeklyReportsPage() {
   const activeParticipants = participants.filter(p => p.status === "active");
   
   const { data: reports = [], isLoading: reportsLoading } = useQuery<WeeklyReport[]>({
-    queryKey: ["/api/compliance/weekly-reports", { 
-      participantId: selectedParticipant || undefined,
-      periodStart: periodStart.toISOString(),
-      periodEnd: periodEnd.toISOString(),
-    }],
+    queryKey: ["/api/compliance/weekly-reports", selectedParticipant, periodStart.toISOString(), periodEnd.toISOString()],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedParticipant) params.set("participantId", selectedParticipant);
+      params.set("periodStart", periodStart.toISOString());
+      params.set("periodEnd", periodEnd.toISOString());
+      const res = await fetch(`/api/compliance/weekly-reports?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch reports");
+      return res.json();
+    },
     enabled: true,
   });
   
