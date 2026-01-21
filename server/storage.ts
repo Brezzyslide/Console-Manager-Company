@@ -129,10 +129,16 @@ import {
   type InsertStaffParticipantAssignment,
   weeklyComplianceReports,
   aiGenerationLogs,
+  restrictivePracticeAuthorizations,
+  restrictivePracticeUsageLogs,
   type WeeklyComplianceReport,
   type InsertWeeklyComplianceReport,
   type AiGenerationLog,
   type InsertAiGenerationLog,
+  type RestrictivePracticeAuthorization,
+  type InsertRestrictivePracticeAuthorization,
+  type RestrictivePracticeUsageLog,
+  type InsertRestrictivePracticeUsageLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -395,6 +401,17 @@ export interface IStorage {
   
   // AI Generation Logs
   createAiGenerationLog(log: InsertAiGenerationLog): Promise<AiGenerationLog>;
+  
+  // Restrictive Practice Authorizations
+  getRestrictivePracticeAuthorizations(companyId: string, filters?: { participantId?: string }): Promise<RestrictivePracticeAuthorization[]>;
+  getRestrictivePracticeAuthorization(id: string, companyId: string): Promise<RestrictivePracticeAuthorization | undefined>;
+  createRestrictivePracticeAuthorization(auth: InsertRestrictivePracticeAuthorization): Promise<RestrictivePracticeAuthorization>;
+  updateRestrictivePracticeAuthorization(id: string, companyId: string, updates: Partial<InsertRestrictivePracticeAuthorization>): Promise<RestrictivePracticeAuthorization | undefined>;
+  
+  // Restrictive Practice Usage Logs
+  getRestrictivePracticeUsageLogs(companyId: string, filters?: { participantId?: string; authorizationId?: string; isAuthorized?: boolean; startDate?: Date; endDate?: Date }): Promise<RestrictivePracticeUsageLog[]>;
+  getRestrictivePracticeUsageLog(id: string, companyId: string): Promise<RestrictivePracticeUsageLog | undefined>;
+  createRestrictivePracticeUsageLog(log: InsertRestrictivePracticeUsageLog): Promise<RestrictivePracticeUsageLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2540,6 +2557,83 @@ export class DatabaseStorage implements IStorage {
   // AI Generation Logs
   async createAiGenerationLog(log: InsertAiGenerationLog): Promise<AiGenerationLog> {
     const [created] = await db.insert(aiGenerationLogs).values(log).returning();
+    return created;
+  }
+  
+  // Restrictive Practice Authorizations
+  async getRestrictivePracticeAuthorizations(companyId: string, filters?: { participantId?: string }): Promise<RestrictivePracticeAuthorization[]> {
+    const conditions: any[] = [eq(restrictivePracticeAuthorizations.companyId, companyId)];
+    if (filters?.participantId) {
+      conditions.push(eq(restrictivePracticeAuthorizations.participantId, filters.participantId));
+    }
+    return await db
+      .select()
+      .from(restrictivePracticeAuthorizations)
+      .where(and(...conditions))
+      .orderBy(desc(restrictivePracticeAuthorizations.createdAt));
+  }
+  
+  async getRestrictivePracticeAuthorization(id: string, companyId: string): Promise<RestrictivePracticeAuthorization | undefined> {
+    const [auth] = await db
+      .select()
+      .from(restrictivePracticeAuthorizations)
+      .where(and(eq(restrictivePracticeAuthorizations.id, id), eq(restrictivePracticeAuthorizations.companyId, companyId)));
+    return auth || undefined;
+  }
+  
+  async createRestrictivePracticeAuthorization(auth: InsertRestrictivePracticeAuthorization): Promise<RestrictivePracticeAuthorization> {
+    const [created] = await db.insert(restrictivePracticeAuthorizations).values(auth).returning();
+    return created;
+  }
+  
+  async updateRestrictivePracticeAuthorization(id: string, companyId: string, updates: Partial<InsertRestrictivePracticeAuthorization>): Promise<RestrictivePracticeAuthorization | undefined> {
+    const [updated] = await db
+      .update(restrictivePracticeAuthorizations)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(restrictivePracticeAuthorizations.id, id), eq(restrictivePracticeAuthorizations.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Restrictive Practice Usage Logs
+  async getRestrictivePracticeUsageLogs(companyId: string, filters?: { participantId?: string; authorizationId?: string; isAuthorized?: boolean; startDate?: Date; endDate?: Date }): Promise<RestrictivePracticeUsageLog[]> {
+    const conditions: any[] = [eq(restrictivePracticeUsageLogs.companyId, companyId)];
+    if (filters?.participantId) {
+      conditions.push(eq(restrictivePracticeUsageLogs.participantId, filters.participantId));
+    }
+    if (filters?.authorizationId) {
+      conditions.push(eq(restrictivePracticeUsageLogs.authorizationId, filters.authorizationId));
+    }
+    if (filters?.isAuthorized !== undefined) {
+      conditions.push(eq(restrictivePracticeUsageLogs.isAuthorized, filters.isAuthorized));
+    }
+    
+    let results = await db
+      .select()
+      .from(restrictivePracticeUsageLogs)
+      .where(and(...conditions))
+      .orderBy(desc(restrictivePracticeUsageLogs.usageDate));
+    
+    if (filters?.startDate) {
+      results = results.filter(r => new Date(r.usageDate) >= filters.startDate!);
+    }
+    if (filters?.endDate) {
+      results = results.filter(r => new Date(r.usageDate) <= filters.endDate!);
+    }
+    
+    return results;
+  }
+  
+  async getRestrictivePracticeUsageLog(id: string, companyId: string): Promise<RestrictivePracticeUsageLog | undefined> {
+    const [log] = await db
+      .select()
+      .from(restrictivePracticeUsageLogs)
+      .where(and(eq(restrictivePracticeUsageLogs.id, id), eq(restrictivePracticeUsageLogs.companyId, companyId)));
+    return log || undefined;
+  }
+  
+  async createRestrictivePracticeUsageLog(log: InsertRestrictivePracticeUsageLog): Promise<RestrictivePracticeUsageLog> {
+    const [created] = await db.insert(restrictivePracticeUsageLogs).values(log).returning();
     return created;
   }
 }
