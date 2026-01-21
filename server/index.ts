@@ -12,6 +12,7 @@ import onboardingRoutes from "./routes/onboarding";
 import auditRoutes from "./routes/audit";
 import publicRoutes from "./routes/public";
 import complianceRoutes from "./routes/compliance";
+import restrictivePracticesRoutes from "./routes/restrictive-practices";
 
 const app = express();
 const httpServer = createServer(app);
@@ -97,6 +98,9 @@ app.use((req, res, next) => {
   
   // Mount compliance routes (under /api/company)
   app.use("/api/company", complianceRoutes);
+  
+  // Mount restrictive practices routes (under /api/company)
+  app.use("/api/company", restrictivePracticesRoutes);
   
   await registerRoutes(httpServer, app);
 
