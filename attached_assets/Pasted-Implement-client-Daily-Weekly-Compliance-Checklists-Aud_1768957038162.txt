@@ -1,0 +1,162 @@
+Implement client Daily/Weekly Compliance Checklists (Audit System) AND add one-click AI Weekly Report generation using those entries.
+
+Context
+This is inside the multi-tenant NDIS Audit System (NOT the operational CRM). The audit system does not have case notes/incidents modules; it only has compliance checklists and manual entries. We are building Phase 1 manual-only checklists now, but keep the structure future-ready for external signals.
+
+Non-negotiables
+- Tenant/companyId scoping on ALL reads/writes.
+- Do NOT modify existing audit runner/scoring/evidence modules.
+- AI must only summarise data present in checklist entries and actions. No invented facts.
+- Findings are never auto-created; this feature only generates a report from entries.
+
+Data model
+Use/extend the Compliance Review schema:
+- compliance_templates
+- compliance_template_items
+- compliance_runs
+- compliance_responses
+- compliance_actions
+- participants
+- work_sites
+- participant_site_assignments
+
+Add the following fields if not present:
+In compliance_template_items:
+- evidenceSourceType enum: MANUAL | EXTERNAL_SIGNAL (default MANUAL)
+- externalSignalKey nullable (future CRM signals)
+- notesRequiredOnFail boolean default true (for critical items)
+
+Add new tables for reporting:
+1) weekly_compliance_reports
+- id, companyId
+- participantId
+- siteId nullable
+- periodStart datetime
+- periodEnd datetime
+- generatedByUserId
+- generationSource: "AI" | "MANUAL"
+- reportStatus: "DRAFT" | "FINAL"
+- reportText (long text)
+- metricsJson (json) // store computed rollup metrics (incidentCount, medsCompliant, etc)
+- createdAt, updatedAt
+
+2) ai_generation_logs
+- id, companyId
+- featureKey (e.g. "WEEKLY_COMPLIANCE_REPORT")
+- userId
+- participantId nullable
+- periodStart, periodEnd
+- inputHash (string) // hash of the source entries used to generate, for traceability
+- modelName (string) // whatever your AI wrapper uses
+- promptVersion (string)
+- success boolean
+- errorMessage nullable
+- createdAt
+
+Templates to seed (PARTICIPANT scope)
+A) Daily Client Compliance template (6–8 items max):
+- Support delivered as rostered today (YES/NO/NA) critical
+- Case note completed for today’s support (YES/NO/NA) critical (manual for now)
+- Client wellbeing checked and documented (YES/NO) critical
+- Any incidents today (YES/NO) critical (if YES, notes required)
+- Medication administered as per plan (YES/NO/NA) critical
+- Any concerns requiring follow-up (YES/NO) non-critical (notes required if YES)
+
+B) Weekly Client Compliance template (10–14 items max):
+- Case notes completed for all rostered supports (YES/NO) critical
+- Support delivery aligns with care plan (YES/NO) critical
+- Number of incidents this week (NUMBER) critical
+- All incidents reviewed and actions taken (YES/NO/NA) critical
+- Medication compliance for the week (YES/NO/NA) critical
+- PRN usage reviewed (YES/NO/NA) non-critical (notes if YES)
+- Any restrictive practices used (YES/NO/NA) critical (notes required if YES)
+- Care plan reviewed this period if due (YES/NO/NA) critical
+- Risk assessments current and appropriate (YES/NO) critical
+- Client feedback/preferences captured (YES/NO/NA) non-critical
+- Supports align with funded supports (YES/NO) critical
+
+Backend APIs
+Existing:
+- CRUD participants/sites/templates/items/runs/responses/actions
+
+Add/Update logic:
+1) Create/Resume runs
+- POST /api/compliance-runs must prevent duplicates per participant per day (daily) and per participant per week (weekly).
+- GET /api/compliance-runs returns run + template items + responses.
+
+2) Submit run
+- POST /api/compliance-runs/:id/submit validates all critical items responded.
+- Any critical item = NO OR any critical “incident today = YES” without notes => create HIGH action.
+- Non-critical NO or “concerns = YES” => create MEDIUM action.
+- Store run submission metadata.
+
+Weekly Report Generation (new endpoints)
+3) POST /api/weekly-reports/generate
+Input:
+- participantId
+- periodStart
+- periodEnd
+- siteId optional
+Behavior:
+- Collect all DAILY runs for participant within period
+- Collect WEEKLY run for participant for the same week (if exists)
+- Collect compliance_actions within period for that participant (and optionally site)
+- Compute rollup metrics (metricsJson), such as:
+  - dailyRunsCompletedCount
+  - dailyCriticalFailuresCount
+  - incidentDaysCount (count of daily entries where "Any incidents today" = YES)
+  - weeklyIncidentCount (from weekly NUMBER field if provided)
+  - medicationNonComplianceDaysCount (daily meds item = NO)
+  - weeklyMedicationCompliant (YES/NO/NA)
+  - PRNFlag (weekly PRN reviewed YES or daily notes mention PRN)
+  - openActionsCountBySeverity
+  - overallStatus (GREEN/AMBER/RED) using:
+      RED if any HIGH action created in period OR weekly critical item = NO
+      AMBER if any MEDIUM actions and no HIGH
+      GREEN if no HIGH/MEDIUM issues and all weekly critical OK (or NA as applicable)
+- Build an AI prompt with STRICT constraints:
+  - Use ONLY provided entries, metrics, and notes.
+  - Do not invent events. If data missing, say “Not recorded in checklist entries.”
+- Generate a narrative reportText, store it as weekly_compliance_reports with status DRAFT.
+- Write ai_generation_logs row with inputHash, promptVersion, success/error.
+
+4) GET /api/weekly-reports?participantId=&periodStart=&periodEnd=
+Return existing saved reports.
+
+5) PATCH /api/weekly-reports/:id
+Allow editing reportText and setting status FINAL.
+
+AI prompt content (must be implemented)
+System instructions:
+- Summarise, do not add facts.
+- Use Australian NDIS compliance tone: factual, neutral, professional.
+- Include headings:
+  1) Period Overview
+  2) Support Delivery and Documentation
+  3) Incidents and Safeguards
+  4) Medication and Health
+  5) Actions and Follow-up
+  6) Overall Compliance Status
+- If something is not recorded in entries, explicitly say so.
+
+Frontend UI
+On Weekly Participant checklist page:
+- Add button: “Generate Weekly Report”
+- On click:
+  - call POST /api/weekly-reports/generate with the current week period
+  - show report preview in a modal or dedicated panel
+  - allow edit text
+  - buttons: Save Draft, Mark Final
+- Add “View Reports” section listing previous weekly reports for that participant with date ranges.
+
+Permissions
+- Staff can generate reports for participants they have access to.
+- Team leaders/admin can view all tenant reports.
+- Only team leader/admin can mark FINAL (recommended).
+
+Deliverables
+- Schema + migrations + seeds
+- Backend endpoints for generate/get/update weekly reports
+- UI button + preview + edit + save
+- Traceability via ai_generation_logs
+- Strict AI guardrails to prevent invented content

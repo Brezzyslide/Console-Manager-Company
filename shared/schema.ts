@@ -1106,6 +1106,7 @@ export const complianceTemplateItems = pgTable("compliance_template_items", {
   defaultEvidenceRequired: boolean("default_evidence_required").notNull().default(false),
   evidenceSourceType: text("evidence_source_type", { enum: evidenceSourceTypes }).notNull().default("MANUAL"),
   externalSignalKey: text("external_signal_key"),
+  notesRequiredOnFail: boolean("notes_required_on_fail").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
 });
@@ -1231,3 +1232,56 @@ export const insertStaffParticipantAssignmentSchema = createInsertSchema(staffPa
 
 export type InsertStaffParticipantAssignment = z.infer<typeof insertStaffParticipantAssignmentSchema>;
 export type StaffParticipantAssignment = typeof staffParticipantAssignments.$inferSelect;
+
+// Weekly Compliance Reports (AI-generated or manual summaries)
+export const weeklyReportStatuses = ["DRAFT", "FINAL"] as const;
+export const weeklyReportGenerationSources = ["AI", "MANUAL"] as const;
+
+export const weeklyComplianceReports = pgTable("weekly_compliance_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  participantId: varchar("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+  siteId: varchar("site_id").references(() => workSites.id),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  generatedByUserId: varchar("generated_by_user_id").notNull().references(() => companyUsers.id),
+  generationSource: text("generation_source", { enum: weeklyReportGenerationSources }).notNull().default("AI"),
+  reportStatus: text("report_status", { enum: weeklyReportStatuses }).notNull().default("DRAFT"),
+  reportText: text("report_text").notNull(),
+  metricsJson: jsonb("metrics_json"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertWeeklyComplianceReportSchema = createInsertSchema(weeklyComplianceReports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWeeklyComplianceReport = z.infer<typeof insertWeeklyComplianceReportSchema>;
+export type WeeklyComplianceReport = typeof weeklyComplianceReports.$inferSelect;
+
+// AI Generation Logs (traceability for AI-generated content)
+export const aiGenerationLogs = pgTable("ai_generation_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  featureKey: text("feature_key").notNull(),
+  userId: varchar("user_id").notNull().references(() => companyUsers.id),
+  participantId: varchar("participant_id").references(() => participants.id),
+  periodStart: timestamp("period_start"),
+  periodEnd: timestamp("period_end"),
+  inputHash: text("input_hash").notNull(),
+  modelName: text("model_name").notNull(),
+  promptVersion: text("prompt_version").notNull(),
+  success: boolean("success").notNull().default(true),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAiGenerationLogSchema = createInsertSchema(aiGenerationLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiGenerationLog = z.infer<typeof insertAiGenerationLogSchema>;
+export type AiGenerationLog = typeof aiGenerationLogs.$inferSelect;
