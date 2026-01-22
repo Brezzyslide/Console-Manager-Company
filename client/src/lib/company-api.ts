@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const companyLoginSchema = z.object({
-  companyId: z.string().uuid("Invalid company ID"),
+  companyId: z.string().min(1, "Company code is required"),
   email: z.string().email("Valid email required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });

@@ -23,7 +23,7 @@ function generateSecurePassword(): string {
 }
 
 const loginSchema = z.object({
-  companyId: z.string().uuid(),
+  companyId: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8),
 });
@@ -39,7 +39,20 @@ router.post("/login", async (req, res) => {
     });
   }
   try {
-    const { companyId, email, password } = loginSchema.parse(req.body);
+    const { companyId: companyIdentifier, email, password } = loginSchema.parse(req.body);
+    
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(companyIdentifier);
+    
+    let companyId: string;
+    if (isUUID) {
+      companyId = companyIdentifier;
+    } else {
+      const company = await storage.getCompanyByCode(companyIdentifier.toUpperCase());
+      if (!company) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      companyId = company.id;
+    }
     
     const user = await storage.getCompanyUserByEmail(companyId, email);
     

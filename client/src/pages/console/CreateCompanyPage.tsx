@@ -56,6 +56,7 @@ export default function CreateCompanyPage() {
   
   const [successData, setSuccessData] = useState<{
     id: string;
+    code: string | null;
     email: string;
     tempPass: string;
     serviceCount: number;
@@ -149,6 +150,7 @@ export default function CreateCompanyPage() {
     onSuccess: (data) => {
       setSuccessData({
         id: data.company.id,
+        code: data.company.code || null,
         email: data.adminEmail,
         tempPass: data.tempPassword,
         serviceCount: data.serviceSelection.selectedCount,
@@ -210,10 +212,20 @@ export default function CreateCompanyPage() {
             
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Company ID (for login)</Label>
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Company Code (for login)</Label>
                 <div className="flex gap-2">
-                  <Input readOnly value={successData.id} className="font-mono text-xs bg-muted/30" data-testid="text-company-id" />
-                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(successData.id)} data-testid="button-copy-company-id">
+                  <Input 
+                    readOnly 
+                    value={successData.code || successData.id} 
+                    className="font-mono text-lg bg-muted/30 font-bold" 
+                    data-testid="text-company-code" 
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => copyToClipboard(successData.code || successData.id)} 
+                    data-testid="button-copy-company-code"
+                  >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>

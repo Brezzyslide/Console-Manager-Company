@@ -187,16 +187,16 @@ export default function UnifiedLoginPage() {
                   )}
                   
                   <div className="space-y-2">
-                    <Label htmlFor="companyId" className="text-sm font-medium">Company ID</Label>
+                    <Label htmlFor="companyId" className="text-sm font-medium">Company Code</Label>
                     <div className="relative">
                       <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="companyId"
                         type="text"
-                        placeholder="Your company ID"
-                        className="pl-10 bg-muted/30 border-border/50 focus:border-primary focus:ring-primary/20"
+                        placeholder="e.g., C-ABC123"
+                        className="pl-10 bg-muted/30 border-border/50 focus:border-primary focus:ring-primary/20 font-mono"
                         {...companyForm.register("companyId")}
-                        data-testid="input-company-id"
+                        data-testid="input-company-code"
                       />
                     </div>
                     {companyForm.formState.errors.companyId && (
