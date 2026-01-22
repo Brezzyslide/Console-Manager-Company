@@ -299,6 +299,9 @@ export default function PublicUploadPage() {
       }
       const data = await response.json();
       setRequestInfo(data);
+      if (data.evidenceType) {
+        setDocumentType(data.evidenceType);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

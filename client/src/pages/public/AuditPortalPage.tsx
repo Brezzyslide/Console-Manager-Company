@@ -379,12 +379,15 @@ export default function AuditPortalPage() {
     
     setUploadingToRequest(true);
     
+    const request = evidenceRequests.find(r => r.id === requestId);
+    
     try {
       const formData = new FormData();
       formData.append("file", requestFile);
       formData.append("uploaderName", uploaderName);
       formData.append("uploaderEmail", uploaderEmail);
       if (requestNote) formData.append("note", requestNote);
+      if (request?.evidenceType) formData.append("documentType", request.evidenceType);
       
       const res = await fetch(`/api/public/audit-portal/evidence-requests/${requestId}/upload`, {
         method: "POST",
