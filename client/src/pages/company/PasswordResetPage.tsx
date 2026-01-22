@@ -4,8 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
-import { passwordResetSchema, PasswordResetInput, resetPassword } from "@/lib/company-api";
-import { KeyRound, Loader2, Lock, CheckCircle2, AlertCircle, ShieldCheck } from "lucide-react";
+import { passwordResetSchema, PasswordResetInput, resetPassword, companyLogout } from "@/lib/company-api";
+import { KeyRound, Loader2, Lock, CheckCircle2, AlertCircle, ShieldCheck, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -168,7 +168,7 @@ export default function PasswordResetPage() {
             </div>
           </CardContent>
           
-          <CardFooter>
+          <CardFooter className="flex flex-col gap-3">
             <Button
               type="submit"
               className="w-full"
@@ -183,6 +183,19 @@ export default function PasswordResetPage() {
               ) : (
                 "Set New Password"
               )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={async () => {
+                await companyLogout();
+                setLocation("/company/login");
+              }}
+              data-testid="button-logout"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Log out and use different account
             </Button>
           </CardFooter>
         </form>
