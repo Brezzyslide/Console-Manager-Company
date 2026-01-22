@@ -448,10 +448,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCompany(insertCompany: InsertCompany): Promise<Company> {
+    const generateCode = () => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = 'C-';
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    };
+    
+    let code = generateCode();
+    let attempts = 0;
+    while (attempts < 10) {
+      const existing = await db.select().from(companies).where(eq(companies.code, code)).limit(1);
+      if (existing.length === 0) break;
+      code = generateCode();
+      attempts++;
+    }
+    
     const [company] = await db
       .insert(companies)
       .values({
         ...insertCompany,
+        code,
         primaryContactEmail: insertCompany.primaryContactEmail.toLowerCase(),
       })
       .returning();

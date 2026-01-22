@@ -23,6 +23,7 @@ export type ConsoleUser = typeof consoleUsers.$inferSelect;
 // Companies (Tenants)
 export const companies = pgTable("companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 10 }).unique(),
   legalName: text("legal_name").notNull(),
   abn: text("abn"),
   ndisRegistrationNumber: text("ndis_registration_number"),

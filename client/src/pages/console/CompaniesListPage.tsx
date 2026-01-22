@@ -59,7 +59,8 @@ export default function CompaniesListPage() {
         company.legalName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         company.primaryContactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         company.primaryContactEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (company.abn && company.abn.includes(searchQuery));
+        (company.abn && company.abn.includes(searchQuery)) ||
+        (company.code && company.code.toLowerCase().includes(searchQuery.toLowerCase()));
       
       const matchesStatus = statusFilter === "all" || company.status === statusFilter;
       
@@ -243,6 +244,9 @@ export default function CompaniesListPage() {
                   <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
+                        {company.code && (
+                          <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded shrink-0">{company.code}</span>
+                        )}
                         <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
                           {company.legalName}
                         </h3>

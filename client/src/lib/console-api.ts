@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const companySchema = z.object({
   id: z.string(),
+  code: z.string().nullable().optional(),
   legalName: z.string(),
   abn: z.string().optional().nullable(),
   ndisRegistrationNumber: z.string().optional().nullable(),

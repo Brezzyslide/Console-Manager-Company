@@ -190,6 +190,9 @@ export default function CompanyDetailsPage() {
         </Link>
         <div className="flex-1">
           <div className="flex items-center gap-3">
+            {company.code && (
+              <span className="text-sm font-mono bg-primary/10 text-primary px-2 py-1 rounded">{company.code}</span>
+            )}
             <h2 className="text-2xl font-bold tracking-tight">{company.legalName}</h2>
             <Badge variant="outline" className="capitalize gap-1 pl-1.5">
               {getStatusIcon(company.status)}
@@ -197,8 +200,6 @@ export default function CompanyDetailsPage() {
             </Badge>
           </div>
           <p className="text-muted-foreground text-sm flex items-center gap-2 mt-1">
-            <span className="font-mono text-xs text-muted-foreground/70">ID: {company.id}</span>
-            <span>•</span>
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
               Created {format(new Date(company.createdAt), 'PPP')}
