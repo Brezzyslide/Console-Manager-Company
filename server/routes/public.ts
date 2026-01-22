@@ -139,6 +139,7 @@ router.post("/evidence/:token/upload", upload.single("file"), async (req, res) =
     }
 
     const sanitizedFileName = sanitizeFilename(req.file.originalname);
+    const resolvedDocumentType = documentType || evidenceRequest.evidenceType || null;
 
     const evidenceItem = await storage.createEvidenceItemPublic(evidenceRequest.id, {
       storageKind: "UPLOAD",
@@ -150,7 +151,7 @@ router.post("/evidence/:token/upload", upload.single("file"), async (req, res) =
       externalUploaderName: uploaderName,
       externalUploaderEmail: uploaderEmail,
       uploadedByCompanyUserId: null,
-      documentType: documentType || null,
+      documentType: resolvedDocumentType,
     });
 
     if (evidenceRequest.status === "REQUESTED") {
@@ -302,6 +303,7 @@ router.post("/audit-portal/evidence-requests/:requestId/upload", requirePortalSe
     }
     
     const sanitizedFileName = sanitizeFilename(req.file.originalname);
+    const resolvedDocumentType = documentType || evidenceRequest.evidenceType || null;
     
     const evidenceItem = await storage.createEvidenceItemPublic(evidenceRequest.id, {
       storageKind: "UPLOAD",
@@ -313,7 +315,7 @@ router.post("/audit-portal/evidence-requests/:requestId/upload", requirePortalSe
       externalUploaderName: uploaderName,
       externalUploaderEmail: uploaderEmail,
       uploadedByCompanyUserId: null,
-      documentType: documentType || null,
+      documentType: resolvedDocumentType,
     });
     
     if (evidenceRequest.status === "REQUESTED") {
