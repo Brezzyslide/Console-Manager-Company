@@ -15,6 +15,7 @@ import {
   getEvidenceRequests, 
   getCompanyUsers, 
   createStandaloneEvidenceRequest,
+  createAuditEvidenceRequest,
   getAudits,
   type EvidenceRequest, 
   type EvidenceStatus,
@@ -143,6 +144,7 @@ export default function EvidenceLockerPage() {
     evidenceType: "" as EvidenceType | "",
     requestNote: "",
     dueDate: "",
+    auditId: "",
   });
 
   const handleCopyLink = (e: React.MouseEvent, request: EvidenceRequest) => {
@@ -184,12 +186,24 @@ export default function EvidenceLockerPage() {
   });
 
   const createRequestMutation = useMutation({
-    mutationFn: (data: { evidenceType: EvidenceType; requestNote: string; dueDate?: string | null }) => 
-      createStandaloneEvidenceRequest(data),
+    mutationFn: (data: { evidenceType: EvidenceType; requestNote: string; dueDate?: string | null; auditId?: string }) => {
+      if (data.auditId) {
+        return createAuditEvidenceRequest(data.auditId, {
+          evidenceType: data.evidenceType,
+          requestNote: data.requestNote,
+          dueDate: data.dueDate,
+        });
+      }
+      return createStandaloneEvidenceRequest({
+        evidenceType: data.evidenceType,
+        requestNote: data.requestNote,
+        dueDate: data.dueDate,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["evidenceRequests"] });
       setShowNewRequestDialog(false);
-      setNewRequestForm({ evidenceType: "", requestNote: "", dueDate: "" });
+      setNewRequestForm({ evidenceType: "", requestNote: "", dueDate: "", auditId: "" });
     },
   });
 
@@ -207,6 +221,7 @@ export default function EvidenceLockerPage() {
       evidenceType: newRequestForm.evidenceType as EvidenceType,
       requestNote: newRequestForm.requestNote,
       dueDate: newRequestForm.dueDate || null,
+      auditId: newRequestForm.auditId || undefined,
     });
   };
 
@@ -435,6 +450,27 @@ export default function EvidenceLockerPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Link to Audit (optional)</Label>
+              <Select 
+                value={newRequestForm.auditId} 
+                onValueChange={(v) => setNewRequestForm(prev => ({ ...prev, auditId: v === "none" ? "" : v }))}
+              >
+                <SelectTrigger data-testid="select-link-audit">
+                  <SelectValue placeholder="Select audit to link (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No audit (standalone request)</SelectItem>
+                  {audits?.filter(a => a.status !== "CLOSED").map(audit => (
+                    <SelectItem key={audit.id} value={audit.id}>{audit.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Link to an audit to make this request visible in the audit's evidence portal
+              </p>
             </div>
 
             <div className="space-y-2">
