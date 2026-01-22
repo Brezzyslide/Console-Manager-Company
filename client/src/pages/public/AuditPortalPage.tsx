@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Shield, Clock, FileUp, CheckCircle, Upload, AlertCircle, FileText, Lightbulb, Info } from "lucide-react";
+import { Loader2, Shield, Clock, FileUp, CheckCircle, Upload, AlertCircle, FileText, Lightbulb, Info, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -332,6 +332,26 @@ export default function AuditPortalPage() {
     }
   };
 
+  const refreshEvidenceRequests = async () => {
+    if (!portalInfo) return;
+    
+    setLoadingRequests(true);
+    try {
+      const reqRes = await fetch(`/api/public/audit-portal/evidence-requests`, {
+        headers: { "Authorization": `Bearer ${portalInfo.sessionToken}` },
+      });
+      if (reqRes.ok) {
+        const requests = await reqRes.json();
+        setEvidenceRequests(requests);
+        toast({ title: "Refreshed", description: "Evidence requests updated" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to refresh requests", variant: "destructive" });
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
   const handleUploadGeneral = async () => {
     if (!selectedFile || !uploaderName || !uploaderEmail || !description || !portalInfo) {
       toast({ title: "Missing information", description: "Please fill all required fields", variant: "destructive" });
@@ -523,6 +543,18 @@ export default function AuditPortalPage() {
           </TabsList>
           
           <TabsContent value="requests" className="space-y-4 mt-4">
+            <div className="flex justify-end mb-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshEvidenceRequests}
+                disabled={loadingRequests}
+                data-testid="button-refresh-requests"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loadingRequests ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
             {loadingRequests ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
