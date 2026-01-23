@@ -22,16 +22,16 @@ The application is structured as a multi-tenant SaaS with strong data isolation.
 - **Build Tool**: Vite
 - **Structure**: Pages-based, with isolated console and provider app layouts and authentication handling.
 
-### Design System (NeedsCare Safeguard AI+ Brand - Warm Slate with Amber)
-- **Primary Color**: Warm slate blue (#3D4F5F / HSL 205 22% 31%)
-- **Background**: Warm cream (#FAF9F7 / HSL 40 20% 97%)
-- **Cards/Surfaces**: Warm white (#FFFEFB / HSL 45 50% 99%)
-- **Borders**: Warm soft grey (#E8E4DF / HSL 35 15% 89%)
-- **Accent**: Soft amber/gold (#F5E6D3 / HSL 35 55% 90%)
+### Design System (NeedsCare Safeguard AI+ Brand - Warm Slate)
+- **Primary Color**: Warm slate blue (#3B5068 / HSL 210 28% 32%)
+- **Background**: Warm off-white (#F8F7F5 / HSL 40 15% 97%)
+- **Cards/Surfaces**: Clean warm white (#FEFEFE)
+- **Borders**: Warm soft grey (#E6E4E1 / HSL 40 10% 89%)
+- **Accent**: Light warm grey (subtle, no amber)
 - **Status Colors**: Warm muted palette
-  - Success: Warm sage green HSL 145 16% 41%
-  - Warning: Rich amber HSL 35 55% 50%
-  - Destructive: Warm muted red HSL 2 42% 52%
+  - Success: Warm sage green HSL 150 15% 42%
+  - Warning: Warm orange HSL 25 65% 53%
+  - Destructive: Warm muted red HSL 3 50% 54%
 - **Design Principles**: No harsh shadows, subtle opacity-based hover states, consistent border radius (0.625rem), softer overlays (bg-black/50), warm undertones throughout
 - **Typography**: system-ui font stack for clean, professional appearance
 

@@ -65,117 +65,117 @@
 }
 
 :root {
-  /* NeedsCare Safeguard AI+ Brand - Warm Slate with Amber Accents */
+  /* NeedsCare Safeguard AI+ Brand - Warm Slate (No Amber) */
   
-  /* Background: Warm cream with subtle amber undertone #FAF9F7 */
-  --background: 40 20% 97%;
-  /* Text primary: Warm charcoal #2D2A26 */
-  --foreground: 35 8% 16%;
+  /* Background: Warm off-white #F8F7F5 */
+  --background: 40 15% 97%;
+  /* Text primary: Warm charcoal #2C2C2A */
+  --foreground: 60 4% 17%;
   
-  /* Surface/Card: Warm white #FFFEFB */
-  --card: 45 50% 99%;
-  --card-foreground: 35 8% 16%;
+  /* Surface/Card: Clean warm white #FEFEFE */
+  --card: 0 0% 99.5%;
+  --card-foreground: 60 4% 17%;
   
-  --popover: 45 50% 99%;
-  --popover-foreground: 35 8% 16%;
+  --popover: 0 0% 99.5%;
+  --popover-foreground: 60 4% 17%;
   
-  /* Primary: Warm slate blue #3D4F5F */
-  --primary: 205 22% 31%;
-  --primary-foreground: 45 50% 99%;
+  /* Primary: Warm slate blue #3B5068 */
+  --primary: 210 28% 32%;
+  --primary-foreground: 0 0% 100%;
   
   /* Secondary: Warm light grey */
-  --secondary: 40 12% 95%;
-  --secondary-foreground: 35 8% 16%;
+  --secondary: 40 8% 95%;
+  --secondary-foreground: 60 4% 17%;
   
   /* Muted: Warm subtle grey */
-  --muted: 40 12% 95%;
-  /* Text secondary: Warm grey #6B6560 */
-  --muted-foreground: 30 5% 40%;
+  --muted: 40 8% 95%;
+  /* Text secondary: Warm grey #6A6966 */
+  --muted-foreground: 50 3% 41%;
   
-  /* Accent: Soft amber/gold for highlights #F5E6D3 */
-  --accent: 35 55% 90%;
-  --accent-foreground: 205 22% 31%;
+  /* Accent: Light warm grey (subtle, no amber) */
+  --accent: 40 10% 94%;
+  --accent-foreground: 210 28% 32%;
   
-  /* Destructive/Danger: Warmer muted red #B85450 */
-  --destructive: 2 42% 52%;
-  --destructive-foreground: 45 50% 99%;
+  /* Destructive/Danger: Muted warm red #C25550 */
+  --destructive: 3 50% 54%;
+  --destructive-foreground: 0 0% 100%;
   
-  /* Success: Warm sage green #5A7A65 */
-  --success: 145 16% 41%;
-  --success-foreground: 45 50% 99%;
+  /* Success: Warm sage green #5B7A68 */
+  --success: 150 15% 42%;
+  --success-foreground: 0 0% 100%;
   
-  /* Warning: Rich amber #C4883E */
-  --warning: 35 55% 50%;
-  --warning-foreground: 45 50% 99%;
+  /* Warning: Warm orange (not amber) #D4813A */
+  --warning: 25 65% 53%;
+  --warning-foreground: 0 0% 100%;
   
-  /* Border: Warm soft grey #E8E4DF */
-  --border: 35 15% 89%;
-  --input: 35 15% 89%;
-  /* Ring: Primary with transparency */
-  --ring: 205 22% 31%;
+  /* Border: Warm soft grey #E6E4E1 */
+  --border: 40 10% 89%;
+  --input: 40 10% 89%;
+  /* Ring: Primary */
+  --ring: 210 28% 32%;
   
-  /* Sidebar - Warm surface with subtle styling */
-  --sidebar: 45 50% 99%;
-  --sidebar-foreground: 35 8% 16%;
-  --sidebar-primary: 205 22% 31%;
-  --sidebar-primary-foreground: 45 50% 99%;
-  --sidebar-accent: 35 55% 95%;
-  --sidebar-accent-foreground: 205 22% 31%;
-  --sidebar-border: 35 15% 89%;
-  --sidebar-ring: 205 22% 31%;
+  /* Sidebar - Clean warm surface */
+  --sidebar: 0 0% 99.5%;
+  --sidebar-foreground: 60 4% 17%;
+  --sidebar-primary: 210 28% 32%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 40 10% 96%;
+  --sidebar-accent-foreground: 210 28% 32%;
+  --sidebar-border: 40 10% 89%;
+  --sidebar-ring: 210 28% 32%;
   
   /* Chart colors - Warm professional palette */
-  --chart-1: 205 22% 31%;
-  --chart-2: 145 16% 41%;
-  --chart-3: 35 55% 50%;
-  --chart-4: 2 42% 52%;
-  --chart-5: 30 5% 40%;
+  --chart-1: 210 28% 32%;
+  --chart-2: 150 15% 42%;
+  --chart-3: 25 65% 53%;
+  --chart-4: 3 50% 54%;
+  --chart-5: 50 3% 41%;
 }
 
 /* Optional Dark Mode - Warm and calm */
 .dark {
-  --background: 30 10% 10%;
-  --foreground: 35 15% 92%;
+  --background: 40 6% 10%;
+  --foreground: 40 10% 92%;
   
-  --card: 30 10% 13%;
-  --card-foreground: 35 15% 92%;
+  --card: 40 6% 13%;
+  --card-foreground: 40 10% 92%;
   
-  --popover: 30 10% 13%;
-  --popover-foreground: 35 15% 92%;
+  --popover: 40 6% 13%;
+  --popover-foreground: 40 10% 92%;
   
-  --primary: 205 30% 55%;
+  --primary: 210 35% 55%;
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 30 8% 18%;
-  --secondary-foreground: 35 15% 92%;
+  --secondary: 40 5% 18%;
+  --secondary-foreground: 40 10% 92%;
   
-  --muted: 30 8% 18%;
-  --muted-foreground: 30 10% 60%;
+  --muted: 40 5% 18%;
+  --muted-foreground: 40 6% 60%;
   
-  --accent: 35 40% 22%;
-  --accent-foreground: 35 55% 80%;
+  --accent: 40 8% 20%;
+  --accent-foreground: 40 10% 85%;
   
-  --destructive: 2 50% 55%;
+  --destructive: 3 55% 55%;
   --destructive-foreground: 0 0% 100%;
   
-  --success: 145 22% 50%;
+  --success: 150 20% 50%;
   --success-foreground: 0 0% 100%;
   
-  --warning: 35 60% 55%;
+  --warning: 25 70% 55%;
   --warning-foreground: 0 0% 100%;
   
-  --border: 30 8% 20%;
-  --input: 30 8% 20%;
-  --ring: 205 30% 55%;
+  --border: 40 5% 20%;
+  --input: 40 5% 20%;
+  --ring: 210 35% 55%;
   
-  --sidebar: 30 10% 8%;
-  --sidebar-foreground: 35 15% 88%;
-  --sidebar-primary: 205 30% 55%;
+  --sidebar: 40 6% 8%;
+  --sidebar-foreground: 40 10% 88%;
+  --sidebar-primary: 210 35% 55%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 35 40% 18%;
-  --sidebar-accent-foreground: 35 55% 80%;
-  --sidebar-border: 30 8% 18%;
-  --sidebar-ring: 205 30% 55%;
+  --sidebar-accent: 40 8% 18%;
+  --sidebar-accent-foreground: 40 10% 85%;
+  --sidebar-border: 40 5% 18%;
+  --sidebar-ring: 210 35% 55%;
   
   --chart-1: 215 45% 50%;
   --chart-2: 150 20% 50%;
