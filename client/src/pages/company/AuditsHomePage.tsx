@@ -142,7 +142,7 @@ export default function AuditsHomePage() {
                       )}
                     </div>
                     <div className="flex gap-2 items-center">
-                      <Badge variant="outline" className="border-accent/30 text-accent bg-accent/5">
+                      <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5">
                         {audit.auditType}
                       </Badge>
                       <Badge className={`${status.bg} ${status.color} border`}>
@@ -164,7 +164,7 @@ export default function AuditsHomePage() {
                     </div>
                     {audit.auditType === "EXTERNAL" && audit.externalAuditorOrg && (
                       <div className="flex items-center gap-1.5">
-                        <Sparkles className="h-4 w-4 text-accent/60" />
+                        <Sparkles className="h-4 w-4 text-primary/60" />
                         {audit.externalAuditorOrg}
                       </div>
                     )}

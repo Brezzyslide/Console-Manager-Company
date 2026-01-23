@@ -114,8 +114,8 @@ export default function DashboardPage() {
           <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
           <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
             <CardTitle className="text-sm font-medium text-muted-foreground">Access Level</CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
-              <Users className="h-4 w-4 text-accent" />
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Users className="h-4 w-4 text-primary" />
             </div>
           </CardHeader>
           <CardContent className="relative">
@@ -125,7 +125,7 @@ export default function DashboardPage() {
             </p>
             {(user?.role === "CompanyAdmin" || user?.role === "Auditor") && (
               <div className="mt-3">
-                <Badge className="bg-accent/10 text-accent border-accent/20 gap-1">
+                <Badge className="bg-primary/10 text-primary border-primary/20 gap-1">
                   <Shield className="h-3 w-3" />
                   Audit Access
                 </Badge>

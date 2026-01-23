@@ -104,7 +104,7 @@ export default function CompaniesListPage() {
           <div className="h-12 w-12 rounded-xl gradient-accent flex items-center justify-center">
             <Building2 className="h-6 w-6 text-white animate-pulse" />
           </div>
-          <Loader2 className="h-16 w-16 animate-spin text-accent absolute -top-2 -left-2" />
+          <Loader2 className="h-16 w-16 animate-spin text-primary absolute -top-2 -left-2" />
         </div>
         <p className="text-muted-foreground text-sm">Loading companies...</p>
       </div>
@@ -237,8 +237,8 @@ export default function CompaniesListPage() {
             <CardContent className="p-0">
               <Link href={`/console/companies/${company.id}`} data-testid={`link-company-${company.id}`}>
                 <div className="p-5 flex items-center gap-5 cursor-pointer">
-                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center shrink-0 group-hover:from-accent/30 group-hover:to-primary/30 transition-colors">
-                    <Building2 className="h-7 w-7 text-accent" />
+                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-primary/10 to-primary/20 flex items-center justify-center shrink-0 group-hover:from-primary/15 group-hover:to-primary/30 transition-colors">
+                    <Building2 className="h-7 w-7 text-primary" />
                   </div>
                   
                   <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4">
