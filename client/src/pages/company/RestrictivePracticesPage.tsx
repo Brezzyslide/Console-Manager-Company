@@ -134,6 +134,8 @@ export default function RestrictivePracticesPage() {
     participantId: "",
     practiceType: "",
     isAuthorized: "true",
+    authorizationId: "",
+    unauthorizedReason: "",
     usageDate: new Date().toISOString().slice(0, 16),
     durationMinutes: "",
     reason: "",
@@ -258,6 +260,8 @@ export default function RestrictivePracticesPage() {
     createUsageMutation.mutate({
       ...usageForm,
       isAuthorized: usageForm.isAuthorized === "true",
+      authorizationId: usageForm.isAuthorized === "true" ? usageForm.authorizationId || undefined : undefined,
+      unauthorizedReason: usageForm.isAuthorized === "false" ? usageForm.unauthorizedReason : undefined,
       usageDate: new Date(usageForm.usageDate).toISOString(),
       durationMinutes: usageForm.durationMinutes ? parseInt(usageForm.durationMinutes) : undefined,
     });
@@ -586,7 +590,7 @@ export default function RestrictivePracticesPage() {
             </div>
             <div>
               <Label>Was this authorized?</Label>
-              <Select value={usageForm.isAuthorized} onValueChange={v => setUsageForm({...usageForm, isAuthorized: v})}>
+              <Select value={usageForm.isAuthorized} onValueChange={v => setUsageForm({...usageForm, isAuthorized: v, authorizationId: "", unauthorizedReason: ""})}>
                 <SelectTrigger data-testid="select-usage-authorized">
                   <SelectValue />
                 </SelectTrigger>
@@ -596,6 +600,39 @@ export default function RestrictivePracticesPage() {
                 </SelectContent>
               </Select>
             </div>
+            {usageForm.isAuthorized === "true" && usageForm.participantId && usageForm.practiceType && (
+              <div>
+                <Label>Link to Authorization *</Label>
+                <Select value={usageForm.authorizationId} onValueChange={v => setUsageForm({...usageForm, authorizationId: v})}>
+                  <SelectTrigger data-testid="select-usage-authorization">
+                    <SelectValue placeholder="Select authorization" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {authorizations
+                      .filter(a => a.participantId === usageForm.participantId && a.practiceType === usageForm.practiceType && a.authorizationStatus === "APPROVED")
+                      .map(a => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.behaviorSupportPlanRef || "Authorization"} - Expires: {a.expiryDate ? new Date(a.expiryDate).toLocaleDateString() : "N/A"}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {authorizations.filter(a => a.participantId === usageForm.participantId && a.practiceType === usageForm.practiceType && a.authorizationStatus === "APPROVED").length === 0 && (
+                  <p className="text-sm text-amber-500 mt-1">No approved authorizations found for this participant and practice type</p>
+                )}
+              </div>
+            )}
+            {usageForm.isAuthorized === "false" && (
+              <div>
+                <Label>Reason for Unauthorized Use *</Label>
+                <Textarea 
+                  value={usageForm.unauthorizedReason} 
+                  onChange={e => setUsageForm({...usageForm, unauthorizedReason: e.target.value})} 
+                  placeholder="Explain why this practice was used without authorization..."
+                  data-testid="input-unauthorized-reason"
+                />
+              </div>
+            )}
             <div>
               <Label>Date & Time</Label>
               <Input type="datetime-local" value={usageForm.usageDate} onChange={e => setUsageForm({...usageForm, usageDate: e.target.value})} data-testid="input-usage-date" />
@@ -623,7 +660,7 @@ export default function RestrictivePracticesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUsageDialog(false)}>Cancel</Button>
-            <Button onClick={handleLogUsage} disabled={!usageForm.participantId || !usageForm.practiceType || !usageForm.reason || createUsageMutation.isPending} data-testid="button-submit-usage">
+            <Button onClick={handleLogUsage} disabled={!usageForm.participantId || !usageForm.practiceType || !usageForm.reason || (usageForm.isAuthorized === "false" && !usageForm.unauthorizedReason) || createUsageMutation.isPending} data-testid="button-submit-usage">
               {createUsageMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Log Usage
             </Button>

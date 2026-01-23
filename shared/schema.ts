@@ -1334,6 +1334,7 @@ export const restrictivePracticeUsageLogs = pgTable("restrictive_practice_usage_
   authorizationId: varchar("authorization_id").references(() => restrictivePracticeAuthorizations.id),
   practiceType: text("practice_type", { enum: restrictivePracticeTypes }).notNull(),
   isAuthorized: boolean("is_authorized").notNull().default(true),
+  unauthorizedReason: text("unauthorized_reason"),
   usageDate: timestamp("usage_date").notNull(),
   startTime: timestamp("start_time"),
   endTime: timestamp("end_time"),
