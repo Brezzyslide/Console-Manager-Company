@@ -41,7 +41,7 @@ interface RestrictivePracticeAuthorization {
   id: string;
   participantId: string;
   practiceType: string;
-  status: string;
+  authorizationStatus: string;
   expiryDate: string;
   createdAt: string;
 }
@@ -123,11 +123,11 @@ export default function ComplianceDashboardPage() {
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const activeAuthorizations = authorizations.filter(a => a.status === "APPROVED" && new Date(a.expiryDate) > now);
-  const pendingAuthorizations = authorizations.filter(a => a.status === "PENDING");
-  const expiredAuthorizations = authorizations.filter(a => a.status === "APPROVED" && new Date(a.expiryDate) <= now);
+  const activeAuthorizations = authorizations.filter(a => a.authorizationStatus === "APPROVED" && new Date(a.expiryDate) > now);
+  const pendingAuthorizations = authorizations.filter(a => a.authorizationStatus === "PENDING");
+  const expiredAuthorizations = authorizations.filter(a => a.authorizationStatus === "APPROVED" && new Date(a.expiryDate) <= now);
   const expiringSoonAuthorizations = authorizations.filter(a => {
-    if (a.status !== "APPROVED") return false;
+    if (a.authorizationStatus !== "APPROVED") return false;
     const expiry = new Date(a.expiryDate);
     return expiry > now && expiry <= thirtyDaysFromNow;
   });
