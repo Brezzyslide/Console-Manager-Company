@@ -206,6 +206,26 @@ export default function RestrictivePracticesPage() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const updateAuthStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const res = await fetch(`/api/company/restrictive-practices/authorizations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ authorizationStatus: status }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to update status");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company/restrictive-practices"] });
+      toast({ title: "Authorization status updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
   
   const createUsageMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -401,6 +421,7 @@ export default function RestrictivePracticesPage() {
                       <TableHead>Expiry Date</TableHead>
                       <TableHead>BSP Reference</TableHead>
                       <TableHead>Conditions</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -418,6 +439,29 @@ export default function RestrictivePracticesPage() {
                         </TableCell>
                         <TableCell>{auth.behaviorSupportPlanRef || "-"}</TableCell>
                         <TableCell className="max-w-xs truncate">{auth.conditionsOfUse || "-"}</TableCell>
+                        <TableCell>
+                          {auth.authorizationStatus === "APPROVED" ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => updateAuthStatusMutation.mutate({ id: auth.id, status: "REVOKED" })}
+                              disabled={updateAuthStatusMutation.isPending}
+                              data-testid={`button-deactivate-${auth.id}`}
+                            >
+                              Deactivate
+                            </Button>
+                          ) : auth.authorizationStatus === "REVOKED" ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => updateAuthStatusMutation.mutate({ id: auth.id, status: "APPROVED" })}
+                              disabled={updateAuthStatusMutation.isPending}
+                              data-testid={`button-reactivate-${auth.id}`}
+                            >
+                              Reactivate
+                            </Button>
+                          ) : null}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
