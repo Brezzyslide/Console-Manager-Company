@@ -229,7 +229,8 @@ export default function RestrictivePracticesPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/company/restrictive-practices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/restrictive-practices/authorizations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/restrictive-practices/dashboard"] });
       toast({ title: "Authorization status updated" });
     },
     onError: (error: Error) => {
