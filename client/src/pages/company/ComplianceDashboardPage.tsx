@@ -59,11 +59,13 @@ interface ComplianceRun {
   id: string;
   status: string;
   score?: number;
-  passedItems: number;
-  failedItems: number;
-  totalItems: number;
-  completedAt?: string;
+  passedItems?: number;
+  failedItems?: number;
+  totalItems?: number;
+  submittedAt?: string;
   createdAt: string;
+  siteId?: string;
+  participantId?: string;
 }
 
 export default function ComplianceDashboardPage() {
@@ -135,10 +137,10 @@ export default function ComplianceDashboardPage() {
   const recentUsageLogs = usageLogs.filter(u => new Date(u.occurredAt) >= thirtyDaysAgo);
   const unauthorizedUsageLast30Days = recentUsageLogs.filter(u => !u.wasAuthorized);
 
-  const completedRuns = complianceRuns.filter(r => r.status === "COMPLETED");
-  const pendingComplianceRuns = complianceRuns.filter(r => r.status === "IN_PROGRESS" || r.status === "PENDING");
+  const completedRuns = complianceRuns.filter(r => r.status === "SUBMITTED" || r.status === "LOCKED");
+  const pendingComplianceRuns = complianceRuns.filter(r => r.status === "OPEN");
   const recentCompletedRuns = completedRuns
-    .sort((a, b) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime())
+    .sort((a, b) => new Date(b.submittedAt || b.createdAt).getTime() - new Date(a.submittedAt || a.createdAt).getTime())
     .slice(0, 5);
 
   const overdueComplianceRuns = pendingComplianceRuns.filter(r => {
@@ -474,14 +476,16 @@ export default function ComplianceDashboardPage() {
                         )}
                       </div>
                       <div>
-                        <p className="text-sm font-medium">Score: {run.score || 0}%</p>
+                        <p className="text-sm font-medium">
+                          {run.siteId ? "Site Check" : "Participant Check"}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          {run.passedItems} passed, {run.failedItems} failed
+                          {run.participantId ? getParticipantName(run.participantId) : ""}
                         </p>
                       </div>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {run.completedAt ? new Date(run.completedAt).toLocaleDateString() : "N/A"}
+                      {run.submittedAt ? new Date(run.submittedAt).toLocaleDateString() : new Date(run.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                 ))}
