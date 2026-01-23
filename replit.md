@@ -18,9 +18,20 @@ The application is structured as a multi-tenant SaaS with strong data isolation.
 - **Routing**: Wouter
 - **State Management**: TanStack React Query
 - **UI Components**: shadcn/ui with Radix UI
-- **Styling**: Tailwind CSS v4
+- **Styling**: Tailwind CSS v4 with NeedsCare Safeguard AI+ minimalist brand
 - **Build Tool**: Vite
 - **Structure**: Pages-based, with isolated console and provider app layouts and authentication handling.
+
+### Design System (NeedsCare Safeguard AI+ Brand)
+- **Primary Color**: Deep muted blue (#1F3A5F / HSL 215 50% 25%)
+- **Background**: Warm off-white (#F7F8FA / HSL 220 20% 98%)
+- **Borders**: Soft grey (#E5E7EB / HSL 220 13% 91%)
+- **Status Colors**: Muted palette with 10% opacity backgrounds and 20% opacity borders
+  - Success: HSL 142 50% 40%
+  - Warning: HSL 38 90% 45%
+  - Destructive: HSL 0 65% 50%
+- **Design Principles**: No harsh shadows, subtle opacity-based hover states, consistent border radius (0.625rem), softer overlays (bg-black/50)
+- **Typography**: system-ui font stack for clean, professional appearance
 
 ### Backend
 - **Framework**: Express.js with TypeScript
