@@ -539,7 +539,7 @@ export default function RestrictivePracticesPage() {
       </Tabs>
       
       <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Restrictive Practice Authorization</DialogTitle>
             <DialogDescription>Create a new authorization record for a participant</DialogDescription>
@@ -611,7 +611,7 @@ export default function RestrictivePracticesPage() {
       </Dialog>
       
       <Dialog open={showUsageDialog} onOpenChange={setShowUsageDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Log Restrictive Practice Usage</DialogTitle>
             <DialogDescription>Record an instance of restrictive practice usage</DialogDescription>
