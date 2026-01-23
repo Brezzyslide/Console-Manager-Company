@@ -22,12 +22,12 @@ import {
   FolderOpen,
   ChevronRight,
   ChevronDown,
-  Sparkles,
   ClipboardCheck,
   FileBarChart,
   ListChecks,
   Clipboard,
-  Activity
+  Activity,
+  Sparkles
 } from "lucide-react";
 
 interface CompanyLayoutProps {
@@ -71,10 +71,10 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="h-12 w-12 rounded-xl gradient-primary flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-background animate-pulse" />
+            <div className="h-12 w-12 rounded-[var(--radius)] bg-primary flex items-center justify-center">
+              <Building2 className="h-6 w-6 text-primary-foreground" />
             </div>
-            <Loader2 className="h-16 w-16 animate-spin text-primary absolute -top-2 -left-2" />
+            <Loader2 className="h-16 w-16 animate-spin text-primary/30 absolute -top-2 -left-2" />
           </div>
           <p className="text-muted-foreground text-sm">Loading...</p>
         </div>
@@ -90,16 +90,15 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-6 max-w-md mx-auto px-4">
-          <div className="h-20 w-20 rounded-2xl gradient-danger mx-auto flex items-center justify-center glow-danger">
-            <Shield className="h-10 w-10 text-white" />
+          <div className="h-20 w-20 rounded-[var(--radius)] bg-destructive/10 mx-auto flex items-center justify-center border border-destructive/20">
+            <Shield className="h-10 w-10 text-destructive" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-foreground">Access Denied</h1>
+            <h1 className="text-xl font-semibold text-foreground">Access Denied</h1>
             <p className="text-muted-foreground">You don't have permission to access this page.</p>
           </div>
           <Button 
             onClick={() => setLocation("/company/dashboard")} 
-            className="gradient-primary hover:opacity-90 text-background"
             data-testid="button-go-dashboard"
           >
             Go to Dashboard
@@ -152,16 +151,16 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-border bg-card">
         <div className="container mx-auto px-4">
           <div className="h-16 flex items-center justify-between">
             <div className="flex items-center gap-8">
               <Link href="/company/dashboard" className="flex items-center gap-3 group">
-                <div className="h-9 w-9 rounded-lg gradient-mixed flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
-                  <Building2 className="h-5 w-5 text-white" />
+                <div className="h-9 w-9 rounded-[var(--radius)] bg-primary flex items-center justify-center">
+                  <Building2 className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <div className="hidden sm:block">
-                  <span className="font-bold text-foreground">Provider Portal</span>
+                  <span className="font-semibold text-foreground">Provider Portal</span>
                 </div>
               </Link>
               
@@ -173,10 +172,10 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
                     <Link key={item.href} href={item.href}>
                       <button
                         className={`
-                          flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                          flex items-center gap-2 px-4 py-2 rounded-[var(--radius)] text-sm font-medium transition-colors
                           ${active 
                             ? 'bg-primary/10 text-primary' 
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                           }
                         `}
                         data-testid={item.testId}
@@ -192,10 +191,10 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
                   <DropdownMenuTrigger asChild>
                     <button
                       className={`
-                        flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                        flex items-center gap-2 px-4 py-2 rounded-[var(--radius)] text-sm font-medium transition-colors
                         ${isModuleActive(auditModuleItems)
                           ? 'bg-primary/10 text-primary' 
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                         }
                       `}
                       data-testid="nav-audit-module"
@@ -225,10 +224,10 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
                   <DropdownMenuTrigger asChild>
                     <button
                       className={`
-                        flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                        flex items-center gap-2 px-4 py-2 rounded-[var(--radius)] text-sm font-medium transition-colors
                         ${isModuleActive(complianceModuleItems)
                           ? 'bg-primary/10 text-primary' 
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                         }
                       `}
                       data-testid="nav-compliance-module"
@@ -266,10 +265,10 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
                         <Link key={item.href} href={item.href}>
                           <button
                             className={`
-                              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                              flex items-center gap-2 px-4 py-2 rounded-[var(--radius)] text-sm font-medium transition-colors
                               ${active 
-                                ? 'bg-accent/10 text-accent' 
-                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                ? 'bg-primary/10 text-primary' 
+                                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                               }
                             `}
                             data-testid={item.testId}
@@ -287,8 +286,8 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
             
             <div className="flex items-center gap-4">
               <div className="hidden sm:flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-border">
-                  <span className="text-sm font-semibold text-foreground">
+                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center border border-border">
+                  <span className="text-sm font-medium text-primary">
                     {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
                   </span>
                 </div>

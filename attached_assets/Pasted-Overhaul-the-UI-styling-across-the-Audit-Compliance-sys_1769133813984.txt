@@ -1,0 +1,97 @@
+Overhaul the UI styling across the Audit & Compliance system to match the NeedsCare Safeguard AI+ minimalist brand.
+
+Brand goals
+- Minimalist, calm, professional, audit-safe
+- Light surfaces with deep-blue authority accents
+- Clean spacing, soft borders, no loud gradients, no heavy shadows
+- Accessible contrast and consistent component styling
+
+Primary palette (lock these)
+- Primary (Deep muted blue): #1F3A5F
+- Background (Warm off-white): #F7F8FA
+- Surface (Card white): #FFFFFF
+- Border (Soft grey): #E5E7EB
+- Text primary: #111827
+- Text secondary: #6B7280
+- Success (Muted sage): #5F7C6D
+- Warning (Muted amber): #B88A44
+- Danger (Reserved red): #B4534D
+
+Implementation approach
+Use CSS variables + Tailwind + shadcn theme tokens. Do not hardcode colours in components.
+Replace any existing accent palette with these tokens.
+Keep dark mode optional: if already present, create a dark variant that still feels calm and not neon.
+
+Step A: Define tokens
+1) Update global CSS tokens
+- File: src/index.css or src/styles/globals.css (whichever exists)
+- Define :root CSS variables for:
+  --background, --surface, --border, --text, --muted-text
+  --primary, --primary-foreground
+  --success, --warning, --danger
+  --ring (use primary with low alpha)
+  --radius (set consistent, e.g. 10px)
+- Ensure body background uses --background and default text uses --text
+
+2) Update Tailwind config to map theme colours to CSS variables
+- File: tailwind.config.(js|ts)
+- Map colors:
+  background: "rgb(var(--background) / <alpha-value>)" OR "var(--background)" (depending on existing setup)
+  primary, border, muted, etc
+- Make sure shadcn/ui tokens continue to work.
+
+Step B: Update shadcn/ui styling
+- File(s): src/components/ui/button.tsx, badge.tsx, card.tsx, input.tsx, textarea.tsx, select.tsx, dialog.tsx, dropdown-menu.tsx, toast.tsx
+- Enforce minimalist look:
+  - Buttons: solid primary, outline secondary, subtle hover, no harsh shadows
+  - Cards: white surface, thin border, very soft shadow or none
+  - Inputs: white surface, thin border, primary ring on focus
+  - Badges: small, muted, no bright fills
+  - Toasts: neutral background, border, small icon, concise text
+
+Step C: Layout components (make the system feel calm)
+- Files likely: AppHeader, Sidebar, LayoutProvider, any Shell components
+- AppHeader:
+  - background: surface
+  - border-bottom: border
+  - title in primary, minimal logo spot left
+- Sidebar:
+  - background: surface
+  - active nav item: subtle primary tint background + primary text
+  - hover: light tint, no heavy gradients
+- Main content area:
+  - background: --background
+  - consistent max width and spacing
+
+Step D: Status design (NDIS audit friendly)
+Create a small StatusBadge component used everywhere:
+- GREEN uses --success
+- AMBER uses --warning
+- RED uses --danger
+Keep them subtle: outline or soft tint, not loud fills.
+Replace any existing status colour logic with these tokens.
+
+Step E: Typography + spacing rules
+- Default font: Inter (or existing sans). Use consistent sizes:
+  - page titles 20–24px
+  - section headers 16–18px
+  - body 14–16px
+- Increase whitespace:
+  - cards padding 16–20px
+  - page padding 20–24px
+- Border radius:
+  - cards, inputs, buttons use same radius
+
+Acceptance criteria
+- Entire app uses the new palette via tokens (no random hex colours in components)
+- Header/sidebar/cards/inputs/buttons look minimalist and consistent
+- Status badges are subtle and readable
+- Focus states and hover states are clean and accessible
+- No visual clutter: remove overly strong shadows and gradients
+- Keep multi-tenant + RBAC logic untouched (styling only)
+
+Deliverables
+- Updated CSS tokens and Tailwind theme mapping
+- Updated shadcn/ui components to rely on tokens
+- Updated layout components (header/sidebar/shell) to match brand
+- Introduce StatusBadge and replace old status styling usage
