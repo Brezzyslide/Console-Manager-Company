@@ -166,7 +166,7 @@ export default function RestrictivePracticesPage() {
     queryKey: ["/api/company/restrictive-practices/usage-logs", { participantId: selectedParticipant || undefined }],
   });
   
-  const activeParticipants = participants.filter(p => p.status === "ACTIVE");
+  const activeParticipants = participants.filter(p => p.status?.toLowerCase() === "active");
   
   const createAuthMutation = useMutation({
     mutationFn: async (data: any) => {
