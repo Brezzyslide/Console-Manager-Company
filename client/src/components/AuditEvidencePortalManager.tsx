@@ -7,19 +7,38 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Link, Copy, Check, Shield, Clock, AlertTriangle, Trash2, ExternalLink, FileUp } from "lucide-react";
+import { Loader2, Link, Copy, Check, Shield, Clock, AlertTriangle, Trash2, ExternalLink, FileUp, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Textarea } from "@/components/ui/textarea";
 import {
   createAuditEvidencePortal,
   getAuditEvidencePortal,
   revokeAuditEvidencePortal,
   getGeneralEvidenceSubmissions,
   reviewGeneralEvidenceSubmission,
+  createAuditEvidenceRequest,
+  getAuditEvidenceRequests,
   type AuditEvidencePortal,
   type GeneralEvidenceSubmission,
+  type EvidenceType,
 } from "@/lib/company-api";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
+
+const EVIDENCE_TYPES: { value: EvidenceType; label: string }[] = [
+  { value: "POLICY", label: "Policy Document" },
+  { value: "PROCEDURE", label: "Procedure Document" },
+  { value: "TRAINING_RECORD", label: "Training Record" },
+  { value: "QUALIFICATION", label: "Staff Qualification" },
+  { value: "WWCC", label: "Working with Children Check" },
+  { value: "INCIDENT_REPORT", label: "Incident Report" },
+  { value: "RISK_ASSESSMENT", label: "Risk Assessment" },
+  { value: "SERVICE_AGREEMENT", label: "Service Agreement" },
+  { value: "CARE_PLAN", label: "Care Plan" },
+  { value: "BSP", label: "Behavior Support Plan" },
+  { value: "PROGRESS_NOTES", label: "Progress Notes" },
+  { value: "OTHER", label: "Other" },
+];
 
 interface Props {
   auditId: string;
@@ -45,6 +64,12 @@ export default function AuditEvidencePortalManager({ auditId }: Props) {
   const [selectedSubmission, setSelectedSubmission] = useState<GeneralEvidenceSubmission | null>(null);
   const [reviewStatus, setReviewStatus] = useState<"ACCEPTED" | "REJECTED">("ACCEPTED");
   const [reviewNote, setReviewNote] = useState("");
+  const [showAddRequestDialog, setShowAddRequestDialog] = useState(false);
+  const [newRequestForm, setNewRequestForm] = useState({
+    evidenceType: "",
+    requestNote: "",
+    dueDate: "",
+  });
 
   const { data: portalData, isLoading: portalLoading } = useQuery({
     queryKey: ["auditEvidencePortal", auditId],
@@ -56,6 +81,33 @@ export default function AuditEvidencePortalManager({ auditId }: Props) {
     queryKey: ["generalEvidence", auditId],
     queryFn: () => getGeneralEvidenceSubmissions(auditId),
     enabled: !!auditId,
+  });
+
+  const { data: evidenceRequests = [], refetch: refetchRequests } = useQuery({
+    queryKey: ["auditEvidenceRequests", auditId],
+    queryFn: () => getAuditEvidenceRequests(auditId),
+    enabled: !!auditId,
+  });
+
+  const addRequestMutation = useMutation({
+    mutationFn: (data: { evidenceType: EvidenceType; requestNote: string; dueDate?: string | null }) =>
+      createAuditEvidenceRequest(auditId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditEvidenceRequests", auditId] });
+      setShowAddRequestDialog(false);
+      setNewRequestForm({ evidenceType: "", requestNote: "", dueDate: "" });
+      toast({
+        title: "Evidence request added",
+        description: "The request will now appear in the portal",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to add request",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const createMutation = useMutation({
@@ -230,7 +282,16 @@ export default function AuditEvidencePortalManager({ auditId }: Props) {
               </div>
 
               {canManagePortal && (
-                <div className="flex justify-end">
+                <div className="flex justify-between items-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAddRequestDialog(true)}
+                    data-testid="button-add-evidence-request"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Evidence Request
+                  </Button>
                   <Button
                     variant="destructive"
                     size="sm"
@@ -240,6 +301,25 @@ export default function AuditEvidencePortalManager({ auditId }: Props) {
                     <Trash2 className="h-4 w-4 mr-2" />
                     Revoke Portal
                   </Button>
+                </div>
+              )}
+
+              {evidenceRequests.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2">Evidence Requests in Portal ({evidenceRequests.length})</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {evidenceRequests.map((req: any) => (
+                      <div key={req.id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                        <div>
+                          <span className="font-medium">{req.evidenceType?.replace(/_/g, " ")}</span>
+                          <span className="text-muted-foreground ml-2">- {req.requestNote?.slice(0, 50)}{req.requestNote?.length > 50 ? "..." : ""}</span>
+                        </div>
+                        <Badge variant={req.status === "SUBMITTED" ? "default" : req.status === "APPROVED" ? "secondary" : "outline"} className="text-xs">
+                          {req.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -452,6 +532,71 @@ export default function AuditEvidencePortalManager({ auditId }: Props) {
             >
               {reviewMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddRequestDialog} onOpenChange={setShowAddRequestDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Evidence Request</DialogTitle>
+            <DialogDescription>
+              Add a new evidence request to this audit. It will automatically appear in the portal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Evidence Type *</Label>
+              <Select 
+                value={newRequestForm.evidenceType} 
+                onValueChange={(v) => setNewRequestForm({...newRequestForm, evidenceType: v})}
+              >
+                <SelectTrigger data-testid="select-request-evidence-type">
+                  <SelectValue placeholder="Select evidence type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EVIDENCE_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Request Note *</Label>
+              <Textarea
+                placeholder="Describe what evidence is needed..."
+                value={newRequestForm.requestNote}
+                onChange={(e) => setNewRequestForm({...newRequestForm, requestNote: e.target.value})}
+                data-testid="input-request-note"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date (optional)</Label>
+              <Input
+                type="date"
+                value={newRequestForm.dueDate}
+                onChange={(e) => setNewRequestForm({...newRequestForm, dueDate: e.target.value})}
+                data-testid="input-request-due-date"
+              />
+            </div>
+          </div>
+          {addRequestMutation.error && (
+            <p className="text-sm text-destructive">{(addRequestMutation.error as Error).message}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddRequestDialog(false)}>Cancel</Button>
+            <Button
+              onClick={() => addRequestMutation.mutate({
+                evidenceType: newRequestForm.evidenceType as EvidenceType,
+                requestNote: newRequestForm.requestNote,
+                dueDate: newRequestForm.dueDate || null,
+              })}
+              disabled={!newRequestForm.evidenceType || !newRequestForm.requestNote || addRequestMutation.isPending}
+              data-testid="button-submit-request"
+            >
+              {addRequestMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Add Request
             </Button>
           </DialogFooter>
         </DialogContent>
