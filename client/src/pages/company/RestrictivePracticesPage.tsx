@@ -109,6 +109,16 @@ const STATUS_COLORS: Record<string, string> = {
   REVOKED: "bg-gray-100 text-gray-800",
 };
 
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case "APPROVED": return "Active";
+    case "REVOKED": return "Inactive";
+    case "PENDING": return "Pending";
+    case "EXPIRED": return "Expired";
+    default: return status;
+  }
+};
+
 export default function RestrictivePracticesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -431,7 +441,7 @@ export default function RestrictivePracticesPage() {
                         <TableCell>{getPracticeLabel(auth.practiceType)}</TableCell>
                         <TableCell>
                           <Badge className={STATUS_COLORS[auth.authorizationStatus]}>
-                            {auth.authorizationStatus}
+                            {getStatusLabel(auth.authorizationStatus)}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -456,9 +466,9 @@ export default function RestrictivePracticesPage() {
                               size="sm" 
                               onClick={() => updateAuthStatusMutation.mutate({ id: auth.id, status: "APPROVED" })}
                               disabled={updateAuthStatusMutation.isPending}
-                              data-testid={`button-reactivate-${auth.id}`}
+                              data-testid={`button-activate-${auth.id}`}
                             >
-                              Reactivate
+                              Activate
                             </Button>
                           ) : null}
                         </TableCell>
