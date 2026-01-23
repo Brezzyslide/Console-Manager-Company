@@ -159,11 +159,27 @@ export default function RestrictivePracticesPage() {
   });
   
   const { data: authorizations = [], isLoading: authLoading } = useQuery<Authorization[]>({
-    queryKey: ["/api/company/restrictive-practices/authorizations", { participantId: selectedParticipant || undefined }],
+    queryKey: ["/api/company/restrictive-practices/authorizations", selectedParticipant],
+    queryFn: async () => {
+      const url = selectedParticipant 
+        ? `/api/company/restrictive-practices/authorizations?participantId=${selectedParticipant}`
+        : "/api/company/restrictive-practices/authorizations";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch authorizations");
+      return res.json();
+    },
   });
   
   const { data: usageLogs = [], isLoading: logsLoading } = useQuery<UsageLog[]>({
-    queryKey: ["/api/company/restrictive-practices/usage-logs", { participantId: selectedParticipant || undefined }],
+    queryKey: ["/api/company/restrictive-practices/usage-logs", selectedParticipant],
+    queryFn: async () => {
+      const url = selectedParticipant
+        ? `/api/company/restrictive-practices/usage-logs?participantId=${selectedParticipant}`
+        : "/api/company/restrictive-practices/usage-logs";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch usage logs");
+      return res.json();
+    },
   });
   
   const activeParticipants = participants.filter(p => p.status?.toLowerCase() === "active");
