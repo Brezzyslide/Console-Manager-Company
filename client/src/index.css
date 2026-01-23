@@ -89,8 +89,8 @@
   
   /* Muted: Warm subtle grey */
   --muted: 40 8% 95%;
-  /* Text secondary: Warm grey #6A6966 */
-  --muted-foreground: 50 3% 41%;
+  /* Text secondary: Darker warm grey for legibility #5A5856 */
+  --muted-foreground: 30 3% 34%;
   
   /* Accent: Light warm grey (subtle, no amber) */
   --accent: 40 10% 94%;
