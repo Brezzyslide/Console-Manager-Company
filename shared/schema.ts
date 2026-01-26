@@ -1357,3 +1357,112 @@ export const insertRestrictivePracticeUsageLogSchema = createInsertSchema(restri
 
 export type InsertRestrictivePracticeUsageLog = z.infer<typeof insertRestrictivePracticeUsageLogSchema>;
 export type RestrictivePracticeUsageLog = typeof restrictivePracticeUsageLogs.$inferSelect;
+
+// ============================================================================
+// REGISTER MODULE
+// ============================================================================
+
+// Evacuation Drill Register
+export const evacuationDrillTypes = ["FIRE", "BOMB_THREAT", "OTHER"] as const;
+export type EvacuationDrillType = typeof evacuationDrillTypes[number];
+
+export const participantNotInvolvedReasons = ["DYSREGULATED", "NOT_INTERESTED", "DISENGAGED_FROM_SUPPORT", "NOT_MOTIVATED", "OTHER"] as const;
+export type ParticipantNotInvolvedReason = typeof participantNotInvolvedReasons[number];
+
+export const involvementRatings = ["SATISFACTORY", "NOT_SATISFACTORY", "REFUSED_TO_PARTICIPATE"] as const;
+export type InvolvementRating = typeof involvementRatings[number];
+
+export const evacuationDrillRegister = pgTable("evacuation_drill_register", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  dateOfDrill: timestamp("date_of_drill").notNull(),
+  siteId: varchar("site_id").notNull().references(() => workSites.id, { onDelete: "cascade" }),
+  drillType: text("drill_type", { enum: evacuationDrillTypes }).notNull().default("FIRE"),
+  assemblyPoint: text("assembly_point"),
+  wardenFirstName: text("warden_first_name").notNull(),
+  wardenLastName: text("warden_last_name").notNull(),
+  totalPeoplePresent: integer("total_people_present").notNull(),
+  staffInitialsPresent: text("staff_initials_present").notNull(),
+  clientInitialsPresent: text("client_initials_present").notNull(),
+  participantActivelyInvolved: boolean("participant_actively_involved").notNull(),
+  ifNotInvolvedReason: text("if_not_involved_reason", { enum: participantNotInvolvedReasons }),
+  ifNotInvolvedOtherText: text("if_not_involved_other_text"),
+  involvementRating: text("involvement_rating", { enum: involvementRatings }).notNull(),
+  improvementNotes: text("improvement_notes").notNull(),
+  attachments: jsonb("attachments"),
+  completedByUserId: varchar("completed_by_user_id").notNull().references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertEvacuationDrillRegisterSchema = createInsertSchema(evacuationDrillRegister).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEvacuationDrillRegister = z.infer<typeof insertEvacuationDrillRegisterSchema>;
+export type EvacuationDrillRegister = typeof evacuationDrillRegister.$inferSelect;
+
+// Complaints Register
+export const complainantTypes = ["PARTICIPANT", "FAMILY", "NOMINEE_GUARDIAN", "ADVOCATE", "STAFF", "COMMUNITY", "ANONYMOUS", "OTHER"] as const;
+export type ComplainantType = typeof complainantTypes[number];
+
+export const complaintCategories = [
+  "SERVICE_DELIVERY", "STAFF_CONDUCT", "MEDICATION", "RESTRICTIVE_PRACTICE", "SAFETY_ENVIRONMENT",
+  "PRIVACY_CONFIDENTIALITY", "FEES_BILLING", "COMMUNICATION", "RIGHTS_AND_DIGNITY", "OTHER"
+] as const;
+export type ComplaintCategory = typeof complaintCategories[number];
+
+export const complaintStatuses = ["IN_PROGRESS", "RESOLVED", "CLOSED"] as const;
+export type ComplaintStatus = typeof complaintStatuses[number];
+
+export const closureSatisfactions = ["SATISFIED", "DISSATISFIED"] as const;
+export type ClosureSatisfaction = typeof closureSatisfactions[number];
+
+export const externalNotificationBodies = [
+  "POLICE", "NDIS_COMMISSION", "SENIOR_PRACTITIONER", "OPA_GUARDIANSHIP", "DHHS_CHILD_PROTECTION",
+  "WORKSAFE", "OMBUDSMAN", "PUBLIC_HEALTH", "OTHER"
+] as const;
+export type ExternalNotificationBody = typeof externalNotificationBodies[number];
+
+export const complaintsRegister = pgTable("complaints_register", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  receivedAt: timestamp("received_at").notNull(),
+  siteId: varchar("site_id").references(() => workSites.id),
+  participantId: varchar("participant_id").references(() => participants.id),
+  complainantType: text("complainant_type", { enum: complainantTypes }).notNull(),
+  complainantName: text("complainant_name"),
+  complainantContact: text("complainant_contact"),
+  relationshipToParticipant: text("relationship_to_participant"),
+  isAnonymous: boolean("is_anonymous").notNull().default(false),
+  category: text("category", { enum: complaintCategories }).notNull(),
+  description: text("description").notNull(),
+  immediateRisk: boolean("immediate_risk").notNull().default(false),
+  immediateActionsTaken: text("immediate_actions_taken"),
+  status: text("status", { enum: complaintStatuses }).notNull().default("IN_PROGRESS"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  investigatorUserId: varchar("investigator_user_id").references(() => companyUsers.id),
+  actionsSummary: text("actions_summary"),
+  outcomeSummary: text("outcome_summary"),
+  resolvedAt: timestamp("resolved_at"),
+  closedAt: timestamp("closed_at"),
+  closureSatisfaction: text("closure_satisfaction", { enum: closureSatisfactions }),
+  closureNotes: text("closure_notes"),
+  externalNotificationRequired: boolean("external_notification_required").notNull().default(false),
+  externalBodies: jsonb("external_bodies"),
+  externalOtherBodyText: text("external_other_body_text"),
+  externalNotifiedAt: timestamp("external_notified_at"),
+  externalReferenceNumber: text("external_reference_number"),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertComplaintsRegisterSchema = createInsertSchema(complaintsRegister).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertComplaintsRegister = z.infer<typeof insertComplaintsRegisterSchema>;
+export type ComplaintsRegister = typeof complaintsRegister.$inferSelect;

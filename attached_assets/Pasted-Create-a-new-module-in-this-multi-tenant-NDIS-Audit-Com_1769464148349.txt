@@ -1,0 +1,228 @@
+Create a new module in this multi-tenant NDIS Audit & Compliance system called "Register".
+
+Scope
+- Add a new sidebar item: Register
+- Inside Register module, include two registers:
+  1) Evacuation Drill Register
+  2) Complaints Register
+
+Non-negotiables
+- Enforce companyId/tenantId scoping on ALL tables, queries, and API routes.
+- Work sites already exist in the system; use them. Any site created must be selectable in both registers.
+- Use existing frontend stack (React + TS + Tailwind + shadcn/ui + TanStack Query patterns already used in this app).
+- Do not change existing audit runner/scoring logic; this is a standalone "Register" module.
+- Use the NeedsCare Safeguard AI+ minimalist styling tokens already defined in the app theme.
+
+------------------------------------------------------------
+PART A: EVACUATION DRILL REGISTER
+------------------------------------------------------------
+
+1) Data model
+Create table: evacuation_drill_register
+Fields:
+- id, companyId
+- dateOfDrill (date)
+- siteId (FK work_sites.id)
+- drillType (enum: FIRE, BOMB_THREAT, OTHER) default FIRE
+- assemblyPoint (text, optional)
+- wardenFirstName (text)
+- wardenLastName (text)
+- totalPeoplePresent (number)
+- staffInitialsPresent (text)  // keep simple per screenshot
+- clientInitialsPresent (text) // keep simple per screenshot
+- participantActivelyInvolved (boolean)
+- ifNotInvolvedReason (enum nullable: DYSREGULATED, NOT_INTERESTED, DISENGAGED_FROM_SUPPORT, NOT_MOTIVATED, OTHER)
+- ifNotInvolvedOtherText (text nullable)
+- involvementRating (enum: SATISFACTORY, NOT_SATISFACTORY, REFUSED_TO_PARTICIPATE)
+- improvementNotes (text) // "Views on how the drill can be improved"
+- completedByUserId
+- createdAt, updatedAt
+
+Optional evidence fields (if file upload exists in system)
+- attachments (json array of file ids or URLs) nullable
+
+Indexes
+- (companyId, siteId, dateOfDrill)
+
+2) Evacuation Drill Instructions content (must show in UI)
+Add a static instruction panel for drill steps based strictly on the MH&R procedure:
+- Warden allocated by manager; staff follow warden instructions :contentReference[oaicite:3]{index=3}
+- Warden before drill: choose assembly point, take evacuation pack, head count, prompt occupants to prepare :contentReference[oaicite:4]{index=4}
+- Drill prompts list (prepare workplace, doors guidance, assist danger, nearest safe route, obey wardens, calm to assembly point, wait all clear, etc.) :contentReference[oaicite:5]{index=5}
+- FIRE instructions: call 000, then MH&R after hours, then safe steps + evacuation assistance :contentReference[oaicite:6]{index=6}
+- After drill: record drill in communication book + fill register form :contentReference[oaicite:7]{index=7}
+
+Present these instructions as a clean card on the right side of the page and also in a modal that pops up when user selects “Evacuation Drill Register”.
+
+3) “Start Drill” workflow
+On the Evacuation Drill Register page:
+- A primary button: Start Drill
+- When clicked:
+  - Open a modal/wizard showing the drill prompts as step-by-step checklist items.
+  - Include a timer (start/stop) and a “Mark Step Completed” tick for each step.
+  - Include a “Drill Type” selector at the start (Fire / Bomb Threat / Other).
+  - At the end, show “Proceed to Drill Record Form” which opens the data entry form prefilled with:
+     - dateOfDrill = today
+     - drillType chosen
+     - completedByUserId current user
+- Users can skip the wizard and go directly to “New Drill Record” if needed, but default flow is Start Drill.
+
+4) Evacuation Drill Form UI (match screenshots)
+Create a form that matches the structure in the screenshots:
+- Date (required)
+- Work Site (radio or select; prefer select searchable)
+- Warden First Name (required)
+- Warden Last Name (required)
+- Total number of people present during drill (required number)
+- Initial of staff present during the drill (required)
+- Initial of client present during the drill (required)
+- Was the participant actively involved in the drill? Yes/No (required)
+  - If No: show reasons (radio list): Dysregulated, Not interested, Disengaged from support, Not motivated to participate, Other
+  - If Other: show free text input
+- Rate involvement of client in the drill: Satisfactory, Not satisfactory, Refused to participate (required)
+- Views on how the drill can be improved (required)
+
+List view
+- Table + card toggle:
+  - Date, Site, Drill Type, Involvement rating, Completed by
+- View details modal + edit (role-based)
+
+Permissions (Evacuation)
+- Staff can create records for sites they have access to.
+- TeamLeader/Admin can edit any within tenant.
+
+Backend APIs
+- GET /api/registers/evacuation-drills?siteId=&from=&to=
+- POST /api/registers/evacuation-drills
+- GET /api/registers/evacuation-drills/:id
+- PATCH /api/registers/evacuation-drills/:id (TeamLeader/Admin only)
+- DELETE soft delete optional (Admin only)
+
+------------------------------------------------------------
+PART B: COMPLAINTS REGISTER (NDIS-CONSISTENT)
+------------------------------------------------------------
+
+1) Data model
+Create table: complaints_register
+Fields:
+- id, companyId
+- receivedAt (datetime)
+- siteId (FK work_sites.id) nullable
+- participantId (FK participants.id) nullable  // allow complaint not tied to a participant
+- complainantType (enum: PARTICIPANT, FAMILY, NOMINEE_GUARDIAN, ADVOCATE, STAFF, COMMUNITY, ANONYMOUS, OTHER)
+- complainantName (text nullable)
+- complainantContact (text nullable)
+- relationshipToParticipant (text nullable)
+- isAnonymous (boolean default false)
+
+Complaint details
+- category (enum:
+   SERVICE_DELIVERY, STAFF_CONDUCT, MEDICATION, RESTRICTIVE_PRACTICE, SAFETY_ENVIRONMENT,
+   PRIVACY_CONFIDENTIALITY, FEES_BILLING, COMMUNICATION, RIGHTS_AND_DIGNITY, OTHER
+ )
+- description (text, required)
+- immediateRisk (boolean default false)
+- immediateActionsTaken (text nullable)
+
+Process tracking
+- status (enum: IN_PROGRESS, RESOLVED, CLOSED) default IN_PROGRESS
+- acknowledgedAt (datetime nullable)
+- investigatorUserId (userId nullable)
+- actionsSummary (text nullable)
+- outcomeSummary (text nullable)
+- resolvedAt (datetime nullable)
+- closedAt (datetime nullable)
+
+Closure rating
+- closureSatisfaction (enum nullable: SATISFIED, DISSATISFIED)
+- closureNotes (text nullable)
+
+External notifications
+- externalNotificationRequired (boolean default false)
+- externalBodies (json array of enum values) nullable:
+   POLICE, NDIS_COMMISSION, SENIOR_PRACTITIONER, OPA_GUARDIANSHIP, DHHS_CHILD_PROTECTION,
+   WORKSAFE, OMBUDSMAN, PUBLIC_HEALTH, OTHER
+- externalOtherBodyText (text nullable)
+- externalNotifiedAt (datetime nullable)
+- externalReferenceNumber (text nullable)
+
+Audit fields
+- createdByUserId
+- createdAt, updatedAt
+
+Indexes
+- (companyId, status)
+- (companyId, siteId)
+- (companyId, participantId)
+- (companyId, receivedAt)
+
+2) Complaint instructions panel (UI)
+When user opens Complaints Register, show a short instruction card:
+- capture facts, avoid opinion
+- record immediate risk and actions
+- if external notification required, select body and record reference
+- statuses: In Progress -> Resolved -> Closed, with satisfaction on closure
+
+3) Complaints form UI
+Create “New Complaint” form:
+- Received date/time (required)
+- Work site (optional)
+- Participant (optional)
+- Anonymous toggle
+- Complainant type (required)
+- Complainant name/contact (optional unless not anonymous)
+- Category (required)
+- Description (required)
+- Immediate risk (yes/no) + immediate actions text if yes
+- External notification required (yes/no)
+  - if yes: multi-select bodies + reference number + notified date
+
+Workflow controls
+- Status dropdown (In Progress / Resolved / Closed)
+- If status moves to Resolved:
+  - require outcomeSummary + resolvedAt
+- If status moves to Closed:
+  - require closureSatisfaction (Satisfied/Dissatisfied) + closedAt + closureNotes
+
+List view
+- Filters: status, site, category, externalNotificationRequired
+- Columns: receivedAt, site, participant, category, status, external flag, satisfaction (if closed)
+- Detail view supports adding updates (append notes) and moving status forward
+
+Permissions (Complaints)
+- Staff can create and update complaints to IN_PROGRESS only.
+- TeamLeader/Admin can set RESOLVED/CLOSED and set external notifications fields.
+- Admin can export list (CSV) later; prepare endpoint but not required now.
+
+Backend APIs
+- GET /api/registers/complaints?status=&siteId=&category=&from=&to=
+- POST /api/registers/complaints
+- GET /api/registers/complaints/:id
+- PATCH /api/registers/complaints/:id
+- POST /api/registers/complaints/:id/close  (convenience endpoint enforcing closure rules)
+- POST /api/registers/complaints/:id/resolve (convenience endpoint enforcing resolve rules)
+
+------------------------------------------------------------
+PART C: REGISTER HOME + UX
+------------------------------------------------------------
+
+Register landing page
+- Two cards: Evacuation Drill Register, Complaints Register
+- Selecting a card opens that register and shows its instruction panel automatically.
+
+Integration with Work Sites
+- Ensure work sites created elsewhere appear in the site selector in both registers.
+- The selector should query /api/work-sites (tenant-scoped).
+
+Quality requirements
+- Use shadcn/ui components for forms, dialogs, toasts, tabs.
+- Error messages must be specific: “Warden first name is required”, “Total people must be a number”, etc.
+- Keep it minimalist and consistent with the brand palette.
+- No placeholder names or invented examples.
+
+Deliverables
+- DB migrations + types
+- Backend routes with tenant scoping + RBAC
+- Register UI pages with instruction panels and Start Drill wizard
+- Evacuation Drill form matches screenshot question structure
+- Complaints register includes status workflow + satisfaction + external notification flags and bodies
