@@ -141,10 +141,22 @@ import {
   type InsertRestrictivePracticeUsageLog,
   evacuationDrillRegister,
   complaintsRegister,
+  riskRegister,
+  continuousImprovementRegister,
+  policyUpdateRegister,
+  legislativeRegister,
   type EvacuationDrillRegister,
   type InsertEvacuationDrillRegister,
   type ComplaintsRegister,
   type InsertComplaintsRegister,
+  type RiskRegister,
+  type InsertRiskRegister,
+  type ContinuousImprovementRegister,
+  type InsertContinuousImprovementRegister,
+  type PolicyUpdateRegister,
+  type InsertPolicyUpdateRegister,
+  type LegislativeRegister,
+  type InsertLegislativeRegister,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -432,6 +444,30 @@ export interface IStorage {
   getComplaint(id: string, companyId: string): Promise<ComplaintsRegister | undefined>;
   createComplaint(complaint: InsertComplaintsRegister): Promise<ComplaintsRegister>;
   updateComplaint(id: string, companyId: string, updates: Partial<InsertComplaintsRegister>): Promise<ComplaintsRegister | undefined>;
+  
+  // Risk Register
+  getRisks(companyId: string): Promise<RiskRegister[]>;
+  getRisk(id: string, companyId: string): Promise<RiskRegister | undefined>;
+  createRisk(risk: InsertRiskRegister): Promise<RiskRegister>;
+  updateRisk(id: string, companyId: string, updates: Partial<InsertRiskRegister>): Promise<RiskRegister | undefined>;
+  
+  // Continuous Improvement Register
+  getImprovements(companyId: string): Promise<ContinuousImprovementRegister[]>;
+  getImprovement(id: string, companyId: string): Promise<ContinuousImprovementRegister | undefined>;
+  createImprovement(improvement: InsertContinuousImprovementRegister): Promise<ContinuousImprovementRegister>;
+  updateImprovement(id: string, companyId: string, updates: Partial<InsertContinuousImprovementRegister>): Promise<ContinuousImprovementRegister | undefined>;
+  
+  // Policy Update Register
+  getPolicies(companyId: string): Promise<PolicyUpdateRegister[]>;
+  getPolicy(id: string, companyId: string): Promise<PolicyUpdateRegister | undefined>;
+  createPolicy(policy: InsertPolicyUpdateRegister): Promise<PolicyUpdateRegister>;
+  updatePolicy(id: string, companyId: string, updates: Partial<InsertPolicyUpdateRegister>): Promise<PolicyUpdateRegister | undefined>;
+  
+  // Legislative Register
+  getLegislativeItems(companyId: string): Promise<LegislativeRegister[]>;
+  getLegislativeItem(id: string, companyId: string): Promise<LegislativeRegister | undefined>;
+  createLegislativeItem(item: InsertLegislativeRegister): Promise<LegislativeRegister>;
+  updateLegislativeItem(id: string, companyId: string, updates: Partial<InsertLegislativeRegister>): Promise<LegislativeRegister | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2781,6 +2817,130 @@ export class DatabaseStorage implements IStorage {
       .update(complaintsRegister)
       .set({ ...updates, updatedAt: new Date() })
       .where(and(eq(complaintsRegister.id, id), eq(complaintsRegister.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Risk Register
+  async getRisks(companyId: string): Promise<RiskRegister[]> {
+    return await db
+      .select()
+      .from(riskRegister)
+      .where(eq(riskRegister.companyId, companyId))
+      .orderBy(desc(riskRegister.createdAt));
+  }
+  
+  async getRisk(id: string, companyId: string): Promise<RiskRegister | undefined> {
+    const [risk] = await db
+      .select()
+      .from(riskRegister)
+      .where(and(eq(riskRegister.id, id), eq(riskRegister.companyId, companyId)));
+    return risk || undefined;
+  }
+  
+  async createRisk(risk: InsertRiskRegister): Promise<RiskRegister> {
+    const [created] = await db.insert(riskRegister).values(risk).returning();
+    return created;
+  }
+  
+  async updateRisk(id: string, companyId: string, updates: Partial<InsertRiskRegister>): Promise<RiskRegister | undefined> {
+    const [updated] = await db
+      .update(riskRegister)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(riskRegister.id, id), eq(riskRegister.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Continuous Improvement Register
+  async getImprovements(companyId: string): Promise<ContinuousImprovementRegister[]> {
+    return await db
+      .select()
+      .from(continuousImprovementRegister)
+      .where(eq(continuousImprovementRegister.companyId, companyId))
+      .orderBy(desc(continuousImprovementRegister.createdAt));
+  }
+  
+  async getImprovement(id: string, companyId: string): Promise<ContinuousImprovementRegister | undefined> {
+    const [item] = await db
+      .select()
+      .from(continuousImprovementRegister)
+      .where(and(eq(continuousImprovementRegister.id, id), eq(continuousImprovementRegister.companyId, companyId)));
+    return item || undefined;
+  }
+  
+  async createImprovement(improvement: InsertContinuousImprovementRegister): Promise<ContinuousImprovementRegister> {
+    const [created] = await db.insert(continuousImprovementRegister).values(improvement).returning();
+    return created;
+  }
+  
+  async updateImprovement(id: string, companyId: string, updates: Partial<InsertContinuousImprovementRegister>): Promise<ContinuousImprovementRegister | undefined> {
+    const [updated] = await db
+      .update(continuousImprovementRegister)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(continuousImprovementRegister.id, id), eq(continuousImprovementRegister.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Policy Update Register
+  async getPolicies(companyId: string): Promise<PolicyUpdateRegister[]> {
+    return await db
+      .select()
+      .from(policyUpdateRegister)
+      .where(eq(policyUpdateRegister.companyId, companyId))
+      .orderBy(desc(policyUpdateRegister.createdAt));
+  }
+  
+  async getPolicy(id: string, companyId: string): Promise<PolicyUpdateRegister | undefined> {
+    const [policy] = await db
+      .select()
+      .from(policyUpdateRegister)
+      .where(and(eq(policyUpdateRegister.id, id), eq(policyUpdateRegister.companyId, companyId)));
+    return policy || undefined;
+  }
+  
+  async createPolicy(policy: InsertPolicyUpdateRegister): Promise<PolicyUpdateRegister> {
+    const [created] = await db.insert(policyUpdateRegister).values(policy).returning();
+    return created;
+  }
+  
+  async updatePolicy(id: string, companyId: string, updates: Partial<InsertPolicyUpdateRegister>): Promise<PolicyUpdateRegister | undefined> {
+    const [updated] = await db
+      .update(policyUpdateRegister)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(policyUpdateRegister.id, id), eq(policyUpdateRegister.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Legislative Register
+  async getLegislativeItems(companyId: string): Promise<LegislativeRegister[]> {
+    return await db
+      .select()
+      .from(legislativeRegister)
+      .where(eq(legislativeRegister.companyId, companyId))
+      .orderBy(desc(legislativeRegister.createdAt));
+  }
+  
+  async getLegislativeItem(id: string, companyId: string): Promise<LegislativeRegister | undefined> {
+    const [item] = await db
+      .select()
+      .from(legislativeRegister)
+      .where(and(eq(legislativeRegister.id, id), eq(legislativeRegister.companyId, companyId)));
+    return item || undefined;
+  }
+  
+  async createLegislativeItem(item: InsertLegislativeRegister): Promise<LegislativeRegister> {
+    const [created] = await db.insert(legislativeRegister).values(item).returning();
+    return created;
+  }
+  
+  async updateLegislativeItem(id: string, companyId: string, updates: Partial<InsertLegislativeRegister>): Promise<LegislativeRegister | undefined> {
+    const [updated] = await db
+      .update(legislativeRegister)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(legislativeRegister.id, id), eq(legislativeRegister.companyId, companyId)))
       .returning();
     return updated || undefined;
   }
