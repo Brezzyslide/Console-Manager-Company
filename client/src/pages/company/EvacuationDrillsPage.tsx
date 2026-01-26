@@ -24,7 +24,8 @@ import {
   Edit,
   AlertTriangle,
   FileText,
-  Users
+  Users,
+  Search
 } from "lucide-react";
 interface WorkSite {
   id: string;
@@ -105,6 +106,8 @@ export default function EvacuationDrillsPage() {
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filterDrillType, setFilterDrillType] = useState<string>("all");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const [formData, setFormData] = useState({
@@ -131,6 +134,20 @@ export default function EvacuationDrillsPage() {
   const { data: drills = [], isLoading } = useQuery<EvacuationDrill[]>({
     queryKey: ["/api/company/registers/evacuation-drills"],
     refetchInterval: 30000,
+  });
+
+  const filteredDrills = drills.filter((drill) => {
+    if (filterDrillType !== "all" && drill.drillType !== filterDrillType) return false;
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const siteName = workSites.find(s => s.id === drill.siteId)?.name || "";
+    return (
+      drill.wardenFirstName?.toLowerCase().includes(query) ||
+      drill.wardenLastName?.toLowerCase().includes(query) ||
+      drill.improvementNotes?.toLowerCase().includes(query) ||
+      drill.assemblyPoint?.toLowerCase().includes(query) ||
+      siteName.toLowerCase().includes(query)
+    );
   });
 
   const createDrillMutation = useMutation({
@@ -289,9 +306,29 @@ export default function EvacuationDrillsPage() {
             </div>
           </div>
 
+          <div className="flex gap-3 mb-4 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search drills..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search"
+              />
+            </div>
+            <Select value={filterDrillType} onValueChange={setFilterDrillType}>
+              <SelectTrigger className="w-40" data-testid="filter-drill-type"><SelectValue placeholder="Drill Type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {DRILL_TYPES.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {isLoading ? (
             <div className="text-center py-12 text-muted-foreground">Loading drills...</div>
-          ) : drills.length === 0 ? (
+          ) : filteredDrills.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Flame className="h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -305,7 +342,7 @@ export default function EvacuationDrillsPage() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {drills.map((drill) => (
+              {filteredDrills.map((drill) => (
                 <Card key={drill.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => setShowDetail(drill)} data-testid={`card-drill-${drill.id}`}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">

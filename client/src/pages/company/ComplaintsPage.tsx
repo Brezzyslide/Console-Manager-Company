@@ -24,7 +24,8 @@ import {
   ExternalLink,
   CheckCircle2,
   Clock,
-  XCircle
+  XCircle,
+  Search
 } from "lucide-react";
 interface WorkSite { id: string; name: string; }
 interface Participant { id: string; firstName: string; lastName: string; }
@@ -120,6 +121,7 @@ export default function ComplaintsPage() {
   const [showClose, setShowClose] = useState<Complaint | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   
   const [formData, setFormData] = useState({
     receivedAt: new Date().toISOString().slice(0, 16),
@@ -163,6 +165,18 @@ export default function ComplaintsPage() {
       return res.json();
     },
     refetchInterval: 30000,
+  });
+
+  const filteredComplaints = complaints.filter((complaint) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      complaint.description?.toLowerCase().includes(query) ||
+      complaint.complainantName?.toLowerCase().includes(query) ||
+      complaint.category?.toLowerCase().includes(query) ||
+      complaint.outcomeSummary?.toLowerCase().includes(query) ||
+      complaint.closureNotes?.toLowerCase().includes(query)
+    );
   });
 
   const createComplaintMutation = useMutation({
@@ -314,7 +328,17 @@ export default function ComplaintsPage() {
             </Button>
           </div>
 
-          <div className="flex gap-3 mb-4">
+          <div className="flex gap-3 mb-4 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search complaints..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search"
+              />
+            </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-40" data-testid="filter-status"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
@@ -333,7 +357,7 @@ export default function ComplaintsPage() {
 
           {isLoading ? (
             <div className="text-center py-12 text-muted-foreground">Loading complaints...</div>
-          ) : complaints.length === 0 ? (
+          ) : filteredComplaints.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <MessageSquareWarning className="h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -347,7 +371,7 @@ export default function ComplaintsPage() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {complaints.map((complaint) => (
+              {filteredComplaints.map((complaint) => (
                 <Card key={complaint.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => setShowDetail(complaint)} data-testid={`card-complaint-${complaint.id}`}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
