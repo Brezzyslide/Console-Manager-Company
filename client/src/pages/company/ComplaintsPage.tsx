@@ -176,7 +176,7 @@ export default function ComplaintsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["complaints"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/registers/complaints"] });
       toast({ title: "Success", description: "Complaint recorded successfully" });
       setShowForm(false);
       resetForm();
@@ -198,7 +198,7 @@ export default function ComplaintsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["complaints"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/registers/complaints"] });
       toast({ title: "Success", description: "Complaint marked as resolved" });
       setShowResolve(null);
       setShowDetail(null);
@@ -220,7 +220,7 @@ export default function ComplaintsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["complaints"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/registers/complaints"] });
       toast({ title: "Success", description: "Complaint closed" });
       setShowClose(null);
       setShowDetail(null);
