@@ -1,0 +1,178 @@
+Integrate Stripe payments into this multi-tenant system.
+
+Goal
+Add subscription billing managed by Console Manager (super admin) with:
+1) Charge per active user per tenant (seat-based pricing)
+2) Ability to override price per user per tenant
+3) Ability to charge a once-off (one time) fee per tenant
+4) Ability to do both: monthly seat billing + one-time charges
+5) Full tenant scoping + audit trail for all billing actions
+6) No changes to existing core app flows except adding billing gates where needed
+
+Non-negotiables
+- Use Stripe (latest stable) with Stripe Checkout for payments + Stripe Customer portal for self-service (optional).
+- All billing actions are restricted to ConsoleManager role.
+- Tenant/companyId scoping enforced everywhere.
+- Never store raw card details. Store only Stripe IDs and invoice/payment references.
+- Support both “automatic monthly recurring invoices” and “ad-hoc one-time invoice items”.
+- Seat count must be computed from “active staff/users” in this system (define active = status active AND not deleted AND has login enabled).
+
+Stripe model
+- Use Stripe Customer per tenant.
+- Use Stripe Subscription for recurring billing.
+- Use Stripe Price for seat price (recurring monthly).
+- Use Stripe subscription item quantity to represent seat count.
+- Use Stripe Invoice Items for one-time charges and optional proration adjustments.
+- Use Stripe webhooks as source of truth for payment status.
+
+Database changes
+Create tables (all include companyId, createdAt, updatedAt):
+1) billing_tenant
+- id, companyId (unique)
+- stripeCustomerId
+- stripeSubscriptionId nullable
+- billingStatus enum: TRIAL | ACTIVE | PAST_DUE | CANCELED | INACTIVE
+- currentSeatPriceCents default from global plan
+- currency default "aud"
+- trialEndsAt nullable
+- lastSyncedAt nullable
+
+2) billing_plan
+- id
+- name (e.g. "NeedsCare Safeguard AI+ Standard")
+- defaultSeatPriceCents
+- currency
+- stripePriceId (recurring monthly)
+- isActive
+
+3) billing_seat_overrides
+- id, companyId
+- overrideSeatPriceCents nullable (if set, replaces plan seat price for that tenant)
+- effectiveFrom datetime
+- effectiveTo nullable
+
+4) billing_one_time_charges
+- id, companyId
+- title
+- description nullable
+- amountCents
+- currency
+- status enum: DRAFT | INVOICED | PAID | VOID
+- stripeInvoiceId nullable
+- stripeInvoiceItemId nullable
+- createdByUserId
+
+5) billing_events (audit trail)
+- id, companyId
+- type (e.g. CUSTOMER_CREATED, SUBSCRIPTION_CREATED, SEAT_SYNCED, INVOICE_CREATED, PAYMENT_SUCCEEDED, PAYMENT_FAILED, SUBSCRIPTION_CANCELED, ONE_TIME_CHARGE_CREATED)
+- payloadJson
+- createdByUserId nullable
+- createdAt
+
+Backend services
+Create a Stripe service layer:
+- stripeClient initialization via env vars:
+  STRIPE_SECRET_KEY
+  STRIPE_WEBHOOK_SECRET
+  STRIPE_PUBLISHABLE_KEY
+  STRIPE_DEFAULT_SEAT_PRICE_ID (fallback)
+  STRIPE_CURRENCY (default aud)
+
+Seat counting logic
+Implement:
+- getActiveSeatCount(companyId): counts active users in tenant
+- define active user rules explicitly in code
+- exclude ConsoleManager accounts if they are global (not tenant staff)
+
+Core billing flows (ConsoleManager only)
+Endpoints:
+1) GET /api/billing/plans
+2) POST /api/billing/tenants/:companyId/create-customer
+- creates Stripe customer, stores stripeCustomerId
+- logs billing_event
+
+3) POST /api/billing/tenants/:companyId/start-subscription
+Input: planId OR customStripePriceId optional
+- creates Stripe subscription with quantity = current active seat count
+- uses tenant override seat price if set:
+   - If override exists, create a Stripe “custom price” strategy:
+     Option A (preferred): create a separate Stripe Price for this tenant (one time per tenant) and store it in billing_tenant
+     Option B: keep a “catalog of prices” and select the right one per tenant
+- returns Stripe Checkout Session URL (or confirms subscription created)
+- logs billing_event
+
+4) POST /api/billing/tenants/:companyId/set-seat-price-override
+Input: overrideSeatPriceCents OR null to remove
+- update local override record
+- ensure subscription uses correct Stripe Price going forward:
+   - if subscription exists: update subscription item price to the tenant-specific price
+- log billing_event
+
+5) POST /api/billing/tenants/:companyId/sync-seats
+- recompute seat count
+- update stripe subscription item quantity
+- log billing_event
+
+6) POST /api/billing/tenants/:companyId/create-one-time-charge
+Input: title, amountCents, description optional
+- create a Stripe Invoice Item on tenant customer
+- create invoice and finalize it (or leave draft based on flag)
+- store in billing_one_time_charges with stripeInvoiceId + stripeInvoiceItemId
+- log billing_event
+
+7) POST /api/billing/tenants/:companyId/charge-one-time-now
+- finalize and pay invoice (if possible) OR return Checkout link if required
+- update status
+
+8) POST /api/billing/tenants/:companyId/cancel-subscription
+- cancels at period end or immediate based on flag
+- update local billingStatus
+- log event
+
+Webhooks (must implement)
+POST /api/stripe/webhook
+Handle and verify signature:
+- invoice.payment_succeeded
+- invoice.payment_failed
+- customer.subscription.updated
+- customer.subscription.deleted
+- checkout.session.completed (if using Checkout)
+Update billing_tenant.billingStatus accordingly and log billing_events with payload.
+
+Billing gate (minimal)
+- If tenant billingStatus not ACTIVE and trial expired:
+  - restrict access to core features except billing page and admin access
+  - show “Billing required” page
+Keep this gating simple and configurable.
+
+Frontend (ConsoleManager UI)
+Add a ConsoleManager-only Billing dashboard:
+- Tenant list with:
+   - current billing status
+   - active seat count
+   - current seat price (default or override)
+   - subscription status
+- Actions per tenant:
+   - Create Customer
+   - Start Subscription
+   - Sync Seats
+   - Set/Remove Seat Price Override
+   - Create One-Time Charge
+   - View invoices (link to Stripe dashboard optional)
+   - Cancel subscription
+
+Tenant Admin (optional phase)
+- Add “Billing” page where tenant admin can open Stripe customer portal (if enabled)
+- This is optional; ConsoleManager is primary controller.
+
+Acceptance criteria
+- ConsoleManager can:
+  - set tenant per-seat price override
+  - start subscription per tenant
+  - sync seats and Stripe quantity matches active users
+  - create and charge one-time fees
+  - do both subscription + one-time charges for the same tenant
+- Webhooks update tenant billingStatus correctly
+- No card data stored
+- All billing actions logged to billing_events
+- Fully tenant-scoped and RBAC protected
