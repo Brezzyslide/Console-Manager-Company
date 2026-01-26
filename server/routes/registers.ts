@@ -52,7 +52,7 @@ router.get("/registers/evacuation-drills/:id", requireCompanyAuth, async (req: A
   }
 });
 
-router.post("/registers/evacuation-drills", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+router.post("/registers/evacuation-drills", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
     const userId = req.companyUser!.companyUserId;
@@ -194,7 +194,7 @@ router.get("/registers/complaints/:id", requireCompanyAuth, async (req: Authenti
   }
 });
 
-router.post("/registers/complaints", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+router.post("/registers/complaints", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
     const userId = req.companyUser!.companyUserId;
@@ -242,7 +242,7 @@ router.post("/registers/complaints", requireCompanyAuth, async (req: Authenticat
   }
 });
 
-router.patch("/registers/complaints/:id", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+router.patch("/registers/complaints/:id", requireCompanyAuth, requireRole(["CompanyAdmin", "Auditor", "Reviewer"]), async (req: AuthenticatedCompanyRequest, res) => {
   try {
     const companyId = req.companyUser!.companyId;
     const userRole = req.companyUser!.role;
