@@ -1466,3 +1466,185 @@ export const insertComplaintsRegisterSchema = createInsertSchema(complaintsRegis
 
 export type InsertComplaintsRegister = z.infer<typeof insertComplaintsRegisterSchema>;
 export type ComplaintsRegister = typeof complaintsRegister.$inferSelect;
+
+// ============================================================================
+// GOVERNANCE REGISTERS
+// ============================================================================
+
+// Risk Register
+export const riskCategories = [
+  "SAFETY", "CLINICAL", "MEDICATION", "BEHAVIOUR", "WORKFORCE", "GOVERNANCE",
+  "INFORMATION_PRIVACY", "FINANCIAL", "ENVIRONMENTAL", "OTHER"
+] as const;
+export type RiskCategory = typeof riskCategories[number];
+
+export const riskScopeTypes = ["ORGANISATIONAL", "SITE", "PARTICIPANT"] as const;
+export type RiskScopeType = typeof riskScopeTypes[number];
+
+export const riskLevels = ["LOW", "MEDIUM", "HIGH"] as const;
+export type RiskLevel = typeof riskLevels[number];
+
+export const riskRatings = ["LOW", "MEDIUM", "HIGH", "EXTREME"] as const;
+export type RiskRating = typeof riskRatings[number];
+
+export const riskReviewFrequencies = ["MONTHLY", "QUARTERLY", "ANNUAL"] as const;
+export type RiskReviewFrequency = typeof riskReviewFrequencies[number];
+
+export const riskStatuses = ["OPEN", "MITIGATING", "ACCEPTED", "CLOSED"] as const;
+export type RiskStatus = typeof riskStatuses[number];
+
+export const riskRegister = pgTable("risk_register", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  riskTitle: text("risk_title").notNull(),
+  riskDescription: text("risk_description").notNull(),
+  riskCategory: text("risk_category", { enum: riskCategories }).notNull(),
+  scopeType: text("scope_type", { enum: riskScopeTypes }).notNull(),
+  siteId: varchar("site_id").references(() => workSites.id),
+  participantId: varchar("participant_id").references(() => participants.id),
+  likelihood: text("likelihood", { enum: riskLevels }).notNull(),
+  consequence: text("consequence", { enum: riskLevels }).notNull(),
+  riskRating: text("risk_rating", { enum: riskRatings }).notNull(),
+  existingControls: text("existing_controls").notNull(),
+  additionalControlsRequired: text("additional_controls_required"),
+  ownerUserId: varchar("owner_user_id").notNull().references(() => companyUsers.id),
+  reviewFrequency: text("review_frequency", { enum: riskReviewFrequencies }).notNull(),
+  nextReviewDate: timestamp("next_review_date").notNull(),
+  status: text("status", { enum: riskStatuses }).notNull().default("OPEN"),
+  closureNotes: text("closure_notes"),
+  closedAt: timestamp("closed_at"),
+  closedByUserId: varchar("closed_by_user_id").references(() => companyUsers.id),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertRiskRegisterSchema = createInsertSchema(riskRegister).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertRiskRegister = z.infer<typeof insertRiskRegisterSchema>;
+export type RiskRegister = typeof riskRegister.$inferSelect;
+
+// Continuous Improvement Register
+export const improvementSources = [
+  "INCIDENT", "COMPLAINT", "AUDIT", "SELF_ASSESSMENT", "STAFF_FEEDBACK",
+  "PARTICIPANT_FEEDBACK", "FAMILY_FEEDBACK", "OTHER"
+] as const;
+export type ImprovementSource = typeof improvementSources[number];
+
+export const relatedRegisterTypes = ["INCIDENT", "COMPLAINT", "RISK", "AUDIT", "POLICY"] as const;
+export type RelatedRegisterType = typeof relatedRegisterTypes[number];
+
+export const improvementStatuses = ["OPEN", "IN_PROGRESS", "COMPLETED"] as const;
+export type ImprovementStatus = typeof improvementStatuses[number];
+
+export const continuousImprovementRegister = pgTable("continuous_improvement_register", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  improvementTitle: text("improvement_title").notNull(),
+  source: text("source", { enum: improvementSources }).notNull(),
+  relatedRegisterType: text("related_register_type", { enum: relatedRegisterTypes }),
+  relatedRecordId: varchar("related_record_id"),
+  description: text("description").notNull(),
+  improvementActions: text("improvement_actions").notNull(),
+  responsibleUserId: varchar("responsible_user_id").notNull().references(() => companyUsers.id),
+  targetCompletionDate: timestamp("target_completion_date").notNull(),
+  status: text("status", { enum: improvementStatuses }).notNull().default("OPEN"),
+  outcomeSummary: text("outcome_summary"),
+  completedAt: timestamp("completed_at"),
+  completedByUserId: varchar("completed_by_user_id").references(() => companyUsers.id),
+  evidenceAttachmentIds: jsonb("evidence_attachment_ids"),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertContinuousImprovementRegisterSchema = createInsertSchema(continuousImprovementRegister).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertContinuousImprovementRegister = z.infer<typeof insertContinuousImprovementRegisterSchema>;
+export type ContinuousImprovementRegister = typeof continuousImprovementRegister.$inferSelect;
+
+// Policy Update Register
+export const policyCategories = [
+  "GOVERNANCE", "SAFEGUARDS", "INCIDENT_MANAGEMENT", "MEDICATION",
+  "RESTRICTIVE_PRACTICE", "PRIVACY", "WORKFORCE", "EMERGENCY", "OTHER"
+] as const;
+export type PolicyCategory = typeof policyCategories[number];
+
+export const policyUpdateReasons = [
+  "LEGISLATIVE_CHANGE", "INCIDENT", "AUDIT_FINDING", "SCHEDULED_REVIEW", "OTHER"
+] as const;
+export type PolicyUpdateReason = typeof policyUpdateReasons[number];
+
+export const policyStatuses = ["DRAFT", "APPROVED", "IMPLEMENTED", "ARCHIVED"] as const;
+export type PolicyStatus = typeof policyStatuses[number];
+
+export const policyUpdateRegister = pgTable("policy_update_register", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  policyName: text("policy_name").notNull(),
+  policyCategory: text("policy_category", { enum: policyCategories }).notNull(),
+  version: text("version").notNull(),
+  changeSummary: text("change_summary").notNull(),
+  reasonForUpdate: text("reason_for_update", { enum: policyUpdateReasons }).notNull(),
+  approvalRequired: boolean("approval_required").notNull().default(true),
+  approvedByUserId: varchar("approved_by_user_id").references(() => companyUsers.id),
+  approvalDate: timestamp("approval_date"),
+  effectiveDate: timestamp("effective_date"),
+  reviewDueDate: timestamp("review_due_date").notNull(),
+  staffNotified: boolean("staff_notified").notNull().default(false),
+  implementationNotes: text("implementation_notes"),
+  status: text("status", { enum: policyStatuses }).notNull().default("DRAFT"),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => companyUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertPolicyUpdateRegisterSchema = createInsertSchema(policyUpdateRegister).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPolicyUpdateRegister = z.infer<typeof insertPolicyUpdateRegisterSchema>;
+export type PolicyUpdateRegister = typeof policyUpdateRegister.$inferSelect;
+
+// Legislative Register
+export const legislativeJurisdictions = ["FEDERAL", "STATE"] as const;
+export type LegislativeJurisdiction = typeof legislativeJurisdictions[number];
+
+export const legislativeApplicability = [
+  "ALL_PROVIDERS", "SIL_ONLY", "BEHAVIOUR_SUPPORT", "MEDICATION", "WORKFORCE"
+] as const;
+export type LegislativeApplicability = typeof legislativeApplicability[number];
+
+export const legislativeStatuses = ["CURRENT", "UNDER_REVIEW", "SUPERSEDED"] as const;
+export type LegislativeStatus = typeof legislativeStatuses[number];
+
+export const legislativeRegister = pgTable("legislative_register", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  legislationName: text("legislation_name").notNull(),
+  jurisdiction: text("jurisdiction", { enum: legislativeJurisdictions }).notNull(),
+  authority: text("authority").notNull(),
+  description: text("description").notNull(),
+  applicableTo: text("applicable_to", { enum: legislativeApplicability }).notNull(),
+  lastReviewedDate: timestamp("last_reviewed_date"),
+  reviewNotes: text("review_notes"),
+  linkedPolicies: jsonb("linked_policies"),
+  status: text("status", { enum: legislativeStatuses }).notNull().default("CURRENT"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertLegislativeRegisterSchema = createInsertSchema(legislativeRegister).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertLegislativeRegister = z.infer<typeof insertLegislativeRegisterSchema>;
+export type LegislativeRegister = typeof legislativeRegister.$inferSelect;

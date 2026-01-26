@@ -1,0 +1,225 @@
+Extend the existing "Register" module by adding Governance Registers required for NDIS compliance and audit readiness.
+
+Registers to add:
+1) Risk Register
+2) Continuous Improvement Register
+3) Policy Update Register
+4) Legislative Register (auto-populated on first creation)
+
+System constraints
+- Multi-tenant system: enforce companyId scoping everywhere.
+- Registers are evidence-grade records (auditable, timestamped).
+- No destructive deletes; use soft delete where needed.
+- Only Admin / TeamLeader roles can close records.
+- Staff may create and update where permitted.
+- Minimalist UI consistent with NeedsCare Safeguard AI+ design system.
+
+------------------------------------------------------------
+1) RISK REGISTER
+------------------------------------------------------------
+
+Purpose
+Track organisational, site, and participant-related risks with clear controls, ratings, and review cycles.
+
+Database: risk_register
+Fields:
+- id, companyId
+- riskTitle (text)
+- riskDescription (text)
+- riskCategory (enum:
+   SAFETY, CLINICAL, MEDICATION, BEHAVIOUR, WORKFORCE, GOVERNANCE,
+   INFORMATION_PRIVACY, FINANCIAL, ENVIRONMENTAL, OTHER
+ )
+- scopeType (enum: ORGANISATIONAL, SITE, PARTICIPANT)
+- siteId nullable
+- participantId nullable
+- likelihood (enum: LOW, MEDIUM, HIGH)
+- consequence (enum: LOW, MEDIUM, HIGH)
+- riskRating (enum: LOW, MEDIUM, HIGH, EXTREME) // derived but stored
+- existingControls (text)
+- additionalControlsRequired (text nullable)
+- ownerUserId
+- reviewFrequency (enum: MONTHLY, QUARTERLY, ANNUAL)
+- nextReviewDate
+- status (enum: OPEN, MITIGATING, ACCEPTED, CLOSED)
+- closedAt nullable
+- createdByUserId
+- createdAt, updatedAt
+
+Logic
+- riskRating auto-calculated using likelihood x consequence matrix
+- HIGH/EXTREME risks must always have nextReviewDate
+- Closing requires review notes
+
+UI
+- Matrix badge (colour coded but muted)
+- Filters: category, scope, rating, status
+- Detail view with history timeline
+
+------------------------------------------------------------
+2) CONTINUOUS IMPROVEMENT REGISTER
+------------------------------------------------------------
+
+Purpose
+Capture learning from incidents, audits, complaints, feedback, and reviews.
+
+Database: continuous_improvement_register
+Fields:
+- id, companyId
+- improvementTitle
+- source (enum:
+   INCIDENT, COMPLAINT, AUDIT, SELF_ASSESSMENT, STAFF_FEEDBACK,
+   PARTICIPANT_FEEDBACK, FAMILY_FEEDBACK, OTHER
+ )
+- relatedRegisterType (enum nullable:
+   INCIDENT, COMPLAINT, RISK, AUDIT, POLICY
+ )
+- relatedRecordId nullable
+- description (text)
+- improvementActions (text)
+- responsibleUserId
+- targetCompletionDate
+- status (enum: OPEN, IN_PROGRESS, COMPLETED)
+- outcomeSummary nullable
+- completedAt nullable
+- evidenceAttachmentIds nullable (json)
+- createdByUserId
+- createdAt, updatedAt
+
+Rules
+- COMPLETED requires outcomeSummary
+- Used as evidence for Practice Standard: Continuous Improvement
+
+UI
+- Kanban-style status (optional later)
+- Simple list + detail view initially
+- Link back to originating register where applicable
+
+------------------------------------------------------------
+3) POLICY UPDATE REGISTER
+------------------------------------------------------------
+
+Purpose
+Track creation, review, approval, and implementation of policies.
+
+Database: policy_update_register
+Fields:
+- id, companyId
+- policyName
+- policyCategory (enum:
+   GOVERNANCE, SAFEGUARDS, INCIDENT_MANAGEMENT, MEDICATION,
+   RESTRICTIVE_PRACTICE, PRIVACY, WORKFORCE, EMERGENCY, OTHER
+ )
+- version (text)
+- changeSummary (text)
+- reasonForUpdate (enum:
+   LEGISLATIVE_CHANGE, INCIDENT, AUDIT_FINDING, SCHEDULED_REVIEW, OTHER
+ )
+- approvalRequired (boolean)
+- approvedByUserId nullable
+- approvalDate nullable
+- effectiveDate
+- reviewDueDate
+- staffNotified (boolean default false)
+- implementationNotes nullable
+- status (enum: DRAFT, APPROVED, IMPLEMENTED, ARCHIVED)
+- createdByUserId
+- createdAt, updatedAt
+
+Rules
+- APPROVED requires approvedByUserId + approvalDate
+- IMPLEMENTED requires effectiveDate
+- Used as evidence for governance & policy controls
+
+------------------------------------------------------------
+4) LEGISLATIVE REGISTER (AUTO-POPULATED)
+------------------------------------------------------------
+
+Purpose
+Maintain awareness of applicable legislation and regulatory obligations.
+
+Database: legislative_register
+Fields:
+- id, companyId
+- legislationName
+- jurisdiction (enum: FEDERAL, STATE)
+- authority (text) // e.g. NDIS Commission, Victorian Govt
+- description (text)
+- applicableTo (enum:
+   ALL_PROVIDERS, SIL_ONLY, BEHAVIOUR_SUPPORT, MEDICATION, WORKFORCE
+ )
+- lastReviewedDate
+- reviewNotes nullable
+- linkedPolicies (json nullable)
+- status (enum: CURRENT, UNDER_REVIEW, SUPERSEDED)
+- createdAt, updatedAt
+
+Auto-population logic (critical)
+When the first Legislative Register is accessed for a tenant:
+- Seed the register with the following CURRENT NDIS-relevant legislation:
+
+FEDERAL:
+- National Disability Insurance Scheme Act 2013
+- NDIS (Provider Registration and Practice Standards) Rules 2018
+- NDIS Code of Conduct
+- NDIS (Incident Management and Reportable Incidents) Rules 2018
+- NDIS (Restrictive Practices and Behaviour Support) Rules 2018
+- Privacy Act 1988 (incl. APPs)
+
+STATE (Victoria):
+- Disability Act 2006 (Vic)
+- Charter of Human Rights and Responsibilities Act 2006 (Vic)
+- Children, Youth and Families Act 2005 (Vic) (if applicable)
+- Occupational Health and Safety Act 2004 (Vic)
+- Health Records Act 2001 (Vic)
+
+Each entry must include:
+- short plain-language description
+- applicableTo mapping
+- status = CURRENT
+
+This seeding runs ONCE per tenant.
+
+------------------------------------------------------------
+COMMON UX RULES FOR ALL REGISTERS
+------------------------------------------------------------
+
+Register Home
+- Display cards for:
+  Evacuation Drill
+  Complaints
+  Risk
+  Continuous Improvement
+  Policy Updates
+  Legislative
+
+When a register is opened:
+- Show an instruction panel explaining:
+  purpose
+  what auditors expect
+  who should update it
+
+Permissions
+- Staff: create + edit open items
+- TeamLeader/Admin: close, approve, archive
+- Legislative Register: Admin edit only
+
+Backend APIs
+- Standard CRUD per register
+- GET /api/registers/{type}
+- POST /api/registers/{type}
+- PATCH /api/registers/{type}/:id
+- Soft delete where applicable
+
+Quality bar
+- Neutral language, no placeholders
+- Dates required where governance expects them
+- Every closed record must have rationale
+- Styling uses existing design tokens only
+
+Deliverables
+- DB migrations
+- Seed logic for Legislative Register
+- API routes with RBAC
+- UI pages + instruction panels
+- Registers visible under unified Register module
