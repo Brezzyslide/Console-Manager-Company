@@ -43,6 +43,10 @@ import ComplianceDashboardPage from "@/pages/company/ComplianceDashboardPage";
 import RegistersHomePage from "@/pages/company/RegistersHomePage";
 import EvacuationDrillsPage from "@/pages/company/EvacuationDrillsPage";
 import ComplaintsPage from "@/pages/company/ComplaintsPage";
+import RiskRegisterPage from "@/pages/company/RiskRegisterPage";
+import ContinuousImprovementPage from "@/pages/company/ContinuousImprovementPage";
+import PolicyUpdatePage from "@/pages/company/PolicyUpdatePage";
+import LegislativeRegisterPage from "@/pages/company/LegislativeRegisterPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 // Public Pages
@@ -235,6 +239,26 @@ function Router() {
       <Route path="/registers/complaints">
         <CompanyLayout>
           <ComplaintsPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/registers/risks">
+        <CompanyLayout>
+          <RiskRegisterPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/registers/improvements">
+        <CompanyLayout>
+          <ContinuousImprovementPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/registers/policies">
+        <CompanyLayout>
+          <PolicyUpdatePage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/registers/legislative">
+        <CompanyLayout>
+          <LegislativeRegisterPage />
         </CompanyLayout>
       </Route>
       <Route path="/registers">
