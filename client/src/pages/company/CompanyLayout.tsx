@@ -30,7 +30,11 @@ import {
   Sparkles,
   BookOpen,
   Flame,
-  MessageSquareWarning
+  MessageSquareWarning,
+  ShieldAlert,
+  TrendingUp,
+  FileEdit,
+  Scale
 } from "lucide-react";
 
 interface CompanyLayoutProps {
@@ -142,6 +146,10 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
     { href: "/registers", label: "All Registers", icon: BookOpen, testId: "nav-registers-home" },
     { href: "/registers/evacuation-drills", label: "Evacuation Drills", icon: Flame, testId: "nav-evacuation-drills", startsWith: true },
     { href: "/registers/complaints", label: "Complaints", icon: MessageSquareWarning, testId: "nav-complaints", startsWith: true },
+    { href: "/registers/risks", label: "Risk Register", icon: ShieldAlert, testId: "nav-risks", startsWith: true },
+    { href: "/registers/improvements", label: "Continuous Improvement", icon: TrendingUp, testId: "nav-improvements", startsWith: true },
+    { href: "/registers/policies", label: "Policy Updates", icon: FileEdit, testId: "nav-policies", startsWith: true },
+    { href: "/registers/legislative", label: "Legislative Register", icon: Scale, testId: "nav-legislative", startsWith: true },
   ];
 
   const adminItems = [
