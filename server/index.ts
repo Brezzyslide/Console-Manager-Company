@@ -14,6 +14,7 @@ import publicRoutes from "./routes/public";
 import complianceRoutes from "./routes/compliance";
 import restrictivePracticesRoutes from "./routes/restrictive-practices";
 import registersRoutes from "./routes/registers";
+import billingRoutes, { handleStripeWebhook } from "./routes/billing";
 
 const app = express();
 const httpServer = createServer(app);
@@ -105,6 +106,21 @@ app.use((req, res, next) => {
   
   // Mount registers routes (under /api/company)
   app.use("/api/company", registersRoutes);
+  
+  // Mount billing routes (under /api/console) - requires console auth
+  app.use("/api/console/billing", billingRoutes);
+  
+  // Stripe webhook endpoint (raw body required)
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    const sig = req.headers["stripe-signature"] as string;
+    try {
+      await handleStripeWebhook(req.body, sig);
+      res.json({ received: true });
+    } catch (err: any) {
+      console.error("Stripe webhook error:", err.message);
+      res.status(400).json({ error: err.message });
+    }
+  });
   
   await registerRoutes(httpServer, app);
 

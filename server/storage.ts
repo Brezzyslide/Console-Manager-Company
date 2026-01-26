@@ -145,6 +145,11 @@ import {
   continuousImprovementRegister,
   policyUpdateRegister,
   legislativeRegister,
+  billingPlans,
+  billingTenants,
+  billingSeatOverrides,
+  billingOneTimeCharges,
+  billingEvents,
   type EvacuationDrillRegister,
   type InsertEvacuationDrillRegister,
   type ComplaintsRegister,
@@ -157,6 +162,16 @@ import {
   type InsertPolicyUpdateRegister,
   type LegislativeRegister,
   type InsertLegislativeRegister,
+  type BillingPlan,
+  type InsertBillingPlan,
+  type BillingTenant,
+  type InsertBillingTenant,
+  type BillingSeatOverride,
+  type InsertBillingSeatOverride,
+  type BillingOneTimeCharge,
+  type InsertBillingOneTimeCharge,
+  type BillingEvent,
+  type InsertBillingEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -2943,6 +2958,151 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(legislativeRegister.id, id), eq(legislativeRegister.companyId, companyId)))
       .returning();
     return updated || undefined;
+  }
+
+  // ============ BILLING ============
+
+  // Billing Plans
+  async getBillingPlans(): Promise<BillingPlan[]> {
+    return await db.select().from(billingPlans).orderBy(asc(billingPlans.name));
+  }
+
+  async getActiveBillingPlans(): Promise<BillingPlan[]> {
+    return await db.select().from(billingPlans).where(eq(billingPlans.isActive, true)).orderBy(asc(billingPlans.name));
+  }
+
+  async getBillingPlan(id: string): Promise<BillingPlan | undefined> {
+    const [plan] = await db.select().from(billingPlans).where(eq(billingPlans.id, id));
+    return plan || undefined;
+  }
+
+  async createBillingPlan(plan: InsertBillingPlan): Promise<BillingPlan> {
+    const [created] = await db.insert(billingPlans).values(plan).returning();
+    return created;
+  }
+
+  async updateBillingPlan(id: string, updates: Partial<InsertBillingPlan>): Promise<BillingPlan | undefined> {
+    const [updated] = await db
+      .update(billingPlans)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(billingPlans.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Billing Tenants
+  async getBillingTenants(): Promise<BillingTenant[]> {
+    return await db.select().from(billingTenants).orderBy(desc(billingTenants.createdAt));
+  }
+
+  async getBillingTenant(id: string): Promise<BillingTenant | undefined> {
+    const [tenant] = await db.select().from(billingTenants).where(eq(billingTenants.id, id));
+    return tenant || undefined;
+  }
+
+  async getBillingTenantByCompanyId(companyId: string): Promise<BillingTenant | undefined> {
+    const [tenant] = await db.select().from(billingTenants).where(eq(billingTenants.companyId, companyId));
+    return tenant || undefined;
+  }
+
+  async getBillingTenantByStripeCustomerId(stripeCustomerId: string): Promise<BillingTenant | undefined> {
+    const [tenant] = await db.select().from(billingTenants).where(eq(billingTenants.stripeCustomerId, stripeCustomerId));
+    return tenant || undefined;
+  }
+
+  async createBillingTenant(tenant: InsertBillingTenant): Promise<BillingTenant> {
+    const [created] = await db.insert(billingTenants).values(tenant).returning();
+    return created;
+  }
+
+  async updateBillingTenant(id: string, updates: Partial<InsertBillingTenant>): Promise<BillingTenant | undefined> {
+    const [updated] = await db
+      .update(billingTenants)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(billingTenants.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Billing Seat Overrides
+  async getSeatOverrides(companyId: string): Promise<BillingSeatOverride[]> {
+    return await db
+      .select()
+      .from(billingSeatOverrides)
+      .where(eq(billingSeatOverrides.companyId, companyId))
+      .orderBy(desc(billingSeatOverrides.createdAt));
+  }
+
+  async getActiveSeatOverride(companyId: string): Promise<BillingSeatOverride | undefined> {
+    const now = new Date();
+    const overrides = await db
+      .select()
+      .from(billingSeatOverrides)
+      .where(eq(billingSeatOverrides.companyId, companyId))
+      .orderBy(desc(billingSeatOverrides.effectiveFrom));
+    
+    const active = overrides.find(o => 
+      o.effectiveFrom <= now && 
+      (o.effectiveTo === null || o.effectiveTo > now)
+    );
+    return active || undefined;
+  }
+
+  async createSeatOverride(override: InsertBillingSeatOverride): Promise<BillingSeatOverride> {
+    const [created] = await db.insert(billingSeatOverrides).values(override).returning();
+    return created;
+  }
+
+  // Billing One-Time Charges
+  async getOneTimeCharges(companyId: string): Promise<BillingOneTimeCharge[]> {
+    return await db
+      .select()
+      .from(billingOneTimeCharges)
+      .where(eq(billingOneTimeCharges.companyId, companyId))
+      .orderBy(desc(billingOneTimeCharges.createdAt));
+  }
+
+  async getOneTimeCharge(id: string): Promise<BillingOneTimeCharge | undefined> {
+    const [charge] = await db.select().from(billingOneTimeCharges).where(eq(billingOneTimeCharges.id, id));
+    return charge || undefined;
+  }
+
+  async createOneTimeCharge(charge: InsertBillingOneTimeCharge): Promise<BillingOneTimeCharge> {
+    const [created] = await db.insert(billingOneTimeCharges).values(charge).returning();
+    return created;
+  }
+
+  async updateOneTimeCharge(id: string, updates: Partial<InsertBillingOneTimeCharge>): Promise<BillingOneTimeCharge | undefined> {
+    const [updated] = await db
+      .update(billingOneTimeCharges)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(billingOneTimeCharges.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async markOneTimeChargesPaidByInvoice(stripeInvoiceId: string): Promise<void> {
+    await db
+      .update(billingOneTimeCharges)
+      .set({ status: "PAID" as const, updatedAt: new Date() })
+      .where(eq(billingOneTimeCharges.stripeInvoiceId, stripeInvoiceId));
+  }
+
+  // Billing Events
+  async getBillingEvents(companyId?: string): Promise<BillingEvent[]> {
+    if (companyId) {
+      return await db
+        .select()
+        .from(billingEvents)
+        .where(eq(billingEvents.companyId, companyId))
+        .orderBy(desc(billingEvents.createdAt));
+    }
+    return await db.select().from(billingEvents).orderBy(desc(billingEvents.createdAt));
+  }
+
+  async createBillingEvent(event: InsertBillingEvent): Promise<BillingEvent> {
+    const [created] = await db.insert(billingEvents).values(event).returning();
+    return created;
   }
 }
 
