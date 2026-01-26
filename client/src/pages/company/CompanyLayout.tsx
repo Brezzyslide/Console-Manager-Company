@@ -27,7 +27,10 @@ import {
   ListChecks,
   Clipboard,
   Activity,
-  Sparkles
+  Sparkles,
+  BookOpen,
+  Flame,
+  MessageSquareWarning
 } from "lucide-react";
 
 interface CompanyLayoutProps {
@@ -133,6 +136,12 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
     { href: "/compliance-review", label: "Compliance Checks", icon: ListChecks, testId: "nav-compliance" },
     { href: "/weekly-reports", label: "AI Reports", icon: Sparkles, testId: "nav-weekly-reports", roles: ["CompanyAdmin", "Auditor"] as const },
     { href: "/restrictive-practices", label: "Restrictive Practices", icon: Shield, testId: "nav-restrictive-practices", roles: ["CompanyAdmin", "Auditor", "Reviewer"] as const },
+  ];
+
+  const registerModuleItems = [
+    { href: "/registers", label: "All Registers", icon: BookOpen, testId: "nav-registers-home" },
+    { href: "/registers/evacuation-drills", label: "Evacuation Drills", icon: Flame, testId: "nav-evacuation-drills", startsWith: true },
+    { href: "/registers/complaints", label: "Complaints", icon: MessageSquareWarning, testId: "nav-complaints", startsWith: true },
   ];
 
   const adminItems = [
@@ -252,6 +261,39 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
                           </Link>
                         );
                       })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={`
+                        flex items-center gap-2 px-4 py-2 rounded-[var(--radius)] text-sm font-medium transition-colors
+                        ${isModuleActive(registerModuleItems)
+                          ? 'bg-primary/10 text-primary' 
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        }
+                      `}
+                      data-testid="nav-register-module"
+                    >
+                      <BookOpen className="h-4 w-4" />
+                      Register
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    {registerModuleItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.href, (item as any).startsWith);
+                      return (
+                        <Link key={item.href} href={item.href}>
+                          <DropdownMenuItem className={`cursor-pointer ${active ? 'bg-primary/10 text-primary' : ''}`} data-testid={item.testId}>
+                            <Icon className="h-4 w-4 mr-2" />
+                            {item.label}
+                          </DropdownMenuItem>
+                        </Link>
+                      );
+                    })}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 

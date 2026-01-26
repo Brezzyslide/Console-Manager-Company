@@ -40,6 +40,9 @@ import SitesParticipantsPage from "@/pages/company/SitesParticipantsPage";
 import WeeklyReportsPage from "@/pages/company/WeeklyReportsPage";
 import RestrictivePracticesPage from "@/pages/company/RestrictivePracticesPage";
 import ComplianceDashboardPage from "@/pages/company/ComplianceDashboardPage";
+import RegistersHomePage from "@/pages/company/RegistersHomePage";
+import EvacuationDrillsPage from "@/pages/company/EvacuationDrillsPage";
+import ComplaintsPage from "@/pages/company/ComplaintsPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 // Public Pages
@@ -220,6 +223,23 @@ function Router() {
       <Route path="/evidence">
         <CompanyLayout>
           <EvidenceLockerPage />
+        </CompanyLayout>
+      </Route>
+
+      {/* Register Routes */}
+      <Route path="/registers/evacuation-drills">
+        <CompanyLayout>
+          <EvacuationDrillsPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/registers/complaints">
+        <CompanyLayout>
+          <ComplaintsPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/registers">
+        <CompanyLayout>
+          <RegistersHomePage />
         </CompanyLayout>
       </Route>
 
