@@ -434,10 +434,10 @@ export default function ComplaintsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Work Site</Label>
-                  <Select value={formData.siteId} onValueChange={(v) => setFormData({ ...formData, siteId: v })}>
+                  <Select value={formData.siteId || "none"} onValueChange={(v) => setFormData({ ...formData, siteId: v === "none" ? "" : v })}>
                     <SelectTrigger data-testid="select-site"><SelectValue placeholder="Optional" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {workSites.map((site) => (<SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>))}
                     </SelectContent>
                   </Select>
@@ -446,10 +446,10 @@ export default function ComplaintsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Participant</Label>
-                  <Select value={formData.participantId} onValueChange={(v) => setFormData({ ...formData, participantId: v })}>
+                  <Select value={formData.participantId || "none"} onValueChange={(v) => setFormData({ ...formData, participantId: v === "none" ? "" : v })}>
                     <SelectTrigger data-testid="select-participant"><SelectValue placeholder="Optional" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {participants.map((p) => (<SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>))}
                     </SelectContent>
                   </Select>
