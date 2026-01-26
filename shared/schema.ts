@@ -1648,3 +1648,122 @@ export const insertLegislativeRegisterSchema = createInsertSchema(legislativeReg
 
 export type InsertLegislativeRegister = z.infer<typeof insertLegislativeRegisterSchema>;
 export type LegislativeRegister = typeof legislativeRegister.$inferSelect;
+
+// ============ BILLING TABLES ============
+
+// Billing Plans (global, Console-managed)
+export const billingPlans = pgTable("billing_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  defaultSeatPriceCents: integer("default_seat_price_cents").notNull(),
+  currency: text("currency").notNull().default("aud"),
+  stripePriceId: text("stripe_price_id"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertBillingPlanSchema = createInsertSchema(billingPlans).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBillingPlan = z.infer<typeof insertBillingPlanSchema>;
+export type BillingPlan = typeof billingPlans.$inferSelect;
+
+// Billing Tenant (per-company billing profile)
+export const billingStatuses = ["TRIAL", "ACTIVE", "PAST_DUE", "CANCELED", "INACTIVE"] as const;
+export type BillingStatus = typeof billingStatuses[number];
+
+export const billingTenants = pgTable("billing_tenants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().unique().references(() => companies.id, { onDelete: "cascade" }),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  billingStatus: text("billing_status", { enum: billingStatuses }).notNull().default("INACTIVE"),
+  currentSeatPriceCents: integer("current_seat_price_cents"),
+  currency: text("currency").notNull().default("aud"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  lastSyncedAt: timestamp("last_synced_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertBillingTenantSchema = createInsertSchema(billingTenants).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBillingTenant = z.infer<typeof insertBillingTenantSchema>;
+export type BillingTenant = typeof billingTenants.$inferSelect;
+
+// Billing Seat Overrides (per-tenant price overrides)
+export const billingSeatOverrides = pgTable("billing_seat_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  overrideSeatPriceCents: integer("override_seat_price_cents"),
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertBillingSeatOverrideSchema = createInsertSchema(billingSeatOverrides).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBillingSeatOverride = z.infer<typeof insertBillingSeatOverrideSchema>;
+export type BillingSeatOverride = typeof billingSeatOverrides.$inferSelect;
+
+// Billing One-Time Charges
+export const oneTimeChargeStatuses = ["DRAFT", "INVOICED", "PAID", "VOID"] as const;
+export type OneTimeChargeStatus = typeof oneTimeChargeStatuses[number];
+
+export const billingOneTimeCharges = pgTable("billing_one_time_charges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  amountCents: integer("amount_cents").notNull(),
+  currency: text("currency").notNull().default("aud"),
+  status: text("status", { enum: oneTimeChargeStatuses }).notNull().default("DRAFT"),
+  stripeInvoiceId: text("stripe_invoice_id"),
+  stripeInvoiceItemId: text("stripe_invoice_item_id"),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => consoleUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertBillingOneTimeChargeSchema = createInsertSchema(billingOneTimeCharges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBillingOneTimeCharge = z.infer<typeof insertBillingOneTimeChargeSchema>;
+export type BillingOneTimeCharge = typeof billingOneTimeCharges.$inferSelect;
+
+// Billing Events (audit trail)
+export const billingEventTypes = [
+  "CUSTOMER_CREATED", "SUBSCRIPTION_CREATED", "SUBSCRIPTION_UPDATED", "SUBSCRIPTION_CANCELED",
+  "SEAT_SYNCED", "INVOICE_CREATED", "INVOICE_PAID", "INVOICE_PAYMENT_FAILED",
+  "ONE_TIME_CHARGE_CREATED", "SEAT_OVERRIDE_SET", "SEAT_OVERRIDE_REMOVED",
+  "WEBHOOK_RECEIVED", "BILLING_STATUS_CHANGED"
+] as const;
+export type BillingEventType = typeof billingEventTypes[number];
+
+export const billingEvents = pgTable("billing_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => companies.id, { onDelete: "cascade" }),
+  eventType: text("event_type", { enum: billingEventTypes }).notNull(),
+  payloadJson: jsonb("payload_json"),
+  createdByUserId: varchar("created_by_user_id").references(() => consoleUsers.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertBillingEventSchema = createInsertSchema(billingEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBillingEvent = z.infer<typeof insertBillingEventSchema>;
+export type BillingEvent = typeof billingEvents.$inferSelect;
