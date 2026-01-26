@@ -170,6 +170,23 @@ router.get("/me", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, r
   }
 });
 
+router.get("/users", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const users = await storage.getCompanyUsers(req.companyUser!.companyId);
+    
+    const safeUsers = users.map(user => ({
+      id: user.id,
+      fullName: user.fullName,
+      role: user.role,
+    }));
+    
+    return res.json(safeUsers);
+  } catch (error) {
+    console.error("Get company users error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 const passwordResetSchema = z.object({
   currentPassword: z.string().min(8),
   newPassword: z.string().min(12, "Password must be at least 12 characters"),
