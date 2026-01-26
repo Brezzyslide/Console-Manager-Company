@@ -139,6 +139,12 @@ import {
   type InsertRestrictivePracticeAuthorization,
   type RestrictivePracticeUsageLog,
   type InsertRestrictivePracticeUsageLog,
+  evacuationDrillRegister,
+  complaintsRegister,
+  type EvacuationDrillRegister,
+  type InsertEvacuationDrillRegister,
+  type ComplaintsRegister,
+  type InsertComplaintsRegister,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -413,6 +419,19 @@ export interface IStorage {
   getRestrictivePracticeUsageLogs(companyId: string, filters?: { participantId?: string; authorizationId?: string; isAuthorized?: boolean; startDate?: Date; endDate?: Date }): Promise<RestrictivePracticeUsageLog[]>;
   getRestrictivePracticeUsageLog(id: string, companyId: string): Promise<RestrictivePracticeUsageLog | undefined>;
   createRestrictivePracticeUsageLog(log: InsertRestrictivePracticeUsageLog): Promise<RestrictivePracticeUsageLog>;
+  
+  // Evacuation Drill Register
+  getEvacuationDrills(companyId: string, filters?: { siteId?: string; from?: Date; to?: Date }): Promise<EvacuationDrillRegister[]>;
+  getEvacuationDrill(id: string, companyId: string): Promise<EvacuationDrillRegister | undefined>;
+  createEvacuationDrill(drill: InsertEvacuationDrillRegister): Promise<EvacuationDrillRegister>;
+  updateEvacuationDrill(id: string, companyId: string, updates: Partial<InsertEvacuationDrillRegister>): Promise<EvacuationDrillRegister | undefined>;
+  deleteEvacuationDrill(id: string, companyId: string): Promise<boolean>;
+  
+  // Complaints Register
+  getComplaints(companyId: string, filters?: { siteId?: string; status?: string; category?: string; from?: Date; to?: Date; externalNotificationRequired?: boolean }): Promise<ComplaintsRegister[]>;
+  getComplaint(id: string, companyId: string): Promise<ComplaintsRegister | undefined>;
+  createComplaint(complaint: InsertComplaintsRegister): Promise<ComplaintsRegister>;
+  updateComplaint(id: string, companyId: string, updates: Partial<InsertComplaintsRegister>): Promise<ComplaintsRegister | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2660,6 +2679,110 @@ export class DatabaseStorage implements IStorage {
   async createRestrictivePracticeUsageLog(log: InsertRestrictivePracticeUsageLog): Promise<RestrictivePracticeUsageLog> {
     const [created] = await db.insert(restrictivePracticeUsageLogs).values(log).returning();
     return created;
+  }
+  
+  // Evacuation Drill Register
+  async getEvacuationDrills(companyId: string, filters?: { siteId?: string; from?: Date; to?: Date }): Promise<EvacuationDrillRegister[]> {
+    const conditions: any[] = [eq(evacuationDrillRegister.companyId, companyId)];
+    if (filters?.siteId) {
+      conditions.push(eq(evacuationDrillRegister.siteId, filters.siteId));
+    }
+    let results = await db
+      .select()
+      .from(evacuationDrillRegister)
+      .where(and(...conditions))
+      .orderBy(desc(evacuationDrillRegister.dateOfDrill));
+    
+    if (filters?.from) {
+      results = results.filter(r => new Date(r.dateOfDrill) >= filters.from!);
+    }
+    if (filters?.to) {
+      results = results.filter(r => new Date(r.dateOfDrill) <= filters.to!);
+    }
+    return results;
+  }
+  
+  async getEvacuationDrill(id: string, companyId: string): Promise<EvacuationDrillRegister | undefined> {
+    const [drill] = await db
+      .select()
+      .from(evacuationDrillRegister)
+      .where(and(eq(evacuationDrillRegister.id, id), eq(evacuationDrillRegister.companyId, companyId)));
+    return drill || undefined;
+  }
+  
+  async createEvacuationDrill(drill: InsertEvacuationDrillRegister): Promise<EvacuationDrillRegister> {
+    const [created] = await db.insert(evacuationDrillRegister).values(drill).returning();
+    return created;
+  }
+  
+  async updateEvacuationDrill(id: string, companyId: string, updates: Partial<InsertEvacuationDrillRegister>): Promise<EvacuationDrillRegister | undefined> {
+    const [updated] = await db
+      .update(evacuationDrillRegister)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(evacuationDrillRegister.id, id), eq(evacuationDrillRegister.companyId, companyId)))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteEvacuationDrill(id: string, companyId: string): Promise<boolean> {
+    const result = await db
+      .delete(evacuationDrillRegister)
+      .where(and(eq(evacuationDrillRegister.id, id), eq(evacuationDrillRegister.companyId, companyId)))
+      .returning();
+    return result.length > 0;
+  }
+  
+  // Complaints Register
+  async getComplaints(companyId: string, filters?: { siteId?: string; status?: string; category?: string; from?: Date; to?: Date; externalNotificationRequired?: boolean }): Promise<ComplaintsRegister[]> {
+    const conditions: any[] = [eq(complaintsRegister.companyId, companyId)];
+    if (filters?.siteId) {
+      conditions.push(eq(complaintsRegister.siteId, filters.siteId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(complaintsRegister.status, filters.status as any));
+    }
+    if (filters?.category) {
+      conditions.push(eq(complaintsRegister.category, filters.category as any));
+    }
+    if (filters?.externalNotificationRequired !== undefined) {
+      conditions.push(eq(complaintsRegister.externalNotificationRequired, filters.externalNotificationRequired));
+    }
+    
+    let results = await db
+      .select()
+      .from(complaintsRegister)
+      .where(and(...conditions))
+      .orderBy(desc(complaintsRegister.receivedAt));
+    
+    if (filters?.from) {
+      results = results.filter(r => new Date(r.receivedAt) >= filters.from!);
+    }
+    if (filters?.to) {
+      results = results.filter(r => new Date(r.receivedAt) <= filters.to!);
+    }
+    return results;
+  }
+  
+  async getComplaint(id: string, companyId: string): Promise<ComplaintsRegister | undefined> {
+    const [complaint] = await db
+      .select()
+      .from(complaintsRegister)
+      .where(and(eq(complaintsRegister.id, id), eq(complaintsRegister.companyId, companyId)));
+    return complaint || undefined;
+  }
+  
+  async createComplaint(complaint: InsertComplaintsRegister): Promise<ComplaintsRegister> {
+    const [created] = await db.insert(complaintsRegister).values(complaint).returning();
+    return created;
+  }
+  
+  async updateComplaint(id: string, companyId: string, updates: Partial<InsertComplaintsRegister>): Promise<ComplaintsRegister | undefined> {
+    const [updated] = await db
+      .update(complaintsRegister)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(complaintsRegister.id, id), eq(complaintsRegister.companyId, companyId)))
+      .returning();
+    return updated || undefined;
   }
 }
 
