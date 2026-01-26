@@ -41,41 +41,41 @@ interface Participant { id: string; firstName: string; lastName: string; }
 interface CompanyUser { id: string; fullName: string; }
 
 const RISK_CATEGORIES = [
+  { value: "SAFETY", label: "Safety" },
   { value: "CLINICAL", label: "Clinical" },
-  { value: "OPERATIONAL", label: "Operational" },
-  { value: "WHS", label: "Work Health & Safety" },
+  { value: "MEDICATION", label: "Medication" },
+  { value: "BEHAVIOUR", label: "Behaviour" },
+  { value: "WORKFORCE", label: "Workforce" },
+  { value: "GOVERNANCE", label: "Governance" },
+  { value: "INFORMATION_PRIVACY", label: "Information & Privacy" },
   { value: "FINANCIAL", label: "Financial" },
-  { value: "STRATEGIC", label: "Strategic" },
-  { value: "COMPLIANCE", label: "Compliance" },
-  { value: "REPUTATIONAL", label: "Reputational" },
+  { value: "ENVIRONMENTAL", label: "Environmental" },
+  { value: "OTHER", label: "Other" },
 ];
 
 const SCOPE_TYPES = [
-  { value: "ORGANISATION", label: "Organisation Wide" },
+  { value: "ORGANISATIONAL", label: "Organisation Wide" },
   { value: "SITE", label: "Site Specific" },
   { value: "PARTICIPANT", label: "Participant Specific" },
 ];
 
 const RISK_LEVELS = [
-  { value: "LOW", label: "Low", score: 1 },
-  { value: "MEDIUM", label: "Medium", score: 2 },
-  { value: "HIGH", label: "High", score: 3 },
-  { value: "EXTREME", label: "Extreme", score: 4 },
+  { value: "LOW", label: "Low" },
+  { value: "MEDIUM", label: "Medium" },
+  { value: "HIGH", label: "High" },
 ];
 
 const RISK_RATINGS = [
-  { value: "NEGLIGIBLE", label: "Negligible", color: "bg-gray-100 text-gray-700" },
   { value: "LOW", label: "Low", color: "bg-green-100 text-green-700" },
-  { value: "MODERATE", label: "Moderate", color: "bg-yellow-100 text-yellow-700" },
+  { value: "MEDIUM", label: "Medium", color: "bg-yellow-100 text-yellow-700" },
   { value: "HIGH", label: "High", color: "bg-orange-100 text-orange-700" },
-  { value: "CRITICAL", label: "Critical", color: "bg-red-100 text-red-700" },
+  { value: "EXTREME", label: "Extreme", color: "bg-red-100 text-red-700" },
 ];
 
 const REVIEW_FREQUENCIES = [
   { value: "MONTHLY", label: "Monthly" },
   { value: "QUARTERLY", label: "Quarterly" },
-  { value: "BIANNUALLY", label: "Bi-annually" },
-  { value: "ANNUALLY", label: "Annually" },
+  { value: "ANNUAL", label: "Annual" },
 ];
 
 const RISK_STATUSES = [
@@ -101,7 +101,7 @@ export default function RiskRegisterPage() {
     riskTitle: "",
     riskDescription: "",
     riskCategory: "",
-    scopeType: "ORGANISATION",
+    scopeType: "ORGANISATIONAL",
     siteId: "",
     participantId: "",
     likelihood: "",
@@ -198,7 +198,7 @@ export default function RiskRegisterPage() {
       riskTitle: "",
       riskDescription: "",
       riskCategory: "",
-      scopeType: "ORGANISATION",
+      scopeType: "ORGANISATIONAL",
       siteId: "",
       participantId: "",
       likelihood: "",
