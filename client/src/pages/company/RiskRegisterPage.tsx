@@ -325,7 +325,7 @@ export default function RiskRegisterPage() {
         ) : (
           <div className="space-y-3">
             {filteredRisks.map((risk) => (
-              <Card key={risk.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => setShowDetail(risk)} data-testid={`card-risk-${risk.id}`}>
+              <Card key={risk.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => setShowDetail(risk)} data-testid={`row-risk-${risk.id}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">

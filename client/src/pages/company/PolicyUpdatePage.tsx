@@ -231,7 +231,7 @@ export default function PolicyUpdatePage() {
         ) : (
           <div className="space-y-3">
             {filteredPolicies.map((item) => (
-              <Card key={item.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => setShowDetail(item)} data-testid={`card-policy-${item.id}`}>
+              <Card key={item.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => setShowDetail(item)} data-testid={`row-policy-${item.id}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
