@@ -162,6 +162,7 @@ export default function ComplaintsPage() {
       if (!res.ok) throw new Error("Failed to fetch complaints");
       return res.json();
     },
+    refetchInterval: 30000,
   });
 
   const createComplaintMutation = useMutation({

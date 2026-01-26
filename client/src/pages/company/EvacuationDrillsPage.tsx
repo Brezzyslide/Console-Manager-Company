@@ -130,6 +130,7 @@ export default function EvacuationDrillsPage() {
 
   const { data: drills = [], isLoading } = useQuery<EvacuationDrill[]>({
     queryKey: ["/api/company/registers/evacuation-drills"],
+    refetchInterval: 30000,
   });
 
   const createDrillMutation = useMutation({
@@ -144,7 +145,7 @@ export default function EvacuationDrillsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["evacuationDrills"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/registers/evacuation-drills"] });
       toast({ title: "Success", description: "Evacuation drill record saved" });
       setShowForm(false);
       resetForm();
