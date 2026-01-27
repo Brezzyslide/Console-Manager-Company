@@ -89,9 +89,28 @@ router.get("/tenants", async (req: Request, res: Response) => {
     const tenants = await storage.getBillingTenants();
     const companies = await storage.getCompanies();
     
-    const enriched = tenants.map(tenant => {
-      const company = companies.find(c => c.id === tenant.companyId);
-      return { ...tenant, company };
+    const enriched = companies.map(company => {
+      const tenant = tenants.find(t => t.companyId === company.id);
+      if (tenant) {
+        return { ...tenant, company };
+      }
+      return {
+        id: null,
+        companyId: company.id,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        billingStatus: "INACTIVE" as const,
+        billingPlanId: null,
+        currentSeatPriceCents: null,
+        seatCount: 0,
+        currency: "aud",
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        trialEndsAt: null,
+        lastSyncedAt: null,
+        createdAt: null,
+        company,
+      };
     });
     
     res.json(enriched);
