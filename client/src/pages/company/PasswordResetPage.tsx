@@ -190,7 +190,7 @@ export default function PasswordResetPage() {
               className="w-full text-muted-foreground"
               onClick={async () => {
                 await companyLogout();
-                setLocation("/company/login");
+                setLocation("/landing");
               }}
               data-testid="button-logout"
             >
