@@ -30,7 +30,7 @@ export function useConsoleAuth() {
     mutationFn: logoutConsole,
     onSuccess: () => {
       queryClient.setQueryData(["console-me"], null);
-      setLocation("/?mode=console");
+      setLocation("/landing");
     },
   });
 

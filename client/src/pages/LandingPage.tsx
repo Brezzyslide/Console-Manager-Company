@@ -116,15 +116,9 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <img src={logoImage} alt="Need2Comply AI+" className="h-10" data-testid="logo" />
           <div className="flex items-center gap-3">
-            {isAuthenticated ? (
-              <Link href={dashboardUrl}>
-                <Button data-testid="button-dashboard">Go to Dashboard</Button>
-              </Link>
-            ) : (
-              <Link href="/?mode=provider">
-                <Button data-testid="button-login">Log in</Button>
-              </Link>
-            )}
+            <Link href={isAuthenticated ? dashboardUrl : "/?mode=provider"}>
+              <Button data-testid="button-dashboard">Go to Dashboard</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -139,15 +133,9 @@ export default function LandingPage() {
               Daily compliance and governance for NDIS providers.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              {isAuthenticated ? (
-                <Link href={dashboardUrl}>
-                  <Button size="lg" data-testid="button-hero-dashboard">Go to Dashboard</Button>
-                </Link>
-              ) : (
-                <Link href="/?mode=provider">
-                  <Button size="lg" data-testid="button-hero-login">Log in</Button>
-                </Link>
-              )}
+              <Link href={isAuthenticated ? dashboardUrl : "/?mode=provider"}>
+                <Button size="lg" data-testid="button-hero-dashboard">Go to Dashboard</Button>
+              </Link>
               <Dialog open={contactOpen} onOpenChange={setContactOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="lg" data-testid="button-contact">Contact us</Button>

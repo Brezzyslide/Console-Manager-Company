@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCompanyMe, companyLogin, companyLogout, CompanyLoginInput, CompanyUser } from "@/lib/company-api";
+import { useLocation } from "wouter";
 
 export function useCompanyAuth() {
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   
   const { data: user, isLoading, error } = useQuery<CompanyUser>({
     queryKey: ["companyUser"],
@@ -23,6 +25,7 @@ export function useCompanyAuth() {
     onSuccess: () => {
       queryClient.setQueryData(["companyUser"], null);
       queryClient.invalidateQueries({ queryKey: ["companyUser"] });
+      setLocation("/landing");
     },
   });
   
