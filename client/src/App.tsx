@@ -15,6 +15,8 @@ import CreateCompanyPage from "@/pages/console/CreateCompanyPage";
 import CompanyDetailsPage from "@/pages/console/CompanyDetailsPage";
 import AuditLogPage from "@/pages/console/AuditLogPage";
 import SettingsPage from "@/pages/console/SettingsPage";
+import BillingPage from "@/pages/console/BillingPage";
+import TenantBillingPage from "@/pages/console/TenantBillingPage";
 import { ConsoleLayout } from "@/pages/console/ConsoleLayout";
 
 // Company Pages
@@ -86,6 +88,16 @@ function Router() {
       </Route>
       <Route path="/console/settings">
         <ProtectedConsolePage component={SettingsPage} />
+      </Route>
+      <Route path="/console/billing/:companyId">
+        {() => (
+          <ConsoleLayout>
+            <TenantBillingPage />
+          </ConsoleLayout>
+        )}
+      </Route>
+      <Route path="/console/billing">
+        <ProtectedConsolePage component={BillingPage} />
       </Route>
 
       {/* Legacy Company Login - redirect to unified */}

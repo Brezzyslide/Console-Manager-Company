@@ -8,7 +8,8 @@ import {
   LogOut, 
   ShieldCheck,
   Menu,
-  Loader2
+  Loader2,
+  CreditCard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -81,6 +82,13 @@ export function ConsoleLayout({ children }: { children: React.ReactNode }) {
             Tenants
           </h3>
           <NavItem href="/console/companies" icon={Building2} label="Companies" />
+        </div>
+        
+        <div>
+          <h3 className="px-4 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-3">
+            Billing
+          </h3>
+          <NavItem href="/console/billing" icon={CreditCard} label="Billing" />
         </div>
         
         <div>
