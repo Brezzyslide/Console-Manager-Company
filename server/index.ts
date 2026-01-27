@@ -15,6 +15,7 @@ import complianceRoutes from "./routes/compliance";
 import restrictivePracticesRoutes from "./routes/restrictive-practices";
 import registersRoutes from "./routes/registers";
 import billingRoutes, { handleStripeWebhook } from "./routes/billing";
+import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
@@ -122,6 +123,28 @@ app.use((req, res, next) => {
   
   // Mount billing routes (under /api/console) - requires console auth
   app.use("/api/console/billing", billingRoutes);
+  
+  // Public contact enquiry endpoint
+  app.post("/api/contact-enquiry", async (req, res) => {
+    try {
+      const { name, organisation, email, phone, message } = req.body;
+      if (!name || !organisation || !email || !message) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      const enquiry = await storage.createContactEnquiry({
+        name,
+        organisation,
+        email,
+        phone: phone || null,
+        message,
+        source: "landing",
+      });
+      res.json({ success: true, id: enquiry.id });
+    } catch (error: any) {
+      console.error("Contact enquiry error:", error);
+      res.status(500).json({ error: "Failed to submit enquiry" });
+    }
+  });
   
   await registerRoutes(httpServer, app);
 

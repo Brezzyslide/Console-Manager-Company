@@ -1,0 +1,114 @@
+Build a minimalist landing page for the product called “Need2Comply AI+” and link it to the existing login page.
+
+Goal
+Create a simple, modern landing page that is not wordy, feels calm and professional, and matches the NeedsCare Safeguard UI style (light surfaces, deep muted blue accents). It should clearly position Need2Comply AI+ as a must-have for NDIS providers to stay audit ready and compliant.
+
+Key requirements
+- Add a new public route: /
+- Keep the existing login page and route unchanged.
+- Landing page must include:
+  1) “Log in” button that routes to the existing login page
+  2) “Contact us” button for new buyers (opens a modal or routes to /contact)
+- If a user is already authenticated, show “Go to Dashboard” instead of “Log in”.
+- Minimal text. Strong bullet points. No long paragraphs.
+- Use existing shadcn/ui components and the project’s theme tokens. Do not hardcode random colours.
+- The page should be responsive: desktop + mobile.
+- No external dependencies required.
+
+Information architecture (content)
+Landing copy must be short and structured like this:
+
+HERO
+- Title: Need2Comply AI+
+- Subtitle: “Always audit ready. Without the scramble.”
+- One line description: “Daily compliance and governance for NDIS providers.”
+- Primary CTA: Log in / Go to Dashboard
+- Secondary CTA: Contact us
+
+SECTIONS (very short)
+1) The problem (2 lines max)
+- “Audits fail when evidence is late, scattered, or unclear.”
+- “Need2Comply AI+ keeps it current, in one place.”
+
+2) What it does (bullets)
+- Keeps compliance up to date, every day
+- Captures evidence as work happens
+- Maintains required registers in one place
+- Surfaces risks and actions early
+- Keeps you audit ready year-round
+
+3) Built for NDIS (bullets)
+- SIL and site based services
+- Participant and site oversight
+- Governance and board reporting
+- Aligned with NDIS expectations
+
+4) Why auditors trust it (bullets)
+- Evidence is current
+- Decisions are traceable
+- Oversight is visible
+- Improvement is documented
+
+FOOTER
+- Short line: “Compliance, without chaos.”
+- Small links: Privacy, Terms (can be placeholders)
+
+Design direction
+- Minimalist layout with lots of whitespace
+- Use cards for the bullet sections (3–4 cards max)
+- Deep muted blue for headings/CTAs, warm off-white background
+- Subtle borders, soft radius, no loud shadows, no gradients
+- Include a small brand mark placeholder at top left:
+  - If you already have a logo component or SVG, use it.
+  - Otherwise render a simple mark (rounded square outline + check) as placeholder.
+
+Routing
+- Ensure "/" renders LandingPage.
+- Ensure login route remains as-is (do not break auth).
+- Add a “Log in” button on landing that links to the existing login route (e.g. /login).
+- If authenticated, replace button with “Go to Dashboard” linking to the main app route.
+
+Contact Us
+Implement a simple contact flow suitable for early sales:
+Option A (preferred): Modal form on landing
+Fields:
+- Name
+- Organisation
+- Email
+- Phone (optional)
+- Message
+Buttons:
+- Send enquiry
+- Cancel
+Backend:
+- POST /api/contact-enquiry
+Store in DB table: contact_enquiries (companyId nullable, since public)
+Fields:
+- id
+- name, organisation, email, phone, message
+- source = "landing"
+- status = NEW | RESPONDED
+- createdAt
+Also show a success toast: “Enquiry sent. We’ll get back to you.”
+
+If you already have an email sending service configured, you can send an email notification to an admin inbox. If not, just store it and create an admin-only list view later.
+
+Implementation steps
+1) Create LandingPage component under src/app/landing or src/pages/landing (match repo conventions).
+2) Add route "/" to render LandingPage.
+3) Add auth-aware CTA:
+   - If session exists: show “Go to Dashboard”
+   - Else: show “Log in”
+4) Add Contact modal form and API endpoint + DB storage.
+5) Style everything using shadcn components and theme tokens:
+   - Button variants: default primary and outline secondary
+   - Cards for sections
+   - Use consistent spacing and typography sizes
+
+Acceptance criteria
+- Landing page loads at "/"
+- Login route still works
+- “Log in” navigates to existing login page
+- Authenticated users see “Go to Dashboard”
+- Contact modal submits successfully and stores enquiry
+- Page is clean, minimal, responsive, and not wordy

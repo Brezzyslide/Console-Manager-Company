@@ -150,6 +150,7 @@ import {
   billingSeatOverrides,
   billingOneTimeCharges,
   billingEvents,
+  contactEnquiries,
   type EvacuationDrillRegister,
   type InsertEvacuationDrillRegister,
   type ComplaintsRegister,
@@ -172,6 +173,8 @@ import {
   type InsertBillingOneTimeCharge,
   type BillingEvent,
   type InsertBillingEvent,
+  type ContactEnquiry,
+  type InsertContactEnquiry,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, asc, desc, isNull } from "drizzle-orm";
@@ -3103,6 +3106,25 @@ export class DatabaseStorage implements IStorage {
   async createBillingEvent(event: InsertBillingEvent): Promise<BillingEvent> {
     const [created] = await db.insert(billingEvents).values(event).returning();
     return created;
+  }
+
+  // Contact Enquiries
+  async getContactEnquiries(): Promise<ContactEnquiry[]> {
+    return await db.select().from(contactEnquiries).orderBy(desc(contactEnquiries.createdAt));
+  }
+
+  async createContactEnquiry(enquiry: InsertContactEnquiry): Promise<ContactEnquiry> {
+    const [created] = await db.insert(contactEnquiries).values(enquiry).returning();
+    return created;
+  }
+
+  async updateContactEnquiry(id: string, updates: Partial<ContactEnquiry>): Promise<ContactEnquiry | undefined> {
+    const [updated] = await db
+      .update(contactEnquiries)
+      .set(updates)
+      .where(eq(contactEnquiries.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 

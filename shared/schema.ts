@@ -1767,3 +1767,30 @@ export const insertBillingEventSchema = createInsertSchema(billingEvents).omit({
 
 export type InsertBillingEvent = z.infer<typeof insertBillingEventSchema>;
 export type BillingEvent = typeof billingEvents.$inferSelect;
+
+// Contact Enquiries (public landing page)
+export const contactEnquiryStatuses = ["NEW", "RESPONDED", "CLOSED"] as const;
+export type ContactEnquiryStatus = typeof contactEnquiryStatuses[number];
+
+export const contactEnquiries = pgTable("contact_enquiries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  organisation: text("organisation").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  message: text("message").notNull(),
+  source: text("source").notNull().default("landing"),
+  status: text("status", { enum: contactEnquiryStatuses }).notNull().default("NEW"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  respondedAt: timestamp("responded_at"),
+});
+
+export const insertContactEnquirySchema = createInsertSchema(contactEnquiries).omit({
+  id: true,
+  createdAt: true,
+  status: true,
+  respondedAt: true,
+});
+
+export type InsertContactEnquiry = z.infer<typeof insertContactEnquirySchema>;
+export type ContactEnquiry = typeof contactEnquiries.$inferSelect;
