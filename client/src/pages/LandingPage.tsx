@@ -126,10 +126,13 @@ export default function LandingPage() {
       <main>
         <section className="py-20 px-4">
           <div className="container mx-auto max-w-4xl text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4" data-testid="text-hero-title">
-              Always audit ready. Without the scramble.
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-2" data-testid="text-hero-title">
+              Need2Comply AI+
             </h1>
-            <p className="text-xl text-muted-foreground mb-8">
+            <p className="text-2xl text-foreground mb-4">
+              Audit ready without the scramble.
+            </p>
+            <p className="text-lg text-muted-foreground mb-8">
               Daily compliance and governance for NDIS providers.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
