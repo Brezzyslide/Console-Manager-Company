@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
-import { getOnboardingStatus } from "@/lib/company-api";
+import { getOnboardingStatus, getBillingStatus } from "@/lib/company-api";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -51,6 +51,14 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
     queryKey: ["onboardingStatus"],
     queryFn: getOnboardingStatus,
     enabled: isAuthenticated && !requiresPasswordReset && !skipOnboardingCheck,
+  });
+  
+  const { data: billingStatus } = useQuery({
+    queryKey: ["billingStatus"],
+    queryFn: getBillingStatus,
+    enabled: isAuthenticated && !requiresPasswordReset,
+    staleTime: 60000,
+    refetchInterval: 60000,
   });
   
   useEffect(() => {
@@ -362,6 +370,16 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
       </header>
       
       <main className="min-h-[calc(100vh-4rem)]">
+        {billingStatus?.showWarning && billingStatus.message && (
+          <div className="bg-amber-500/15 border-b border-amber-500/20 px-4 py-3">
+            <div className="max-w-7xl mx-auto flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+              <p className="text-sm text-amber-800">
+                {billingStatus.message}
+              </p>
+            </div>
+          </div>
+        )}
         {children}
       </main>
     </div>

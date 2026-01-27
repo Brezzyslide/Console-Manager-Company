@@ -81,6 +81,16 @@ The application is structured as a multi-tenant SaaS with strong data isolation.
     - Participant-Focused Report: Person-centered analysis focusing on individual experience and reducing restrictive practice use
   - Full AI traceability via `ai_generation_logs` with SHA-256 input hash, model name, prompt version
   - Role-restricted access (CompanyAdmin, Auditor, Reviewer)
+- **Stripe Billing Integration**: Complete seat-based subscription management with:
+  - Console Manager billing dashboard for platform administrators
+  - Billing plans with customizable per-seat pricing (stored in Stripe as recurring prices)
+  - Per-tenant price overrides (creates custom Stripe prices for discounted tenants)
+  - Automatic seat count synchronization with Stripe subscription quantities
+  - One-time charges with invoice generation and payment tracking
+  - Stripe webhook handling for subscription lifecycle events (invoice.paid, invoice.payment_failed, subscription updates)
+  - Billing status gate showing warning banners for past-due or canceled subscriptions
+  - Full billing event audit trail for traceability
+  - Database tables: `billing_plans`, `billing_tenants`, `billing_seat_overrides`, `billing_one_time_charges`, `billing_events`
 
 ## External Dependencies
 

@@ -1602,3 +1602,19 @@ export async function reviewGeneralEvidenceSubmission(auditId: string, submissio
   }
   return res.json();
 }
+
+// Billing Status API
+export interface BillingStatusResponse {
+  status: "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "INACTIVE";
+  hasCustomer: boolean;
+  hasSubscription: boolean;
+  trialEndsAt: string | null;
+  message: string | null;
+  showWarning: boolean;
+}
+
+export async function getBillingStatus(): Promise<BillingStatusResponse> {
+  const res = await fetch("/api/company/billing-status", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch billing status");
+  return res.json();
+}

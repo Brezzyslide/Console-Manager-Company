@@ -25,6 +25,19 @@ declare module "http" {
   }
 }
 
+// Stripe webhook MUST be registered BEFORE express.json() to receive raw body
+app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  const sig = req.headers["stripe-signature"] as string;
+  try {
+    const { handleStripeWebhook } = await import("./routes/billing");
+    await handleStripeWebhook(req.body, sig);
+    res.json({ received: true });
+  } catch (err: any) {
+    console.error("Stripe webhook error:", err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -109,18 +122,6 @@ app.use((req, res, next) => {
   
   // Mount billing routes (under /api/console) - requires console auth
   app.use("/api/console/billing", billingRoutes);
-  
-  // Stripe webhook endpoint (raw body required)
-  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
-    const sig = req.headers["stripe-signature"] as string;
-    try {
-      await handleStripeWebhook(req.body, sig);
-      res.json({ received: true });
-    } catch (err: any) {
-      console.error("Stripe webhook error:", err.message);
-      res.status(400).json({ error: err.message });
-    }
-  });
   
   await registerRoutes(httpServer, app);
 

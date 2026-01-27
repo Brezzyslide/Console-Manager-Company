@@ -436,4 +436,43 @@ router.post("/admin/users/:id/reset-temp-password", requireCompanyAuth, requireR
   }
 });
 
+router.get("/billing-status", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const billingTenant = await storage.getBillingTenantByCompanyId(companyId);
+    
+    if (!billingTenant) {
+      return res.json({
+        status: "INACTIVE",
+        hasCustomer: false,
+        hasSubscription: false,
+        message: "No billing configured",
+      });
+    }
+    
+    const isPastDue = billingTenant.billingStatus === "PAST_DUE";
+    const isCanceled = billingTenant.billingStatus === "CANCELED";
+    const isInactive = billingTenant.billingStatus === "INACTIVE";
+    
+    let message = null;
+    if (isPastDue) {
+      message = "Your subscription payment is past due. Please update your payment method.";
+    } else if (isCanceled) {
+      message = "Your subscription has been canceled. Contact support to reactivate.";
+    }
+    
+    return res.json({
+      status: billingTenant.billingStatus,
+      hasCustomer: !!billingTenant.stripeCustomerId,
+      hasSubscription: !!billingTenant.stripeSubscriptionId,
+      trialEndsAt: billingTenant.trialEndsAt,
+      message,
+      showWarning: isPastDue || isCanceled,
+    });
+  } catch (error) {
+    console.error("Get billing status error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
