@@ -321,7 +321,8 @@ export default function TenantBillingPage() {
                   method: "PATCH",
                   body: JSON.stringify({ status: value }),
                 });
-                queryClient.invalidateQueries({ queryKey: ["tenant-billing", companyId] });
+                queryClient.invalidateQueries({ queryKey: [`/api/console/billing/tenants/${companyId}`] });
+                queryClient.invalidateQueries({ queryKey: ["billing-tenants"] });
               } catch (err) {
                 console.error("Failed to update status:", err);
               }
