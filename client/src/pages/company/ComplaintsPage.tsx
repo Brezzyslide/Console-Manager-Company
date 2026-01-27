@@ -25,8 +25,11 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  Search
+  Search,
+  Download,
+  FileSpreadsheet
 } from "lucide-react";
+import { exportToPDF, exportSingleToPDF, exportToExcel, formatDate, formatDateTime, type ExportColumn } from "@/lib/export-utils";
 interface WorkSite { id: string; name: string; }
 interface Participant { id: string; firstName: string; lastName: string; }
 
@@ -308,6 +311,51 @@ export default function ComplaintsPage() {
     return <Badge className={s.color}><Icon className="h-3 w-3 mr-1" />{s.label}</Badge>;
   };
 
+  const complaintColumns: ExportColumn[] = [
+    { header: "Received", key: "receivedAt", format: (v) => formatDateTime(v) },
+    { header: "Category", key: "category", format: (v) => COMPLAINT_CATEGORIES.find(c => c.value === v)?.label || v },
+    { header: "Status", key: "status", format: (v) => COMPLAINT_STATUSES.find(s => s.value === v)?.label || v },
+    { header: "Complainant Type", key: "complainantType", format: (v) => COMPLAINANT_TYPES.find(t => t.value === v)?.label || v },
+    { header: "Description", key: "description" },
+    { header: "Immediate Risk", key: "immediateRisk", format: (v) => v ? "Yes" : "No" },
+    { header: "Outcome Summary", key: "outcomeSummary" },
+    { header: "Resolved At", key: "resolvedAt", format: (v) => v ? formatDateTime(v) : "-" },
+  ];
+
+  const handleExportExcel = () => {
+    exportToExcel(complaintColumns, filteredComplaints, "complaints_register", "Complaints");
+  };
+
+  const handleExportPDF = () => {
+    exportToPDF("Complaints Register", complaintColumns, filteredComplaints, "complaints_register", {
+      orientation: "landscape",
+      subtitle: `${filteredComplaints.length} complaint${filteredComplaints.length !== 1 ? "s" : ""} recorded`,
+    });
+  };
+
+  const handleExportSinglePDF = (complaint: Complaint) => {
+    const sections = [
+      { label: "Received At", value: formatDateTime(complaint.receivedAt) },
+      { label: "Category", value: COMPLAINT_CATEGORIES.find(c => c.value === complaint.category)?.label || complaint.category },
+      { label: "Status", value: COMPLAINT_STATUSES.find(s => s.value === complaint.status)?.label || complaint.status },
+      { label: "Complainant Type", value: COMPLAINANT_TYPES.find(t => t.value === complaint.complainantType)?.label || complaint.complainantType },
+      { label: "Complainant Name", value: complaint.complainantName || "-" },
+      { label: "Anonymous", value: complaint.isAnonymous ? "Yes" : "No" },
+      { label: "Description", value: complaint.description },
+      { label: "Immediate Risk", value: complaint.immediateRisk ? "Yes" : "No" },
+      { label: "Immediate Actions Taken", value: complaint.immediateActionsTaken || "-" },
+      { label: "Actions Summary", value: complaint.actionsSummary || "-" },
+      { label: "Outcome Summary", value: complaint.outcomeSummary || "-" },
+      { label: "Resolved At", value: complaint.resolvedAt ? formatDateTime(complaint.resolvedAt) : "-" },
+      { label: "Closed At", value: complaint.closedAt ? formatDateTime(complaint.closedAt) : "-" },
+      { label: "Closure Satisfaction", value: complaint.closureSatisfaction ? CLOSURE_SATISFACTIONS.find(s => s.value === complaint.closureSatisfaction)?.label || complaint.closureSatisfaction : "-" },
+      { label: "Closure Notes", value: complaint.closureNotes || "-" },
+    ];
+    exportSingleToPDF("Complaint Record", sections, `complaint_${complaint.id}`, {
+      subtitle: `${COMPLAINT_CATEGORIES.find(c => c.value === complaint.category)?.label} - ${formatDateTime(complaint.receivedAt)}`,
+    });
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col lg:flex-row gap-8">
@@ -353,6 +401,16 @@ export default function ComplaintsPage() {
                 {COMPLAINT_CATEGORIES.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
               </SelectContent>
             </Select>
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredComplaints.length === 0} data-testid="button-export-pdf">
+                <Download className="h-4 w-4 mr-2" />
+                PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filteredComplaints.length === 0} data-testid="button-export-excel">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Excel
+              </Button>
+            </div>
           </div>
 
           {isLoading ? (
@@ -621,6 +679,10 @@ export default function ComplaintsPage() {
             </ScrollArea>
           )}
           <DialogFooter className="flex-wrap gap-2">
+            <Button variant="outline" onClick={() => showDetail && handleExportSinglePDF(showDetail)} data-testid="button-export-single-pdf">
+              <Download className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
             <Button variant="outline" onClick={() => setShowDetail(null)} data-testid="button-close-detail">Close</Button>
             {isAdmin && showDetail?.status === "IN_PROGRESS" && (
               <Button onClick={() => { setShowResolve(showDetail); setResolveData({ outcomeSummary: "" }); }} data-testid="button-resolve">Mark Resolved</Button>

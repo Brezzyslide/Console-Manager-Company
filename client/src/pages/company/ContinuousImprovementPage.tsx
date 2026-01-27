@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
-import { TrendingUp, Plus, ChevronRight, Search, Lightbulb } from "lucide-react";
+import { TrendingUp, Plus, ChevronRight, Search, Lightbulb, Download, FileSpreadsheet } from "lucide-react";
+import { exportToPDF, exportSingleToPDF, exportToExcel, formatDate, formatDateTime, type ExportColumn } from "@/lib/export-utils";
 
 interface Improvement {
   id: string;
@@ -156,6 +157,46 @@ export default function ContinuousImprovementPage() {
 
   const getOwnerName = (userId: string) => companyUsers.find(x => x.id === userId)?.fullName || "Unknown";
 
+  const improvementColumns: ExportColumn[] = [
+    { header: "Title", key: "improvementTitle" },
+    { header: "Source", key: "source", format: (v) => IMPROVEMENT_SOURCES.find(s => s.value === v)?.label || v },
+    { header: "Status", key: "status", format: (v) => IMPROVEMENT_STATUSES.find(s => s.value === v)?.label || v },
+    { header: "Description", key: "description" },
+    { header: "Actions", key: "improvementActions" },
+    { header: "Target Date", key: "targetCompletionDate", format: (v) => formatDate(v) },
+    { header: "Completed At", key: "completedAt", format: (v) => v ? formatDate(v) : "-" },
+  ];
+
+  const handleExportExcel = () => {
+    const exportData = filteredImprovements.map(i => ({ ...i, responsibleName: getOwnerName(i.responsibleUserId) }));
+    exportToExcel(improvementColumns, exportData, "continuous_improvement_register", "Improvements");
+  };
+
+  const handleExportPDF = () => {
+    const exportData = filteredImprovements.map(i => ({ ...i, responsibleName: getOwnerName(i.responsibleUserId) }));
+    exportToPDF("Continuous Improvement Register", improvementColumns, exportData, "continuous_improvement_register", {
+      orientation: "landscape",
+      subtitle: `${exportData.length} improvement${exportData.length !== 1 ? "s" : ""} recorded`,
+    });
+  };
+
+  const handleExportSinglePDF = (item: Improvement) => {
+    const sections = [
+      { label: "Improvement Title", value: item.improvementTitle },
+      { label: "Source", value: IMPROVEMENT_SOURCES.find(s => s.value === item.source)?.label || item.source },
+      { label: "Status", value: IMPROVEMENT_STATUSES.find(s => s.value === item.status)?.label || item.status },
+      { label: "Description", value: item.description },
+      { label: "Improvement Actions", value: item.improvementActions },
+      { label: "Responsible Person", value: getOwnerName(item.responsibleUserId) },
+      { label: "Target Completion Date", value: formatDate(item.targetCompletionDate) },
+      { label: "Outcome Summary", value: item.outcomeSummary || "-" },
+      { label: "Completed At", value: item.completedAt ? formatDate(item.completedAt) : "-" },
+    ];
+    exportSingleToPDF("Improvement Record", sections, `improvement_${item.id}`, {
+      subtitle: item.improvementTitle,
+    });
+  };
+
   return (
     <>
       <div className="flex-1">
@@ -196,6 +237,16 @@ export default function ContinuousImprovementPage() {
               {IMPROVEMENT_STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
             </SelectContent>
           </Select>
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredImprovements.length === 0} data-testid="button-export-pdf">
+              <Download className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filteredImprovements.length === 0} data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Excel
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -293,12 +344,18 @@ export default function ContinuousImprovementPage() {
                 </div>
                 {showDetail.outcomeSummary && (<div><Label className="text-muted-foreground text-sm">Outcome Summary</Label><p className="text-foreground">{showDetail.outcomeSummary}</p></div>)}
               </div>
-              {canEdit && showDetail.status !== "COMPLETED" && (
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "IN_PROGRESS" } })}>Set In Progress</Button>
-                  <Button onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "COMPLETED", outcomeSummary: "Completed via UI" } })}>Mark Complete</Button>
-                </DialogFooter>
-              )}
+              <DialogFooter className="flex-wrap gap-2">
+                <Button variant="outline" onClick={() => showDetail && handleExportSinglePDF(showDetail)} data-testid="button-export-single-pdf">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+                {canEdit && showDetail.status !== "COMPLETED" && (
+                  <>
+                    <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "IN_PROGRESS" } })}>Set In Progress</Button>
+                    <Button onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "COMPLETED", outcomeSummary: "Completed via UI" } })}>Mark Complete</Button>
+                  </>
+                )}
+              </DialogFooter>
             </>
           )}
         </DialogContent>

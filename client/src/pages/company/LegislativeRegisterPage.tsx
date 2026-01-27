@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
-import { Scale, Plus, ChevronRight, Search, BookOpen } from "lucide-react";
+import { Scale, Plus, ChevronRight, Search, BookOpen, Download, FileSpreadsheet } from "lucide-react";
+import { exportToPDF, exportSingleToPDF, exportToExcel, formatDate, formatDateTime, type ExportColumn } from "@/lib/export-utils";
 
 interface LegislativeItem {
   id: string;
@@ -142,6 +143,44 @@ export default function LegislativeRegisterPage() {
     return s ? <Badge className={s.color}>{s.label}</Badge> : <Badge variant="secondary">{status}</Badge>;
   };
 
+  const legislativeColumns: ExportColumn[] = [
+    { header: "Legislation Name", key: "legislationName" },
+    { header: "Jurisdiction", key: "jurisdiction", format: (v) => JURISDICTIONS.find(j => j.value === v)?.label || v },
+    { header: "Authority", key: "authority" },
+    { header: "Applicable To", key: "applicableTo", format: (v) => APPLICABILITY.find(a => a.value === v)?.label || v },
+    { header: "Status", key: "status", format: (v) => STATUSES.find(s => s.value === v)?.label || v },
+    { header: "Last Reviewed", key: "lastReviewedDate", format: (v) => v ? formatDate(v) : "-" },
+    { header: "Description", key: "description" },
+  ];
+
+  const handleExportExcel = () => {
+    exportToExcel(legislativeColumns, filteredItems, "legislative_register", "Legislation");
+  };
+
+  const handleExportPDF = () => {
+    exportToPDF("Legislative Register", legislativeColumns, filteredItems, "legislative_register", {
+      orientation: "landscape",
+      subtitle: `${filteredItems.length} legislation item${filteredItems.length !== 1 ? "s" : ""} recorded`,
+    });
+  };
+
+  const handleExportSinglePDF = (item: LegislativeItem) => {
+    const sections = [
+      { label: "Legislation Name", value: item.legislationName },
+      { label: "Jurisdiction", value: JURISDICTIONS.find(j => j.value === item.jurisdiction)?.label || item.jurisdiction },
+      { label: "Authority", value: item.authority },
+      { label: "Applicable To", value: APPLICABILITY.find(a => a.value === item.applicableTo)?.label || item.applicableTo },
+      { label: "Status", value: STATUSES.find(s => s.value === item.status)?.label || item.status },
+      { label: "Description", value: item.description },
+      { label: "Last Reviewed", value: item.lastReviewedDate ? formatDate(item.lastReviewedDate) : "-" },
+      { label: "Review Notes", value: item.reviewNotes || "-" },
+      { label: "Linked Policies", value: item.linkedPolicies?.join(", ") || "-" },
+    ];
+    exportSingleToPDF("Legislative Record", sections, `legislation_${item.id}`, {
+      subtitle: item.legislationName,
+    });
+  };
+
   return (
     <>
       <div className="flex-1">
@@ -182,6 +221,16 @@ export default function LegislativeRegisterPage() {
               {STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
             </SelectContent>
           </Select>
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredItems.length === 0} data-testid="button-export-pdf">
+              <Download className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filteredItems.length === 0} data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Excel
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -281,16 +330,22 @@ export default function LegislativeRegisterPage() {
                   <div><Label className="text-muted-foreground text-sm">Review Notes</Label><p className="text-foreground">{showDetail.reviewNotes}</p></div>
                 )}
               </div>
-              {canEdit && showDetail.status !== "SUPERSEDED" && (
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { lastReviewedDate: new Date().toISOString(), status: "CURRENT" } })}>
-                    Mark as Reviewed
-                  </Button>
-                  <Button variant="secondary" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "SUPERSEDED" } })}>
-                    Mark Superseded
-                  </Button>
-                </DialogFooter>
-              )}
+              <DialogFooter className="flex-wrap gap-2">
+                <Button variant="outline" onClick={() => showDetail && handleExportSinglePDF(showDetail)} data-testid="button-export-single-pdf">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+                {canEdit && showDetail.status !== "SUPERSEDED" && (
+                  <>
+                    <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { lastReviewedDate: new Date().toISOString(), status: "CURRENT" } })}>
+                      Mark as Reviewed
+                    </Button>
+                    <Button variant="secondary" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "SUPERSEDED" } })}>
+                      Mark Superseded
+                    </Button>
+                  </>
+                )}
+              </DialogFooter>
             </>
           )}
         </DialogContent>

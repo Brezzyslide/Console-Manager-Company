@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
-import { AlertTriangle, Plus, ChevronRight, Search, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Plus, ChevronRight, Search, ShieldAlert, Download, FileSpreadsheet } from "lucide-react";
+import { exportToPDF, exportSingleToPDF, exportToExcel, formatDate, formatDateTime, type ExportColumn } from "@/lib/export-utils";
 
 interface Risk {
   id: string;
@@ -246,6 +247,51 @@ export default function RiskRegisterPage() {
     );
   };
 
+  const riskColumns: ExportColumn[] = [
+    { header: "Risk Title", key: "riskTitle" },
+    { header: "Category", key: "riskCategory", format: (v) => RISK_CATEGORIES.find(c => c.value === v)?.label || v },
+    { header: "Rating", key: "riskRating", format: (v) => RISK_RATINGS.find(r => r.value === v)?.label || v },
+    { header: "Status", key: "status", format: (v) => RISK_STATUSES.find(s => s.value === v)?.label || v },
+    { header: "Likelihood", key: "likelihood", format: (v) => RISK_LEVELS.find(l => l.value === v)?.label || v },
+    { header: "Consequence", key: "consequence", format: (v) => RISK_LEVELS.find(l => l.value === v)?.label || v },
+    { header: "Existing Controls", key: "existingControls" },
+    { header: "Next Review", key: "nextReviewDate", format: (v) => formatDate(v) },
+  ];
+
+  const handleExportExcel = () => {
+    const exportData = filteredRisks.map(r => ({ ...r, ownerName: getOwnerName(r.ownerUserId) }));
+    exportToExcel(riskColumns, exportData, "risk_register", "Risks");
+  };
+
+  const handleExportPDF = () => {
+    const exportData = filteredRisks.map(r => ({ ...r, ownerName: getOwnerName(r.ownerUserId) }));
+    exportToPDF("Risk Register", riskColumns, exportData, "risk_register", {
+      orientation: "landscape",
+      subtitle: `${exportData.length} risk${exportData.length !== 1 ? "s" : ""} recorded`,
+    });
+  };
+
+  const handleExportSinglePDF = (risk: Risk) => {
+    const sections = [
+      { label: "Risk Title", value: risk.riskTitle },
+      { label: "Category", value: RISK_CATEGORIES.find(c => c.value === risk.riskCategory)?.label || risk.riskCategory },
+      { label: "Description", value: risk.riskDescription },
+      { label: "Scope", value: SCOPE_TYPES.find(s => s.value === risk.scopeType)?.label || risk.scopeType },
+      { label: "Likelihood", value: RISK_LEVELS.find(l => l.value === risk.likelihood)?.label || risk.likelihood },
+      { label: "Consequence", value: RISK_LEVELS.find(l => l.value === risk.consequence)?.label || risk.consequence },
+      { label: "Risk Rating", value: RISK_RATINGS.find(r => r.value === risk.riskRating)?.label || risk.riskRating },
+      { label: "Existing Controls", value: risk.existingControls },
+      { label: "Additional Controls Required", value: risk.additionalControlsRequired || "-" },
+      { label: "Owner", value: getOwnerName(risk.ownerUserId) },
+      { label: "Review Frequency", value: REVIEW_FREQUENCIES.find(f => f.value === risk.reviewFrequency)?.label || risk.reviewFrequency },
+      { label: "Next Review Date", value: formatDate(risk.nextReviewDate) },
+      { label: "Status", value: RISK_STATUSES.find(s => s.value === risk.status)?.label || risk.status },
+    ];
+    exportSingleToPDF("Risk Record", sections, `risk_${risk.id}`, {
+      subtitle: risk.riskTitle,
+    });
+  };
+
   const getOwnerName = (userId: string) => {
     const u = companyUsers.find(x => x.id === userId);
     return u?.fullName || "Unknown";
@@ -304,6 +350,16 @@ export default function RiskRegisterPage() {
               {RISK_STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
             </SelectContent>
           </Select>
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredRisks.length === 0} data-testid="button-export-pdf">
+              <Download className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filteredRisks.length === 0} data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Excel
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -529,16 +585,22 @@ export default function RiskRegisterPage() {
                   </div>
                 </div>
               </div>
-              {canEdit && showDetail.status !== "CLOSED" && (
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "MONITORING" } })}>
-                    Set to Monitoring
-                  </Button>
-                  <Button variant="destructive" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "CLOSED", closureNotes: "Closed via UI" } })}>
-                    Close Risk
-                  </Button>
-                </DialogFooter>
-              )}
+              <DialogFooter className="flex-wrap gap-2">
+                <Button variant="outline" onClick={() => showDetail && handleExportSinglePDF(showDetail)} data-testid="button-export-single-pdf">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+                {canEdit && showDetail.status !== "CLOSED" && (
+                  <>
+                    <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "MONITORING" } })}>
+                      Set to Monitoring
+                    </Button>
+                    <Button variant="destructive" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "CLOSED", closureNotes: "Closed via UI" } })}>
+                      Close Risk
+                    </Button>
+                  </>
+                )}
+              </DialogFooter>
             </>
           )}
         </DialogContent>

@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanyAuth } from "@/hooks/use-company-auth";
-import { FileEdit, Plus, ChevronRight, Search, FileText } from "lucide-react";
+import { FileEdit, Plus, ChevronRight, Search, FileText, Download, FileSpreadsheet } from "lucide-react";
+import { exportToPDF, exportSingleToPDF, exportToExcel, formatDate, formatDateTime, type ExportColumn } from "@/lib/export-utils";
 
 interface Policy {
   id: string;
@@ -173,6 +174,48 @@ export default function PolicyUpdatePage() {
 
   const getApproverName = (userId?: string) => userId ? (companyUsers.find(x => x.id === userId)?.fullName || "Unknown") : "Pending";
 
+  const policyColumns: ExportColumn[] = [
+    { header: "Policy Name", key: "policyName" },
+    { header: "Category", key: "policyCategory", format: (v) => POLICY_CATEGORIES.find(c => c.value === v)?.label || v },
+    { header: "Version", key: "version" },
+    { header: "Status", key: "status", format: (v) => POLICY_STATUSES.find(s => s.value === v)?.label || v },
+    { header: "Reason for Update", key: "reasonForUpdate", format: (v) => POLICY_UPDATE_REASONS.find(r => r.value === v)?.label || v },
+    { header: "Review Due", key: "reviewDueDate", format: (v) => formatDate(v) },
+    { header: "Change Summary", key: "changeSummary" },
+  ];
+
+  const handleExportExcel = () => {
+    exportToExcel(policyColumns, filteredPolicies, "policy_update_register", "Policies");
+  };
+
+  const handleExportPDF = () => {
+    exportToPDF("Policy Update Register", policyColumns, filteredPolicies, "policy_update_register", {
+      orientation: "landscape",
+      subtitle: `${filteredPolicies.length} polic${filteredPolicies.length !== 1 ? "ies" : "y"} recorded`,
+    });
+  };
+
+  const handleExportSinglePDF = (policy: Policy) => {
+    const sections = [
+      { label: "Policy Name", value: policy.policyName },
+      { label: "Category", value: POLICY_CATEGORIES.find(c => c.value === policy.policyCategory)?.label || policy.policyCategory },
+      { label: "Version", value: policy.version },
+      { label: "Status", value: POLICY_STATUSES.find(s => s.value === policy.status)?.label || policy.status },
+      { label: "Change Summary", value: policy.changeSummary },
+      { label: "Reason for Update", value: POLICY_UPDATE_REASONS.find(r => r.value === policy.reasonForUpdate)?.label || policy.reasonForUpdate },
+      { label: "Approval Required", value: policy.approvalRequired ? "Yes" : "No" },
+      { label: "Approved By", value: getApproverName(policy.approvedByUserId) },
+      { label: "Approval Date", value: policy.approvalDate ? formatDate(policy.approvalDate) : "-" },
+      { label: "Effective Date", value: policy.effectiveDate ? formatDate(policy.effectiveDate) : "-" },
+      { label: "Review Due Date", value: formatDate(policy.reviewDueDate) },
+      { label: "Staff Notified", value: policy.staffNotified ? "Yes" : "No" },
+      { label: "Implementation Notes", value: policy.implementationNotes || "-" },
+    ];
+    exportSingleToPDF("Policy Update Record", sections, `policy_${policy.id}`, {
+      subtitle: `${policy.policyName} v${policy.version}`,
+    });
+  };
+
   return (
     <>
       <div className="flex-1">
@@ -213,6 +256,16 @@ export default function PolicyUpdatePage() {
               {POLICY_STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
             </SelectContent>
           </Select>
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredPolicies.length === 0} data-testid="button-export-pdf">
+              <Download className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filteredPolicies.length === 0} data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Excel
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -324,13 +377,19 @@ export default function PolicyUpdatePage() {
                 </div>
                 {showDetail.implementationNotes && (<div><Label className="text-muted-foreground text-sm">Implementation Notes</Label><p className="text-foreground">{showDetail.implementationNotes}</p></div>)}
               </div>
-              {canEdit && showDetail.status !== "ARCHIVED" && (
-                <DialogFooter>
-                  {showDetail.status === "DRAFT" && <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "APPROVED" } })}>Approve</Button>}
-                  {showDetail.status === "APPROVED" && <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "IMPLEMENTED", staffNotified: true } })}>Mark Implemented</Button>}
-                  <Button variant="secondary" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "ARCHIVED" } })}>Archive</Button>
-                </DialogFooter>
-              )}
+              <DialogFooter className="flex-wrap gap-2">
+                <Button variant="outline" onClick={() => showDetail && handleExportSinglePDF(showDetail)} data-testid="button-export-single-pdf">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+                {canEdit && showDetail.status !== "ARCHIVED" && (
+                  <>
+                    {showDetail.status === "DRAFT" && <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "APPROVED" } })}>Approve</Button>}
+                    {showDetail.status === "APPROVED" && <Button variant="outline" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "IMPLEMENTED", staffNotified: true } })}>Mark Implemented</Button>}
+                    <Button variant="secondary" onClick={() => updateMutation.mutate({ id: showDetail.id, data: { status: "ARCHIVED" } })}>Archive</Button>
+                  </>
+                )}
+              </DialogFooter>
             </>
           )}
         </DialogContent>
