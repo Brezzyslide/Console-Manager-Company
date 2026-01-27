@@ -498,6 +498,8 @@ router.get("/billing", requireCompanyAuth, async (req: AuthenticatedCompanyReque
 
     const seatOverride = await storage.getActiveSeatOverride(companyId);
     const oneTimeCharges = await storage.getOneTimeCharges(companyId);
+    const companyUsers = await storage.getCompanyUsers(companyId);
+    const actualSeatCount = companyUsers.length;
 
     let invoices: any[] = [];
     if (billingTenant.stripeCustomerId) {
@@ -518,7 +520,7 @@ router.get("/billing", requireCompanyAuth, async (req: AuthenticatedCompanyReque
       hasCustomer: !!billingTenant.stripeCustomerId,
       subscription: billingTenant.stripeSubscriptionId ? {
         status: billingTenant.billingStatus,
-        seatCount: billingTenant.seatCount,
+        seatCount: actualSeatCount || billingTenant.seatCount || 0,
         currentPeriodStart: billingTenant.currentPeriodStart,
         currentPeriodEnd: billingTenant.currentPeriodEnd,
       } : null,
