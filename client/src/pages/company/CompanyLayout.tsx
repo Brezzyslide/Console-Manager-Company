@@ -34,7 +34,8 @@ import {
   ShieldAlert,
   TrendingUp,
   FileEdit,
-  Scale
+  Scale,
+  CreditCard
 } from "lucide-react";
 
 interface CompanyLayoutProps {
@@ -163,6 +164,7 @@ export function CompanyLayout({ children, requireRole, skipOnboardingCheck = fal
   const adminItems = [
     { href: "/company/admin/users", label: "Users", icon: Users, testId: "nav-admin-users" },
     { href: "/company/settings/services", label: "Services", icon: Settings, testId: "nav-services" },
+    { href: "/company/billing", label: "Billing", icon: CreditCard, testId: "nav-billing" },
   ];
 
   const isActive = (href: string, startsWith?: boolean) => {

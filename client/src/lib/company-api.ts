@@ -1618,3 +1618,37 @@ export async function getBillingStatus(): Promise<BillingStatusResponse> {
   if (!res.ok) throw new Error("Failed to fetch billing status");
   return res.json();
 }
+
+export interface TenantBillingDetails {
+  hasCustomer: boolean;
+  subscription: {
+    status: string;
+    seatCount: number;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+  } | null;
+  plan: {
+    name: string;
+    defaultSeatPriceCents: number;
+  } | null;
+  seatOverride: {
+    overrideSeatPriceCents: number;
+  } | null;
+  invoices: any[];
+  oneTimeCharges: any[];
+}
+
+export async function getTenantBillingDetails(): Promise<TenantBillingDetails> {
+  const res = await fetch("/api/company/billing", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch billing details");
+  return res.json();
+}
+
+export async function createBillingPortalSession(): Promise<{ url: string }> {
+  const res = await fetch("/api/company/billing/portal", {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to create billing portal session");
+  return res.json();
+}

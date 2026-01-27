@@ -49,6 +49,7 @@ import RiskRegisterPage from "@/pages/company/RiskRegisterPage";
 import ContinuousImprovementPage from "@/pages/company/ContinuousImprovementPage";
 import PolicyUpdatePage from "@/pages/company/PolicyUpdatePage";
 import LegislativeRegisterPage from "@/pages/company/LegislativeRegisterPage";
+import CompanyBillingPage from "@/pages/company/BillingPage";
 import { CompanyLayout } from "@/pages/company/CompanyLayout";
 
 // Public Pages
@@ -116,6 +117,11 @@ function Router() {
       <Route path="/company/settings/services">
         <CompanyLayout requireRole={["CompanyAdmin"]}>
           <ServicesSettingsPage />
+        </CompanyLayout>
+      </Route>
+      <Route path="/company/billing">
+        <CompanyLayout requireRole={["CompanyAdmin"]}>
+          <CompanyBillingPage />
         </CompanyLayout>
       </Route>
       

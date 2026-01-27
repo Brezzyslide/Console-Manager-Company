@@ -475,4 +475,95 @@ router.get("/billing-status", requireCompanyAuth, async (req: AuthenticatedCompa
   }
 });
 
+router.get("/billing", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const billingTenant = await storage.getBillingTenantByCompanyId(companyId);
+    
+    if (!billingTenant) {
+      return res.json({
+        hasCustomer: false,
+        subscription: null,
+        plan: null,
+        seatOverride: null,
+        invoices: [],
+        oneTimeCharges: [],
+      });
+    }
+
+    let plan = null;
+    if (billingTenant.billingPlanId) {
+      plan = await storage.getBillingPlan(billingTenant.billingPlanId);
+    }
+
+    const seatOverride = await storage.getActiveSeatOverride(companyId);
+    const oneTimeCharges = await storage.getOneTimeCharges(companyId);
+
+    let invoices: any[] = [];
+    if (billingTenant.stripeCustomerId) {
+      try {
+        const { getUncachableStripeClient } = await import("../stripeClient");
+        const stripe = await getUncachableStripeClient();
+        const stripeInvoices = await stripe.invoices.list({
+          customer: billingTenant.stripeCustomerId,
+          limit: 10,
+        });
+        invoices = stripeInvoices.data;
+      } catch (err) {
+        console.error("Failed to fetch Stripe invoices:", err);
+      }
+    }
+
+    return res.json({
+      hasCustomer: !!billingTenant.stripeCustomerId,
+      subscription: billingTenant.stripeSubscriptionId ? {
+        status: billingTenant.billingStatus,
+        seatCount: billingTenant.seatCount,
+        currentPeriodStart: billingTenant.currentPeriodStart,
+        currentPeriodEnd: billingTenant.currentPeriodEnd,
+      } : null,
+      plan: plan ? {
+        name: plan.name,
+        defaultSeatPriceCents: plan.defaultSeatPriceCents,
+      } : null,
+      seatOverride: seatOverride ? {
+        overrideSeatPriceCents: seatOverride.overrideSeatPriceCents,
+      } : null,
+      invoices,
+      oneTimeCharges,
+    });
+  } catch (error) {
+    console.error("Get tenant billing error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/billing/portal", requireCompanyAuth, async (req: AuthenticatedCompanyRequest, res) => {
+  try {
+    const companyId = req.companyUser!.companyId;
+    const billingTenant = await storage.getBillingTenantByCompanyId(companyId);
+    
+    if (!billingTenant?.stripeCustomerId) {
+      return res.status(400).json({ error: "No billing customer configured" });
+    }
+
+    const { getUncachableStripeClient } = await import("../stripeClient");
+    const stripe = await getUncachableStripeClient();
+    
+    const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+      : (process.env.APP_URL || "http://localhost:5000");
+    
+    const session = await stripe.billingPortal.sessions.create({
+      customer: billingTenant.stripeCustomerId,
+      return_url: `${baseUrl}/company/billing`,
+    });
+
+    return res.json({ url: session.url });
+  } catch (error) {
+    console.error("Create billing portal error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
