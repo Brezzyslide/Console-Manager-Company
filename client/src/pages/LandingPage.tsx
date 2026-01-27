@@ -308,7 +308,7 @@ export default function LandingPage() {
               <a href="#" className="hover:text-foreground transition-colors">Terms</a>
             </div>
             <p className="text-xs text-muted-foreground mt-6">
-              © {new Date().getFullYear()} Need2Comply AI+. All rights reserved.
+              © Needs Technology Pty LTD – 2025 | Richmond AU
             </p>
           </div>
         </div>
