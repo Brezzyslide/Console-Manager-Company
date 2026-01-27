@@ -154,6 +154,39 @@ router.get("/tenants/:companyId", async (req: Request, res: Response) => {
   }
 });
 
+router.patch("/tenants/:companyId/status", async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const { status } = req.body;
+    
+    const validStatuses = ["TRIAL", "ACTIVE", "PAST_DUE", "CANCELED", "INACTIVE"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+    
+    let tenant = await storage.getBillingTenantByCompanyId(companyId);
+    if (!tenant) {
+      tenant = await storage.createBillingTenant({
+        companyId,
+        billingStatus: status,
+        currency: "aud",
+      });
+    } else {
+      await storage.updateBillingTenant(tenant.id, { billingStatus: status });
+    }
+    
+    await storage.createBillingEvent({
+      companyId,
+      eventType: "BILLING_STATUS_CHANGED",
+      payloadJson: { newStatus: status, previousStatus: tenant.billingStatus },
+    });
+    
+    res.json({ success: true, status });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post("/tenants/:companyId/create-customer", async (req: Request, res: Response) => {
   try {
     const { companyId } = req.params;

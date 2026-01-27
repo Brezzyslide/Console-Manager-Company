@@ -301,7 +301,7 @@ export default function TenantBillingPage() {
             Back
           </Button>
         </Link>
-        <div>
+        <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold text-foreground">{company.legalName}</h1>
             {getStatusBadge(tenant.billingStatus)}
@@ -310,6 +310,34 @@ export default function TenantBillingPage() {
             {company.code && <span className="font-mono">{company.code} · </span>}
             {company.primaryContactEmail}
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground">Status:</Label>
+          <Select
+            value={tenant.billingStatus}
+            onValueChange={async (value) => {
+              try {
+                await apiFetch(`/tenants/${companyId}/status`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ status: value }),
+                });
+                queryClient.invalidateQueries({ queryKey: ["tenant-billing", companyId] });
+              } catch (err) {
+                console.error("Failed to update status:", err);
+              }
+            }}
+          >
+            <SelectTrigger className="w-[140px]" data-testid="select-billing-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="TRIAL">Trial</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="PAST_DUE">Past Due</SelectItem>
+              <SelectItem value="CANCELED">Canceled</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
