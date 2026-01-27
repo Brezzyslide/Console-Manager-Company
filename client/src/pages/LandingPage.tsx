@@ -28,6 +28,7 @@ import {
   Loader2
 } from "lucide-react";
 import logoImage from "@/assets/logo.png";
+import heroVideo from "@/assets/videos/hero-video.mp4";
 
 async function checkConsoleAuth() {
   const res = await fetch("/api/console/me", { credentials: "include" });
@@ -132,9 +133,20 @@ export default function LandingPage() {
             <p className="text-2xl text-foreground mb-4">
               Audit ready without the scramble.
             </p>
-            <p className="text-lg text-muted-foreground mb-8">
+            <p className="text-lg text-muted-foreground mb-6">
               Daily compliance and governance for NDIS providers.
             </p>
+            <div className="mb-8 rounded-xl overflow-hidden shadow-lg mx-auto max-w-2xl">
+              <video 
+                src={heroVideo} 
+                autoPlay 
+                loop 
+                muted 
+                playsInline
+                className="w-full h-auto"
+                data-testid="video-hero"
+              />
+            </div>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href={isAuthenticated ? dashboardUrl : "/?mode=provider"}>
                 <Button size="lg" data-testid="button-hero-dashboard">Go to Dashboard</Button>
