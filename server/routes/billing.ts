@@ -2,9 +2,12 @@ import { Router, Request, Response } from "express";
 import { storage } from "../storage";
 import { getUncachableStripeClient } from "../stripeClient";
 import { WebhookHandlers } from "../webhookHandlers";
+import { requireConsoleAuth, type AuthenticatedConsoleRequest } from "../lib/consoleAuth";
 import { z } from "zod";
 
 const router = Router();
+
+router.use(requireConsoleAuth);
 
 const createPlanSchema = z.object({
   name: z.string().min(1),
