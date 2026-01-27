@@ -35,10 +35,11 @@ export default function PasswordResetPage() {
   
   const mutation = useMutation({
     mutationFn: resetPassword,
-    onSuccess: () => {
+    onSuccess: async () => {
       setSuccess(true);
+      await companyLogout();
       setTimeout(() => {
-        setLocation("/company/dashboard");
+        setLocation("/?mode=provider");
       }, 2000);
     },
   });
@@ -72,7 +73,7 @@ export default function PasswordResetPage() {
             <div>
               <CardTitle className="text-2xl font-bold">Password Updated</CardTitle>
               <CardDescription className="mt-2">
-                Your password has been changed successfully. Redirecting to dashboard...
+                Your password has been changed successfully. Please log in with your new password.
               </CardDescription>
             </div>
           </CardHeader>
