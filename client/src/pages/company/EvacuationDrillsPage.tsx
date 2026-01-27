@@ -25,8 +25,11 @@ import {
   AlertTriangle,
   FileText,
   Users,
-  Search
+  Search,
+  Download,
+  FileSpreadsheet
 } from "lucide-react";
+import { exportToPDF, exportSingleToPDF, exportToExcel, formatDate, formatDateTime, type ExportColumn } from "@/lib/export-utils";
 interface WorkSite {
   id: string;
   name: string;
@@ -280,6 +283,60 @@ export default function EvacuationDrillsPage() {
     return site?.name || "Unknown Site";
   };
 
+  const drillColumns: ExportColumn[] = [
+    { header: "Date", key: "dateOfDrill", format: (v) => formatDate(v) },
+    { header: "Site", key: "siteName" },
+    { header: "Drill Type", key: "drillType", format: (v) => DRILL_TYPES.find(t => t.value === v)?.label || v },
+    { header: "Warden", key: "wardenName" },
+    { header: "Assembly Point", key: "assemblyPoint" },
+    { header: "People Present", key: "totalPeoplePresent" },
+    { header: "Involvement Rating", key: "involvementRating", format: (v) => INVOLVEMENT_RATINGS.find(r => r.value === v)?.label || v },
+    { header: "Improvement Notes", key: "improvementNotes" },
+  ];
+
+  const handleExportExcel = () => {
+    const exportData = filteredDrills.map((drill) => ({
+      ...drill,
+      siteName: getSiteName(drill.siteId),
+      wardenName: `${drill.wardenFirstName} ${drill.wardenLastName}`,
+    }));
+    exportToExcel(drillColumns, exportData, "evacuation_drills_register", "Evacuation Drills");
+  };
+
+  const handleExportPDF = () => {
+    const exportData = filteredDrills.map((drill) => ({
+      ...drill,
+      siteName: getSiteName(drill.siteId),
+      wardenName: `${drill.wardenFirstName} ${drill.wardenLastName}`,
+    }));
+    exportToPDF("Evacuation Drill Register", drillColumns, exportData, "evacuation_drills_register", {
+      orientation: "landscape",
+      subtitle: `${exportData.length} drill${exportData.length !== 1 ? "s" : ""} recorded`,
+    });
+  };
+
+  const handleExportSinglePDF = (drill: EvacuationDrill) => {
+    const sections = [
+      { label: "Date of Drill", value: formatDate(drill.dateOfDrill) },
+      { label: "Site", value: getSiteName(drill.siteId) },
+      { label: "Drill Type", value: DRILL_TYPES.find(t => t.value === drill.drillType)?.label || drill.drillType },
+      { label: "Assembly Point", value: drill.assemblyPoint || "-" },
+      { label: "Warden Name", value: `${drill.wardenFirstName} ${drill.wardenLastName}` },
+      { label: "Total People Present", value: String(drill.totalPeoplePresent) },
+      { label: "Staff Initials", value: drill.staffInitialsPresent },
+      { label: "Client Initials", value: drill.clientInitialsPresent || "-" },
+      { label: "Participant Actively Involved", value: drill.participantActivelyInvolved ? "Yes" : "No" },
+      { label: "Involvement Rating", value: INVOLVEMENT_RATINGS.find(r => r.value === drill.involvementRating)?.label || drill.involvementRating },
+      { label: "Improvement Notes", value: drill.improvementNotes || "-" },
+    ];
+    if (!drill.participantActivelyInvolved && drill.ifNotInvolvedReason) {
+      sections.splice(9, 0, { label: "Reason Not Involved", value: NOT_INVOLVED_REASONS.find(r => r.value === drill.ifNotInvolvedReason)?.label || drill.ifNotInvolvedReason });
+    }
+    exportSingleToPDF("Evacuation Drill Record", sections, `evacuation_drill_${drill.id}`, {
+      subtitle: `${getSiteName(drill.siteId)} - ${formatDate(drill.dateOfDrill)}`,
+    });
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col lg:flex-row gap-8">
@@ -324,6 +381,16 @@ export default function EvacuationDrillsPage() {
                 {DRILL_TYPES.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
               </SelectContent>
             </Select>
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredDrills.length === 0} data-testid="button-export-pdf">
+                <Download className="h-4 w-4 mr-2" />
+                PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filteredDrills.length === 0} data-testid="button-export-excel">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Excel
+              </Button>
+            </div>
           </div>
 
           {isLoading ? (
@@ -615,7 +682,11 @@ export default function EvacuationDrillsPage() {
               <div className="text-sm"><span className="text-muted-foreground">Improvement Notes:</span><p className="mt-1 text-foreground">{showDetail.improvementNotes}</p></div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => showDetail && handleExportSinglePDF(showDetail)} data-testid="button-export-single-pdf">
+              <Download className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
             <Button variant="outline" onClick={() => setShowDetail(null)} data-testid="button-close-detail">Close</Button>
           </DialogFooter>
         </DialogContent>
