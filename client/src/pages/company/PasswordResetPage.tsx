@@ -46,7 +46,7 @@ export default function PasswordResetPage() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      setLocation("/company/login");
+      setLocation("/?mode=provider");
     }
   }, [isLoading, isAuthenticated, setLocation]);
 
