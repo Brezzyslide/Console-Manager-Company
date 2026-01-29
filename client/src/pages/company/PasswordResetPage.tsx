@@ -39,14 +39,14 @@ export default function PasswordResetPage() {
       setSuccess(true);
       await companyLogout();
       setTimeout(() => {
-        setLocation("/?mode=provider");
+        setLocation("/");
       }, 2000);
     },
   });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      setLocation("/?mode=provider");
+      setLocation("/");
     }
   }, [isLoading, isAuthenticated, setLocation]);
 

@@ -290,11 +290,9 @@ function Router() {
       <Route path="/upload/:token" component={PublicUploadPage} />
       <Route path="/audit-portal/:token" component={AuditPortalPage} />
 
-      {/* Landing Page */}
+      {/* Landing Page - Default */}
       <Route path="/landing" component={LandingPage} />
-      
-      {/* Unified Login - Landing */}
-      <Route path="/" component={UnifiedLoginPage} />
+      <Route path="/" component={LandingPage} />
 
       <Route component={NotFound} />
     </Switch>
