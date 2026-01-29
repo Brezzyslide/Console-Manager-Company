@@ -117,7 +117,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <img src={logoImage} alt="Need2Comply AI+" className="h-10" data-testid="logo" />
           <div className="flex items-center gap-3">
-            <Link href={isAuthenticated ? dashboardUrl : "/?mode=provider"}>
+            <Link href={isAuthenticated ? dashboardUrl : "/company/login"}>
               <Button data-testid="button-dashboard">Go to Dashboard</Button>
             </Link>
           </div>
@@ -148,7 +148,7 @@ export default function LandingPage() {
               />
             </div>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href={isAuthenticated ? dashboardUrl : "/?mode=provider"}>
+              <Link href={isAuthenticated ? dashboardUrl : "/company/login"}>
                 <Button size="lg" data-testid="button-hero-dashboard">Go to Dashboard</Button>
               </Link>
               <Dialog open={contactOpen} onOpenChange={setContactOpen}>
