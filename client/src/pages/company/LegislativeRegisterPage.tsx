@@ -57,6 +57,8 @@ export default function LegislativeRegisterPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterJurisdiction, setFilterJurisdiction] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [exportFromDate, setExportFromDate] = useState<string>("");
+  const [exportToDate, setExportToDate] = useState<string>("");
 
   const [formData, setFormData] = useState({
     legislationName: "",
@@ -153,14 +155,33 @@ export default function LegislativeRegisterPage() {
     { header: "Description", key: "description" },
   ];
 
+  const getDateFilteredData = () => {
+    let data = filteredItems;
+    if (exportFromDate) {
+      const from = new Date(exportFromDate);
+      from.setHours(0, 0, 0, 0);
+      data = data.filter(d => new Date(d.createdAt) >= from);
+    }
+    if (exportToDate) {
+      const to = new Date(exportToDate);
+      to.setHours(23, 59, 59, 999);
+      data = data.filter(d => new Date(d.createdAt) <= to);
+    }
+    return data;
+  };
+
   const handleExportExcel = () => {
-    exportToExcel(legislativeColumns, filteredItems, "legislative_register", "Legislation");
+    exportToExcel(legislativeColumns, getDateFilteredData(), "legislative_register", "Legislation");
   };
 
   const handleExportPDF = () => {
-    exportToPDF("Legislative Register", legislativeColumns, filteredItems, "legislative_register", {
+    const exportData = getDateFilteredData();
+    const dateRange = exportFromDate || exportToDate 
+      ? ` (${exportFromDate || "start"} to ${exportToDate || "now"})`
+      : "";
+    exportToPDF("Legislative Register", legislativeColumns, exportData, "legislative_register", {
       orientation: "landscape",
-      subtitle: `${filteredItems.length} legislation item${filteredItems.length !== 1 ? "s" : ""} recorded`,
+      subtitle: `${exportData.length} legislation item${exportData.length !== 1 ? "s" : ""} recorded${dateRange}`,
     });
   };
 
@@ -221,7 +242,15 @@ export default function LegislativeRegisterPage() {
               {STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
             </SelectContent>
           </Select>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-1">
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">From:</Label>
+              <Input type="date" value={exportFromDate} onChange={(e) => setExportFromDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-from-date" />
+            </div>
+            <div className="flex items-center gap-1">
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">To:</Label>
+              <Input type="date" value={exportToDate} onChange={(e) => setExportToDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-to-date" />
+            </div>
             <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredItems.length === 0} data-testid="button-export-pdf">
               <Download className="h-4 w-4 mr-2" />
               PDF

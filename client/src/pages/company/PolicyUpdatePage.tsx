@@ -73,6 +73,8 @@ export default function PolicyUpdatePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [exportFromDate, setExportFromDate] = useState<string>("");
+  const [exportToDate, setExportToDate] = useState<string>("");
 
   const [formData, setFormData] = useState({
     policyName: "",
@@ -184,14 +186,33 @@ export default function PolicyUpdatePage() {
     { header: "Change Summary", key: "changeSummary" },
   ];
 
+  const getDateFilteredData = () => {
+    let data = filteredPolicies;
+    if (exportFromDate) {
+      const from = new Date(exportFromDate);
+      from.setHours(0, 0, 0, 0);
+      data = data.filter(d => new Date(d.createdAt) >= from);
+    }
+    if (exportToDate) {
+      const to = new Date(exportToDate);
+      to.setHours(23, 59, 59, 999);
+      data = data.filter(d => new Date(d.createdAt) <= to);
+    }
+    return data;
+  };
+
   const handleExportExcel = () => {
-    exportToExcel(policyColumns, filteredPolicies, "policy_update_register", "Policies");
+    exportToExcel(policyColumns, getDateFilteredData(), "policy_update_register", "Policies");
   };
 
   const handleExportPDF = () => {
-    exportToPDF("Policy Update Register", policyColumns, filteredPolicies, "policy_update_register", {
+    const exportData = getDateFilteredData();
+    const dateRange = exportFromDate || exportToDate 
+      ? ` (${exportFromDate || "start"} to ${exportToDate || "now"})`
+      : "";
+    exportToPDF("Policy Update Register", policyColumns, exportData, "policy_update_register", {
       orientation: "landscape",
-      subtitle: `${filteredPolicies.length} polic${filteredPolicies.length !== 1 ? "ies" : "y"} recorded`,
+      subtitle: `${exportData.length} polic${exportData.length !== 1 ? "ies" : "y"} recorded${dateRange}`,
     });
   };
 
@@ -256,7 +277,15 @@ export default function PolicyUpdatePage() {
               {POLICY_STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
             </SelectContent>
           </Select>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-1">
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">From:</Label>
+              <Input type="date" value={exportFromDate} onChange={(e) => setExportFromDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-from-date" />
+            </div>
+            <div className="flex items-center gap-1">
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">To:</Label>
+              <Input type="date" value={exportToDate} onChange={(e) => setExportToDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-to-date" />
+            </div>
             <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredPolicies.length === 0} data-testid="button-export-pdf">
               <Download className="h-4 w-4 mr-2" />
               PDF

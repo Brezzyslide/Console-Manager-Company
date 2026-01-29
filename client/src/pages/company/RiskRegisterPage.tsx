@@ -96,6 +96,8 @@ export default function RiskRegisterPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [exportFromDate, setExportFromDate] = useState<string>("");
+  const [exportToDate, setExportToDate] = useState<string>("");
   const [filterRating, setFilterRating] = useState("all");
 
   const [formData, setFormData] = useState({
@@ -258,16 +260,34 @@ export default function RiskRegisterPage() {
     { header: "Next Review", key: "nextReviewDate", format: (v) => formatDate(v) },
   ];
 
+  const getDateFilteredData = () => {
+    let data = filteredRisks;
+    if (exportFromDate) {
+      const from = new Date(exportFromDate);
+      from.setHours(0, 0, 0, 0);
+      data = data.filter(d => new Date(d.createdAt) >= from);
+    }
+    if (exportToDate) {
+      const to = new Date(exportToDate);
+      to.setHours(23, 59, 59, 999);
+      data = data.filter(d => new Date(d.createdAt) <= to);
+    }
+    return data;
+  };
+
   const handleExportExcel = () => {
-    const exportData = filteredRisks.map(r => ({ ...r, ownerName: getOwnerName(r.ownerUserId) }));
+    const exportData = getDateFilteredData().map(r => ({ ...r, ownerName: getOwnerName(r.ownerUserId) }));
     exportToExcel(riskColumns, exportData, "risk_register", "Risks");
   };
 
   const handleExportPDF = () => {
-    const exportData = filteredRisks.map(r => ({ ...r, ownerName: getOwnerName(r.ownerUserId) }));
+    const exportData = getDateFilteredData().map(r => ({ ...r, ownerName: getOwnerName(r.ownerUserId) }));
+    const dateRange = exportFromDate || exportToDate 
+      ? ` (${exportFromDate || "start"} to ${exportToDate || "now"})`
+      : "";
     exportToPDF("Risk Register", riskColumns, exportData, "risk_register", {
       orientation: "landscape",
-      subtitle: `${exportData.length} risk${exportData.length !== 1 ? "s" : ""} recorded`,
+      subtitle: `${exportData.length} risk${exportData.length !== 1 ? "s" : ""} recorded${dateRange}`,
     });
   };
 
@@ -350,7 +370,15 @@ export default function RiskRegisterPage() {
               {RISK_STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
             </SelectContent>
           </Select>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-1">
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">From:</Label>
+              <Input type="date" value={exportFromDate} onChange={(e) => setExportFromDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-from-date" />
+            </div>
+            <div className="flex items-center gap-1">
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">To:</Label>
+              <Input type="date" value={exportToDate} onChange={(e) => setExportToDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-to-date" />
+            </div>
             <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredRisks.length === 0} data-testid="button-export-pdf">
               <Download className="h-4 w-4 mr-2" />
               PDF

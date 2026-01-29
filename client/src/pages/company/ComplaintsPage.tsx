@@ -125,6 +125,8 @@ export default function ComplaintsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [exportFromDate, setExportFromDate] = useState<string>("");
+  const [exportToDate, setExportToDate] = useState<string>("");
   
   const [formData, setFormData] = useState({
     receivedAt: new Date().toISOString().slice(0, 16),
@@ -322,14 +324,33 @@ export default function ComplaintsPage() {
     { header: "Resolved At", key: "resolvedAt", format: (v) => v ? formatDateTime(v) : "-" },
   ];
 
+  const getDateFilteredData = () => {
+    let data = filteredComplaints;
+    if (exportFromDate) {
+      const from = new Date(exportFromDate);
+      from.setHours(0, 0, 0, 0);
+      data = data.filter(d => new Date(d.receivedAt) >= from);
+    }
+    if (exportToDate) {
+      const to = new Date(exportToDate);
+      to.setHours(23, 59, 59, 999);
+      data = data.filter(d => new Date(d.receivedAt) <= to);
+    }
+    return data;
+  };
+
   const handleExportExcel = () => {
-    exportToExcel(complaintColumns, filteredComplaints, "complaints_register", "Complaints");
+    exportToExcel(complaintColumns, getDateFilteredData(), "complaints_register", "Complaints");
   };
 
   const handleExportPDF = () => {
-    exportToPDF("Complaints Register", complaintColumns, filteredComplaints, "complaints_register", {
+    const exportData = getDateFilteredData();
+    const dateRange = exportFromDate || exportToDate 
+      ? ` (${exportFromDate || "start"} to ${exportToDate || "now"})`
+      : "";
+    exportToPDF("Complaints Register", complaintColumns, exportData, "complaints_register", {
       orientation: "landscape",
-      subtitle: `${filteredComplaints.length} complaint${filteredComplaints.length !== 1 ? "s" : ""} recorded`,
+      subtitle: `${exportData.length} complaint${exportData.length !== 1 ? "s" : ""} recorded${dateRange}`,
     });
   };
 
@@ -401,7 +422,15 @@ export default function ComplaintsPage() {
                 {COMPLAINT_CATEGORIES.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
               </SelectContent>
             </Select>
-            <div className="flex gap-2 ml-auto">
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">From:</Label>
+                <Input type="date" value={exportFromDate} onChange={(e) => setExportFromDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-from-date" />
+              </div>
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">To:</Label>
+                <Input type="date" value={exportToDate} onChange={(e) => setExportToDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-to-date" />
+              </div>
               <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredComplaints.length === 0} data-testid="button-export-pdf">
                 <Download className="h-4 w-4 mr-2" />
                 PDF

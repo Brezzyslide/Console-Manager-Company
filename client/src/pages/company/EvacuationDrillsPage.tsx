@@ -111,6 +111,8 @@ export default function EvacuationDrillsPage() {
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filterDrillType, setFilterDrillType] = useState<string>("all");
+  const [exportFromDate, setExportFromDate] = useState<string>("");
+  const [exportToDate, setExportToDate] = useState<string>("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const [formData, setFormData] = useState({
@@ -294,8 +296,23 @@ export default function EvacuationDrillsPage() {
     { header: "Improvement Notes", key: "improvementNotes" },
   ];
 
+  const getDateFilteredData = () => {
+    let data = filteredDrills;
+    if (exportFromDate) {
+      const from = new Date(exportFromDate);
+      from.setHours(0, 0, 0, 0);
+      data = data.filter(d => new Date(d.dateOfDrill) >= from);
+    }
+    if (exportToDate) {
+      const to = new Date(exportToDate);
+      to.setHours(23, 59, 59, 999);
+      data = data.filter(d => new Date(d.dateOfDrill) <= to);
+    }
+    return data;
+  };
+
   const handleExportExcel = () => {
-    const exportData = filteredDrills.map((drill) => ({
+    const exportData = getDateFilteredData().map((drill) => ({
       ...drill,
       siteName: getSiteName(drill.siteId),
       wardenName: `${drill.wardenFirstName} ${drill.wardenLastName}`,
@@ -304,14 +321,17 @@ export default function EvacuationDrillsPage() {
   };
 
   const handleExportPDF = () => {
-    const exportData = filteredDrills.map((drill) => ({
+    const exportData = getDateFilteredData().map((drill) => ({
       ...drill,
       siteName: getSiteName(drill.siteId),
       wardenName: `${drill.wardenFirstName} ${drill.wardenLastName}`,
     }));
+    const dateRange = exportFromDate || exportToDate 
+      ? ` (${exportFromDate || "start"} to ${exportToDate || "now"})`
+      : "";
     exportToPDF("Evacuation Drill Register", drillColumns, exportData, "evacuation_drills_register", {
       orientation: "landscape",
-      subtitle: `${exportData.length} drill${exportData.length !== 1 ? "s" : ""} recorded`,
+      subtitle: `${exportData.length} drill${exportData.length !== 1 ? "s" : ""} recorded${dateRange}`,
     });
   };
 
@@ -381,7 +401,15 @@ export default function EvacuationDrillsPage() {
                 {DRILL_TYPES.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
               </SelectContent>
             </Select>
-            <div className="flex gap-2 ml-auto">
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">From:</Label>
+                <Input type="date" value={exportFromDate} onChange={(e) => setExportFromDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-from-date" />
+              </div>
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">To:</Label>
+                <Input type="date" value={exportToDate} onChange={(e) => setExportToDate(e.target.value)} className="w-32 h-8 text-sm" data-testid="input-export-to-date" />
+              </div>
               <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredDrills.length === 0} data-testid="button-export-pdf">
                 <Download className="h-4 w-4 mr-2" />
                 PDF
