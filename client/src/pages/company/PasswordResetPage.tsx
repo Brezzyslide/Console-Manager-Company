@@ -37,7 +37,7 @@ export default function PasswordResetPage() {
     mutationFn: resetPassword,
     onSuccess: async () => {
       setSuccess(true);
-      await companyLogout();
+      try { await companyLogout(); } catch {}
       setTimeout(() => {
         setLocation("/");
       }, 2000);
@@ -190,8 +190,8 @@ export default function PasswordResetPage() {
               variant="ghost"
               className="w-full text-muted-foreground"
               onClick={async () => {
-                await companyLogout();
-                setLocation("/landing");
+                try { await companyLogout(); } catch {}
+                setLocation("/");
               }}
               data-testid="button-logout"
             >
