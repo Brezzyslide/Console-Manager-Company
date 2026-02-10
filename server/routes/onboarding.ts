@@ -7,6 +7,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { requireCompanyAuth, requireRole, AuthenticatedCompanyRequest } from "../lib/companyAuth";
 import { storage } from "../storage";
+import { seedComplianceTemplatesForCompany } from "../seed-compliance-templates";
 
 const router = Router();
 
@@ -125,6 +126,12 @@ router.post("/onboarding/complete", requireCompanyAuth, requireRole(["CompanyAdm
       beforeJson: { onboardingStatus: company?.onboardingStatus, status: company?.status },
       afterJson: { onboardingStatus: "completed", status: "active", onboardingCompletedAt: completedAt.toISOString() },
     });
+
+    try {
+      await seedComplianceTemplatesForCompany(companyId);
+    } catch (seedErr) {
+      console.error("Failed to seed compliance templates for company:", companyId, seedErr);
+    }
     
     return res.json({ 
       onboardingStatus: updated?.onboardingStatus,
