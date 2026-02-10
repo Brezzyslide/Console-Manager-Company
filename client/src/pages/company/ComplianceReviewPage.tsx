@@ -210,6 +210,7 @@ export default function ComplianceReviewPage() {
     onSuccess: (result) => {
       setCurrentRunId(result.runId);
       setSubmitResult(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/company/compliance-runs"] });
       if (result.existing) {
         toast({ title: "Resuming existing run" });
       } else {
@@ -232,6 +233,9 @@ export default function ComplianceReviewPage() {
       if (!res.ok) throw new Error("Failed to save response");
       return res.json();
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company/compliance-runs", currentRunId] });
+    },
   });
 
   const submitMutation = useMutation({
@@ -252,6 +256,8 @@ export default function ComplianceReviewPage() {
       toast({ title: "Compliance run submitted" });
       refetchRun();
       refetchActions();
+      queryClient.invalidateQueries({ queryKey: ["/api/company/compliance-runs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company/compliance-actions"] });
     },
     onError: (error: any) => {
       toast({ title: error.message || "Failed to submit", variant: "destructive" });

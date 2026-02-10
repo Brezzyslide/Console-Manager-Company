@@ -155,6 +155,10 @@ export default function AuditRunnerPage() {
   const submitMutation = useMutation({
     mutationFn: () => submitAudit(id!),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit", id] });
+      queryClient.invalidateQueries({ queryKey: ["audits"] });
+      queryClient.invalidateQueries({ queryKey: ["auditRunner", id] });
+      queryClient.invalidateQueries({ queryKey: ["auditSummary", id] });
       navigate(`/audits/${id}/review`);
     },
   });

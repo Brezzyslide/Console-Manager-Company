@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ const auditMethodologyOptions = [
 
 export default function CreateAuditPage() {
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [auditType, setAuditType] = useState<AuditType | null>(null);
   const [selectedLineItems, setSelectedLineItems] = useState<Set<string>>(new Set());
@@ -73,6 +74,7 @@ export default function CreateAuditPage() {
   const createMutation = useMutation({
     mutationFn: createAudit,
     onSuccess: (audit) => {
+      queryClient.invalidateQueries({ queryKey: ["audits"] });
       navigate(`/audits/${audit.id}/template`);
     },
   });

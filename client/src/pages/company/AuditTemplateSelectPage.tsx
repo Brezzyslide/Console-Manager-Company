@@ -127,6 +127,8 @@ export default function AuditTemplateSelectPage() {
   const startAuditMutation = useMutation({
     mutationFn: () => startAudit(id!),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit", id] });
+      queryClient.invalidateQueries({ queryKey: ["audits"] });
       navigate(`/audits/${id}/run`);
     },
   });

@@ -272,6 +272,7 @@ export default function RestrictivePracticesPage() {
     },
     onSuccess: (data) => {
       setGeneratedReport(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/company/restrictive-practices/reports"] });
       toast({ title: "Report generated successfully" });
     },
     onError: (error: Error) => {
