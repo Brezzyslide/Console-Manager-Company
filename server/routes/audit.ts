@@ -2959,13 +2959,18 @@ router.post("/audits/:auditId/generate-executive-summary", requireCompanyAuth, r
     const maxPoints = totalIndicators * 3;
     const scorePercent = maxPoints > 0 ? Math.round((scorePoints / maxPoints) * 100) : 0;
     
+    const providerName = audit.entityName || company?.legalName || 'Unknown Provider';
+    const providerAbn = audit.entityAbn || company?.abn || '';
+    const providerAddress = audit.entityAddress || '';
+    
     const prompt = `You are writing an executive summary for an NDIS (National Disability Insurance Scheme) provider audit report. Write in a professional, objective third-person tone suitable for regulatory review.
 
 AUDIT DETAILS:
-- Provider: ${company?.name || 'Unknown Provider'}
+- Provider: ${providerName}${providerAbn ? ` (ABN: ${providerAbn})` : ''}${providerAddress ? `\n- Address: ${providerAddress}` : ''}
 - Audit Type: ${audit.auditType}
+- Audit Title: ${audit.title}
 - Service Context: ${audit.serviceContextLabel}
-- Audit Period: ${new Date(audit.scopeTimeFrom).toLocaleDateString()} to ${new Date(audit.scopeTimeTo).toLocaleDateString()}
+- Audit Period: ${new Date(audit.scopeTimeFrom).toLocaleDateString()} to ${new Date(audit.scopeTimeTo).toLocaleDateString()}${audit.auditPurpose ? `\n- Purpose: ${audit.auditPurpose}` : ''}${audit.methodology ? `\n- Methodology: ${audit.methodology}` : ''}
 
 AUDIT RESULTS:
 - Total Indicators Assessed: ${totalIndicators}
